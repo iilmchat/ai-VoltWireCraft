@@ -18,6 +18,7 @@ import {
     type CreateProjectDto,
     type ProjectGraph,
 } from '@voltwirecraft/shared/graph.schema.js';
+import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import { DRIZZLE_DB } from '../src/database/drizzle.provider.js';
 import type { Database } from '../src/database/drizzle.provider.js';
 import { schema } from '../src/database/schema.js';
@@ -74,7 +75,14 @@ async function applyMigrationsAsync(client: PGlite): Promise<void> {
 
   for (const entry of journal.entries) {
     const sql = readFileSync(join(migrationsFolder, `${entry.tag}.sql`), 'utf8');
-    await client.exec(sql);
+    for (const statement of sql.split('--> statement-breakpoint')) {
+      // PGlite не поддерживает расширение pgvector: пропускаем операторы vector,
+      // чтобы проверить миграции projects/floor_plans/catalog_devices.
+      if (/vector/i.test(statement) || /normative_chunks/.test(statement)) {
+        continue;
+      }
+      await client.exec(statement);
+    }
   }
 }
 
@@ -94,6 +102,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
         ProjectsService,
         { provide: DRIZZLE_DB, useValue: db as unknown as Database },
         { provide: FLOOR_PLAN_STORAGE, useValue: storage },
+        { provide: CalcEngineClient, useValue: { calculateCableLengthAsync: async () => ({ lengthM: 1 }) } },
       ],
     }).compile();
 
@@ -112,6 +121,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
 
     expect(names).toContain('projects');
     expect(names).toContain('floor_plans');
+    expect(names).toContain('catalog_devices');
   });
 
   it('создаёт проект с пустым валидным графом', async () => {
