@@ -14,6 +14,10 @@
     "./graph.schema": {
       "types": "./dist/graph.schema.d.ts",
       "import": "./dist/graph.schema.js"
+    },
+    "./graph.schema.js": {
+      "types": "./dist/graph.schema.d.ts",
+      "import": "./dist/graph.schema.js"
     }
   },
   "files": ["dist"],
