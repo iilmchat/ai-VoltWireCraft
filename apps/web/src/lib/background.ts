@@ -1,10 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 import { BackgroundSchema } from '@voltwirecraft/shared';
 import type { Background } from '@voltwirecraft/shared';
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-GlobalWorkerOptions.workerSrc = workerUrl;
 
 /** Масштаб растеризации страницы PDF. */
 export const PDF_RENDER_SCALE = 2;
@@ -69,8 +66,11 @@ async function loadRasterAsync(file: File, kind: 'png' | 'jpg'): Promise<LoadedB
  * @returns Описание подложки и отрендеренный canvas.
  */
 async function loadPdfAsync(file: File, pageNumber: number): Promise<LoadedBackground> {
+    const { GlobalWorkerOptions, getDocument } = await import('pdfjs-dist');
+    GlobalWorkerOptions.workerSrc = workerUrl;
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const pdf = await getDocument({ data: bytes }).promise;
+    const loadingTask = getDocument({ data: bytes });
+    const pdf = await loadingTask.promise;
     try {
         if (pageNumber < 1 || pageNumber > pdf.numPages) {
             throw new Error(`Страница ${pageNumber} отсутствует в PDF`);
@@ -80,11 +80,10 @@ async function loadPdfAsync(file: File, pageNumber: number): Promise<LoadedBackg
         const canvas = document.createElement('canvas');
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        const context = canvas.getContext('2d');
-        if (context === null) {
+        if (canvas.getContext('2d') === null) {
             throw new Error('Не удалось получить 2D-контекст canvas');
         }
-        await page.render({ canvasContext: context, viewport }).promise;
+        await page.render({ canvas, viewport }).promise;
         const background = BackgroundSchema.parse({
             kind: 'pdf',
             name: file.name,
@@ -95,7 +94,7 @@ async function loadPdfAsync(file: File, pageNumber: number): Promise<LoadedBackg
         });
         return { background, image: canvas };
     } finally {
-        await pdf.destroy();
+        await loadingTask.destroy();
     }
 }
 

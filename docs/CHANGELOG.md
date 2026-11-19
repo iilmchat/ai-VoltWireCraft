@@ -46,6 +46,26 @@
   проверки на утечку секретов `scripts/check-secrets.mjs`.
 - `.github/workflows/ci.yml`: typecheck, lint, test и сборка для `shared`, `api`,
   `web`; `pytest` для `calc-engine`; валидация `docker compose config`.
+- UI редактора плана в `apps/web`: `FloorPlanEditor` на `react-konva` с зумом
+  колесиком относительно курсора и панорамированием средней кнопкой / `Space`+drag;
+  слои подложки, помещений, ЭУИ и инструментов.
+- Загрузка подложки PNG/JPG и рендер выбранной страницы PDF через `pdfjs-dist`
+  в высоком разрешении (масштаб растеризации 2) с сохранением data URL в графе.
+- Инструмент `ScaleCalibratorTool`: рисуемый отрезок, ввод реальной длины в мм,
+  расчёт и запись `scaleMetersPerPx` в `FloorPlanSchema`.
+- Инструмент `RoomZoneTool`: замкнутый полигон с типами `living`, `wet`,
+  `kitchen`, `outdoor`, `utility` и полупрозрачной заливкой.
+- Инструмент `DevicePlacementTool` и `InspectorPanel`: drag-and-drop и установка
+  кликом ЭУИ (`panel`, `socket`, `switch`, `light_fixture`, `appliance`),
+  редактирование УГО, мощности, высоты установки и привязки к помещению.
+- Локальный экспорт/импорт `.vwc`: `ProjectGraphSchema`/`VwcFileSchema`,
+  диагностика несовместимости версий и офлайн-работа без API.
+- i18n RU/EN: все строки интерфейса вынесены в `ru.json` / `en.json` с проверкой
+  полноты ключей на этапе компиляции.
+- `docs/development/v0.1/UI_EDITOR.md` — описание интерфейса, инструментов,
+  горячих клавиш и формата `.vwc`.
+- Тесты UI: геометрия и зум, калибровка, зонирование, расстановка ЭУИ,
+  строгая валидация экспорта/импорта (22 теста в `apps/web`).
 
 ### Changed
 

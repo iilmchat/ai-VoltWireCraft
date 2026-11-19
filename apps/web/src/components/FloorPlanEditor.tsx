@@ -171,7 +171,7 @@ export function FloorPlanEditor() {
         event.evt.preventDefault();
         const stage = event.target.getStage();
         const pointer = stage?.getPointerPosition();
-        if (pointer === undefined) {
+        if (pointer === undefined || pointer === null) {
             return;
         }
         const factor = Math.exp(-event.evt.deltaY * 0.001);
@@ -182,7 +182,7 @@ export function FloorPlanEditor() {
     const handleMouseDown = (event: KonvaEventObject<MouseEvent>): void => {
         const stage = event.target.getStage();
         const pointer = stage?.getPointerPosition();
-        if (pointer === undefined) {
+        if (pointer === undefined || pointer === null) {
             return;
         }
         const store = useEditorStore.getState();
@@ -232,7 +232,7 @@ export function FloorPlanEditor() {
         }
         const stage = event.target.getStage();
         const pointer = stage?.getPointerPosition();
-        if (pointer === undefined) {
+        if (pointer === undefined || pointer === null) {
             return;
         }
         const world = screenToWorld(pointer, store.viewport);

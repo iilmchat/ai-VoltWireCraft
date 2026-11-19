@@ -1,5 +1,5 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { createContext, useContext } from 'react';
+import { createContext, createElement, useContext } from 'react';
 import type { ReactNode } from 'react';
 import en from './en.json';
 import ru from './ru.json';
@@ -61,9 +61,9 @@ export function I18nProvider({
     children: ReactNode;
 }) {
     const t = (key: TranslationKey): string => dictionaries[locale][key] ?? key;
-    return (
-        <I18nContext.Provider value={{ locale, setLocale, t }}>
-            {children}
-        </I18nContext.Provider>
+    return createElement(
+        I18nContext.Provider,
+        { value: { locale, setLocale, t } },
+        children,
     );
 }

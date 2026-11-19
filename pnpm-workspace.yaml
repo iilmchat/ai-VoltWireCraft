@@ -13,3 +13,6 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-64@2.11.13'
   - '@turbo/windows-arm64@2.11.13'
   - turbo@2.11.13
+  - '@aws-sdk/client-s3@3.1172.0'
+  - '@aws-sdk/middleware-sdk-s3@3.972.90'
+  - '@electric-sql/pglite@0.5.17'

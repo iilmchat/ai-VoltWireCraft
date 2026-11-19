@@ -8,6 +8,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // Konva.js — крупная библиотека; порог поднят, чтобы сборка была без предупреждений.
+    chunkSizeWarningLimit: 700,
   },
   test: {
     environment: 'node',
