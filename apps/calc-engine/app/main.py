@@ -7,11 +7,12 @@ API только валидирует контракт и вызывает ``cal
 
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
 from .auto_panel import auto_assemble_panel
+from .cad_parser import parse_dxf_bytes
 from .calculator import calculate_cable_length
 from .line_sizing import calculate_line_sizing
 from .schemas import (
@@ -19,10 +20,14 @@ from .schemas import (
     AutoPanelResponse,
     CalculateCableLengthRequest,
     CalculateCableLengthResponse,
+    CadParseResponse,
     HealthResponse,
     LineSizingRequest,
     LineSizingResponse,
+    ShortCircuitRequest,
+    ShortCircuitResponse,
 )
+from .short_circuit import calculate_short_circuit
 
 app = FastAPI(
     title="VoltWireCraft Calc Engine",
@@ -64,6 +69,29 @@ def calculate_line_sizing_endpoint(request: LineSizingRequest) -> LineSizingResp
 def auto_assemble_panel_endpoint(request: AutoPanelRequest) -> AutoPanelResponse:
     """Собирает щит НКУ: группы, фазы и расстановку модулей на DIN-рейке."""
     return auto_assemble_panel(request)
+
+
+@app.post("/v1/calc/short-circuit", response_model=ShortCircuitResponse)
+def calculate_short_circuit_endpoint(request: ShortCircuitRequest) -> ShortCircuitResponse:
+    """Рассчитывает петлю «фаза-ноль», кратность срабатывания и селективность."""
+    return calculate_short_circuit(request)
+
+
+@app.post("/v1/cad/parse-dxf", response_model=CadParseResponse)
+async def parse_dxf_endpoint(
+    file: UploadFile = File(...),
+    units: str | None = Form(default=None),
+) -> CadParseResponse:
+    """Разбирает DXF-план в стены с координатами в метрах СИ."""
+    data = await file.read()
+    try:
+        return parse_dxf_bytes(data, units)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except TimeoutError as error:
+        raise HTTPException(status_code=504, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=422, detail="Не удалось разобрать DXF-файл") from error
 
 
 # Обратная совместимость с ранним каркасом: прежний путь остаётся рабочим.

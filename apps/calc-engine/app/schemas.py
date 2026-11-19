@@ -206,3 +206,72 @@ class AutoPanelResponse(_ContractModel):
     warnings: list[str]
     references: list[str]
     rules_version: str
+
+
+# --- Контракты релиза v0.3.0 (КЗ «фаза-ноль» и CAD) ---
+
+TripCurve = Literal["B", "C", "D"]
+
+
+class ShortCircuitRequest(_ContractModel):
+    """Запрос расчёта однофазного тока КЗ в конце линии."""
+
+    transformer_power_kva: float = Field(gt=0, description="Мощность трансформатора, кВА")
+    transformer_uk_percent: float = Field(default=4.5, gt=0, le=100)
+    voltage_v: VoltageV = 230
+    cable_length_m: float = Field(gt=0)
+    cross_section_mm2: CrossSectionMm2
+    breaker_rating_a: float = Field(gt=0)
+    trip_curve: TripCurve = "C"
+    upstream_breaker_rating_a: float | None = None
+    upstream_trip_curve: TripCurve | None = None
+    resistance_ohm_mm2_per_m: float = Field(default=0.0175, gt=0)
+    reactance_ohm_per_km: float = Field(default=0.08, ge=0)
+    transformer_impedance_ohm: float | None = Field(default=None, ge=0)
+
+
+class ShortCircuitResponse(_ContractModel):
+    """Детерминированный результат расчёта петли «фаза-ноль» и селективности."""
+
+    transformer_impedance_ohm: float = Field(gt=0)
+    phase_resistance_ohm: float = Field(gt=0)
+    neutral_resistance_ohm: float = Field(gt=0)
+    loop_reactance_ohm: float = Field(ge=0)
+    loop_impedance_ohm: float = Field(gt=0)
+    short_circuit_current_a: float = Field(gt=0)
+    required_multiplicity: float = Field(gt=0)
+    minimum_multiplicity: float = Field(gt=0)
+    actual_multiplicity: float = Field(ge=0)
+    instantaneous_trip_a: float = Field(gt=0)
+    disconnect_complies: bool
+    selectivity_ok: bool
+    upstream_to_downstream_ratio: float = Field(ge=0)
+    trip_time_s: float = Field(ge=0)
+    warnings: list[str]
+    references: list[str]
+    rules_version: str
+
+
+class CadPoint(_ContractModel):
+    """Точка контура стены в метрах СИ."""
+
+    x: float
+    y: float
+
+
+class ParsedWall(_ContractModel):
+    """Стена, извлечённая из DXF-плана."""
+
+    kind: Literal["wall", "partition", "doorway", "window"]
+    path: list[CadPoint] = Field(min_length=2)
+    thickness: float = Field(ge=0)
+
+
+class CadParseResponse(_ContractModel):
+    """Нормализованные слои стен из CAD-файла."""
+
+    walls: list[ParsedWall]
+    units: str
+    entities_processed: int = Field(ge=0)
+    warnings: list[str]
+    rules_version: str
