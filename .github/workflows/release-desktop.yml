@@ -1,0 +1,78 @@
+name: Release Desktop (Tauri)
+
+# Проверка нативной сборки: вручную или по семантическому тегу v*.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (.msi / .exe)
+            platform: windows-latest
+            args: '--bundles msi,nsis'
+            bundle-glob: '*.msi'
+          - name: Linux (.AppImage)
+            platform: ubuntu-22.04
+            args: '--bundles appimage'
+            bundle-glob: '*.AppImage'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri bundle
+        id: tauri
+        uses: tauri-apps/tauri-action@v1
+        with:
+          projectPath: apps/web
+          args: ${{ matrix.args }}
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: '[platform]-[arch]-[bundle]'
+
+      - name: Verify native bundle
+        shell: bash
+        run: |
+          found=$(find apps/web/src-tauri/target/release/bundle -type f -name '${{ matrix.bundle-glob }}' | head -n 1)
+          test -n "$found"
+          echo "Готово: $found"

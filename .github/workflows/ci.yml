@@ -6,25 +6,46 @@ on:
   pull_request:
     branches: [main]
 
+# Актуальные версии JS-экшенов переведены на Node.js 24 без предупреждений лога.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   node:
-    name: Node (typecheck / lint / test / build)
+    name: Node (typecheck / lint / test / migrations / build)
     runs-on: ubuntu-latest
+
+    # Реальный PostgreSQL 17 + pgvector для прогона миграций и сидов (KI-002).
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: vwc
+          POSTGRES_PASSWORD: vwc
+          POSTGRES_DB: voltwirecraft
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vwc -d voltwirecraft"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 12.11.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -44,6 +65,14 @@ jobs:
       - name: Test
         run: pnpm --filter @voltwirecraft/shared test && pnpm --filter api test && pnpm --filter web test
 
+      - name: Apply migrations and seed real PostgreSQL 17 + pgvector
+        env:
+          DATABASE_URL: postgresql://vwc:vwc@localhost:5432/voltwirecraft
+        run: |
+          pnpm --filter api db:migrate
+          pnpm --filter api db:seed
+          pnpm --filter api db:seed:normatives
+
       - name: Build API
         run: pnpm --filter api build
 
@@ -55,10 +84,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
@@ -77,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate compose file
         run: docker compose config --quiet
