@@ -142,6 +142,8 @@ export const GraphNodeSchema = z.object({
     specs: NodeSpecsSchema,
     /** Зона помещения, к которой привязан узел (для инспектора). */
     roomId: UuidSchema.nullable().optional(),
+    /** Ссылка на позицию каталога `catalog_devices` (schemeVersion 2). */
+    catalogDeviceId: UuidSchema.nullable().optional(),
 });
 /** Узел графа проекта. */
 export type GraphNode = z.infer<typeof GraphNodeSchema>;
@@ -156,6 +158,12 @@ export const CableSpecsSchema = z.object({
     material: z.enum(['cu', 'al']),
     /** Длина линии, m; вычисляется расчётным ядром. */
     length: z.number().nonnegative(),
+    /** Расчётный ток линии, A (результат `line-sizing`). */
+    calculatedCurrentA: z.number().nonnegative().optional(),
+    /** Потеря напряжения, % (результат `line-sizing`). */
+    voltageDropPercent: z.number().nonnegative().optional(),
+    /** Минимальный ток однофазного КЗ, A (результат `short-circuit`). */
+    shortCircuitCurrentA: z.number().nonnegative().optional(),
 });
 /** Параметры кабеля. */
 export type CableSpecs = z.infer<typeof CableSpecsSchema>;
@@ -163,8 +171,8 @@ export type CableSpecs = z.infer<typeof CableSpecsSchema>;
 /** Тип линии графа: кабельная трасса. */
 export const CABLE_LINE_EDGE_TYPE = 'cable_line' as const;
 
-/** Ребро графа: кабельная линия между узлами. */
-export const GraphEdgeSchema = z.object({
+/** Ребро графа версии 1: координаты трассы в пикселях подложки. */
+export const GraphEdgeSchemaV1 = z.object({
     /** Идентификатор линии. */
     id: UuidSchema,
     /** Исходный узел. */
@@ -180,14 +188,88 @@ export const GraphEdgeSchema = z.object({
     /** Марка кабеля, например «ВВГнг(А)-LS». */
     cableBrand: z.string().min(1).optional(),
 });
-/** Ребро графа проекта. */
-export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
+/** Ребро графа версии 1. */
+export type GraphEdgeV1 = z.infer<typeof GraphEdgeSchemaV1>;
 
 /**
- * Граф проекта — единый источник истины (RULES § 5.2).
- * Дополнительно проверяются уникальность идентификаторов и ссылки линий на узлы.
+ * Ребро графа версии 2: расчётные координаты трассы хранятся в метрах СИ.
+ * Пиксельные точки остаются только как кэш холста редактора.
  */
-export const ProjectGraphSchema = z
+export const GraphEdgeSchema = z.object({
+    /** Идентификатор линии. */
+    id: UuidSchema,
+    /** Исходный узел. */
+    from: UuidSchema,
+    /** Конечный узел. */
+    to: UuidSchema,
+    /** Параметры кабеля и результаты расчётов. */
+    cableSpecs: CableSpecsSchema,
+    /** Точки трассы в метрах СИ (обязательно для кабельных линий). */
+    waypointsM: z.array(PointSchema).min(2),
+    /** Пиксельный кэш для Konva.js; не используется в расчётах. */
+    waypointsPx: z.array(PointSchema).optional(),
+    /** Тип линии; для кабельных трасс — `'cable_line'`. */
+    edgeType: z.literal('cable_line').optional(),
+    /** Марка кабеля, например «ВВГнг(А)-LS». */
+    cableBrand: z.string().min(1).optional(),
+});
+/** Ребро графа проекта (версия 2). */
+export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
+
+/** Минимальная структура графа для проверки ссылочной целостности. */
+interface GraphReferences {
+    /** Зоны. */
+    readonly rooms: readonly { readonly id: string }[];
+    /** Стены. */
+    readonly walls: readonly { readonly id: string }[];
+    /** Узлы. */
+    readonly nodes: readonly { readonly id: string }[];
+    /** Линии. */
+    readonly edges: readonly { readonly id: string; readonly from: string; readonly to: string }[];
+}
+
+/**
+ * Проверяет уникальность идентификаторов и ссылки линий на узлы графа.
+ *
+ * @param graph — проверяемый граф.
+ * @param addIssue — регистратор ошибки с путём к полю.
+ */
+function validateGraphReferences(
+    graph: GraphReferences,
+    addIssue: (path: PropertyKey[], message: string) => void,
+): void {
+    const checkUnique = (values: readonly { id: string }[], section: string): void => {
+        const seen = new Set<string>();
+        values.forEach((item, index) => {
+            if (seen.has(item.id)) {
+                addIssue([section, index, 'id'], `Идентификатор в ${section} должен быть уникальным`);
+            }
+            seen.add(item.id);
+        });
+    };
+
+    checkUnique(graph.rooms, 'rooms');
+    checkUnique(graph.walls, 'walls');
+    checkUnique(graph.nodes, 'nodes');
+
+    const nodeIds = new Set(graph.nodes.map((node) => node.id));
+    const edgeIds = new Set<string>();
+    graph.edges.forEach((edge, index) => {
+        if (edgeIds.has(edge.id)) {
+            addIssue(['edges', index, 'id'], 'Идентификатор линии должен быть уникальным');
+        }
+        edgeIds.add(edge.id);
+        if (!nodeIds.has(edge.from)) {
+            addIssue(['edges', index, 'from'], 'Линия ссылается на несуществующий узел');
+        }
+        if (!nodeIds.has(edge.to)) {
+            addIssue(['edges', index, 'to'], 'Линия ссылается на несуществующий узел');
+        }
+    });
+}
+
+/** Граф проекта версии 1 (пиксельные координаты), используется только мигратором. */
+export const ProjectGraphSchemaV1 = z
     .object({
         /** Версия формата. */
         schemaVersion: z.literal(1),
@@ -204,63 +286,206 @@ export const ProjectGraphSchema = z
         /** Узлы графа. */
         nodes: z.array(GraphNodeSchema),
         /** Кабельные линии. */
+        edges: z.array(GraphEdgeSchemaV1),
+    })
+    .check((context) => {
+        validateGraphReferences(context.value, (path, message) => {
+            context.issues.push({ code: 'custom', message, path, input: context.value });
+        });
+    });
+/** Граф проекта версии 1. */
+export type ProjectGraphV1 = z.infer<typeof ProjectGraphSchemaV1>;
+
+/**
+ * Канонический граф проекта версии 2: координаты трасс — в метрах СИ.
+ * Единый источник истины для БД, API, клиента и `.vwc` (RULES § 5.2, KI-003).
+ */
+export const ProjectGraphSchema = z
+    .object({
+        /** Версия формата. */
+        schemaVersion: z.literal(2),
+        /** Идентификатор проекта. */
+        id: UuidSchema,
+        /** Название проекта. */
+        name: z.string().min(1),
+        /** Параметры плана этажа. */
+        floorPlan: FloorPlanSchema,
+        /** Зоны помещений. */
+        rooms: z.array(RoomZoneSchema),
+        /** Стены и проёмы. */
+        walls: z.array(WallSchema),
+        /** Узлы графа. */
+        nodes: z.array(GraphNodeSchema),
+        /** Кабельные линии. */
         edges: z.array(GraphEdgeSchema),
     })
     .check((context) => {
-        const graph = context.value;
-        const addIssue = (path: PropertyKey[], message: string): void => {
-            context.issues.push({ code: 'custom', message, path, input: graph });
-        };
-
-        const checkUnique = (values: readonly { id: string }[], section: string): void => {
-            const seen = new Set<string>();
-            values.forEach((item, index) => {
-                if (seen.has(item.id)) {
-                    addIssue([section, index, 'id'], `Идентификатор в ${section} должен быть уникальным`);
-                }
-                seen.add(item.id);
-            });
-        };
-
-        checkUnique(graph.rooms, 'rooms');
-        checkUnique(graph.walls, 'walls');
-        checkUnique(graph.nodes, 'nodes');
-
-        const nodeIds = new Set(graph.nodes.map((node) => node.id));
-        const edgeIds = new Set<string>();
-        graph.edges.forEach((edge, index) => {
-            if (edgeIds.has(edge.id)) {
-                addIssue(['edges', index, 'id'], 'Идентификатор линии должен быть уникальным');
-            }
-            edgeIds.add(edge.id);
-            if (!nodeIds.has(edge.from)) {
-                addIssue(['edges', index, 'from'], 'Линия ссылается на несуществующий узел');
-            }
-            if (!nodeIds.has(edge.to)) {
-                addIssue(['edges', index, 'to'], 'Линия ссылается на несуществующий узел');
-            }
+        validateGraphReferences(context.value, (path, message) => {
+            context.issues.push({ code: 'custom', message, path, input: context.value });
         });
     });
-
-/** Канонический граф проекта. */
+/** Канонический граф проекта (версия 2). */
 export type ProjectGraph = z.infer<typeof ProjectGraphSchema>;
 
-/** Файл проекта `.vwc`: обёртка над графом (RULES § 5.4). */
-export const VwcFileSchema = z.object({
+/** Узлы щита, которым назначается `panelSlot` при миграции v1 → v2. */
+const PANEL_NODE_KINDS: ReadonlySet<string> = new Set([
+    'panel',
+    'circuit_breaker',
+    'rcd',
+    'rcbo',
+]);
+
+/** Отчёт о детерминированной миграции графа v1 → v2. */
+export interface ProjectGraphMigrationReport {
+    /** Исходная версия. */
+    readonly fromVersion: 1;
+    /** Целевая версия. */
+    readonly toVersion: 2;
+    /** Число переведённых в метры точек трассы. */
+    readonly convertedWaypoints: number;
+    /** Число назначенных позиций в щите. */
+    readonly assignedPanelSlots: number;
+    /** Предупреждения (например, отсутствие масштаба). */
+    readonly warnings: readonly string[];
+}
+
+/** Результат миграции: граф v2 и отчёт. */
+export interface ProjectGraphMigrationResult {
+    /** Смигрированный граф. */
+    readonly graph: ProjectGraph;
+    /** Отчёт. */
+    readonly report: ProjectGraphMigrationReport;
+}
+
+/** Округление до 1 мкм. */
+function roundToMicrometer(value: number): number {
+    return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+/**
+ * Детерминированно мигрирует граф версии 1 в версию 2.
+ *
+ * @param raw — внешние данные графа v1 (например, содержимое `.vwc`).
+ * @returns граф v2 и отчёт с числом преобразованных точек.
+ * @throws {ZodError} если исходный или целевой граф не проходит валидацию.
+ */
+export function migrateProjectGraphV1ToV2WithReport(raw: unknown): ProjectGraphMigrationResult {
+    const v1 = ProjectGraphSchemaV1.parse(raw);
+    const warnings: string[] = [];
+    const scale = v1.floorPlan.scaleMetersPerPx;
+    if (scale === null) {
+        warnings.push('scaleMetersPerPx is null — координаты переведены с масштабом 1 м/px');
+    }
+
+    let nextSlot = 1;
+    let assignedPanelSlots = 0;
+    const nodes = v1.nodes.map((node) => {
+        if (node.panelSlot === null && PANEL_NODE_KINDS.has(node.kind)) {
+            assignedPanelSlots += 1;
+            return { ...node, panelSlot: nextSlot++, catalogDeviceId: null };
+        }
+        return { ...node, catalogDeviceId: null };
+    });
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+    let convertedWaypoints = 0;
+    const edges = v1.edges.map((edge) => {
+        const source = nodeById.get(edge.from);
+        const target = nodeById.get(edge.to);
+        const pixels =
+            edge.waypointsPx ??
+            [source?.planPosition, target?.planPosition].filter(
+                (point): point is NonNullable<typeof point> => point !== undefined && point !== null,
+            );
+        const waypointsM = pixels.map((point) => ({
+            x: roundToMicrometer(point.x * (scale ?? 1)),
+            y: roundToMicrometer(point.y * (scale ?? 1)),
+        }));
+        convertedWaypoints += waypointsM.length;
+        return { ...edge, waypointsM };
+    });
+
+    const graph = ProjectGraphSchema.parse({
+        ...v1,
+        schemaVersion: 2,
+        nodes,
+        edges,
+    });
+
+    return {
+        graph,
+        report: {
+            fromVersion: 1,
+            toVersion: 2,
+            convertedWaypoints,
+            assignedPanelSlots,
+            warnings,
+        },
+    };
+}
+
+/**
+ * Детерминированно мигрирует граф версии 1 в версию 2 (без отчёта).
+ *
+ * @param raw — внешние данные графа v1.
+ * @returns граф версии 2.
+ * @throws {ZodError} если граф некорректен.
+ */
+export function migrateProjectGraphV1ToV2(raw: unknown): ProjectGraph {
+    return migrateProjectGraphV1ToV2WithReport(raw).graph;
+}
+
+/** Файл проекта `.vwc` версии 1 (для автоматической миграции). */
+export const VwcFileSchemaV1 = z.object({
     /** Маркер формата. */
     format: z.literal('vwc-project'),
     /** Версия файла. */
     schemaVersion: z.literal(1),
+    /** Граф версии 1. */
+    graph: ProjectGraphSchemaV1,
+    /** Время сохранения, ISO 8601. */
+    savedAt: z.iso.datetime(),
+});
+/** Файл проекта `.vwc` версии 1. */
+export type VwcFileV1 = z.infer<typeof VwcFileSchemaV1>;
+
+/** Файл проекта `.vwc` версии 2. */
+export const VwcFileSchema = z.object({
+    /** Маркер формата. */
+    format: z.literal('vwc-project'),
+    /** Версия файла. */
+    schemaVersion: z.literal(2),
     /** Граф проекта. */
     graph: ProjectGraphSchema,
     /** Время сохранения, ISO 8601. */
     savedAt: z.iso.datetime(),
 });
-/** Файл проекта `.vwc`. */
+/** Файл проекта `.vwc` (версия 2). */
 export type VwcFile = z.infer<typeof VwcFileSchema>;
 
 /**
- * Создаёт пустой валидный граф проекта.
+ * Читает `.vwc` любой версии: v1 автоматически мигрируется в v2.
+ *
+ * @param raw — внешние данные файла проекта.
+ * @returns файл с каноническим графом версии 2.
+ * @throws {ZodError} если формат или граф некорректны.
+ */
+export function parseVwcFile(raw: unknown): VwcFile {
+    const current = VwcFileSchema.safeParse(raw);
+    if (current.success) {
+        return current.data;
+    }
+    const legacy = VwcFileSchemaV1.parse(raw);
+    return {
+        format: 'vwc-project',
+        schemaVersion: 2,
+        graph: migrateProjectGraphV1ToV2(legacy.graph),
+        savedAt: legacy.savedAt,
+    };
+}
+
+/**
+ * Создаёт пустой валидный граф проекта версии 2.
  *
  * @param name — название проекта.
  * @param graphId — идентификатор графа; по умолчанию генерируется UUID.
@@ -271,7 +496,7 @@ export function createEmptyProjectGraph(
     graphId: Uuid = crypto.randomUUID(),
 ): ProjectGraph {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         id: graphId,
         name,
         floorPlan: {
@@ -290,11 +515,15 @@ export function createEmptyProjectGraph(
  * Валидирует граф проекта на границе внешних данных.
  *
  * @param value — данные из HTTP, БД или файла `.vwc`.
- * @returns провалидированный граф.
+ * @returns провалидированный граф версии 2; v1 мигрируется автоматически.
  * @throws {ZodError} если граф некорректен.
  */
 export function parseProjectGraph(value: unknown): ProjectGraph {
-    return ProjectGraphSchema.parse(value);
+    const current = ProjectGraphSchema.safeParse(value);
+    if (current.success) {
+        return current.data;
+    }
+    return migrateProjectGraphV1ToV2(value);
 }
 
 /**
@@ -424,6 +653,34 @@ export const CalculateCableLengthResponseSchema = z.object({
 });
 /** Ответ расчёта длины. */
 export type CalculateCableLengthResponse = z.infer<typeof CalculateCableLengthResponseSchema>;
+
+/** Стена, извлечённая из CAD-плана (координаты в метрах СИ). */
+export const CadWallSchema = z.object({
+    /** Вид конструктива. */
+    kind: z.enum(['wall', 'partition', 'doorway', 'window']),
+    /** Точки контура, m. */
+    path: z.array(PointSchema).min(2),
+    /** Толщина, m. */
+    thickness: z.number().nonnegative(),
+});
+/** Стена из CAD. */
+export type CadWall = z.infer<typeof CadWallSchema>;
+
+/** Ответ разбора CAD-файла. */
+export const CadParseResponseSchema = z.object({
+    /** Стены в метрах СИ. */
+    walls: z.array(CadWallSchema),
+    /** Исходные единицы чертежа. */
+    units: z.string().min(1),
+    /** Число обработанных сущностей. */
+    entitiesProcessed: z.number().int().nonnegative(),
+    /** Предупреждения разбора. */
+    warnings: z.array(z.string()),
+    /** Версия справочника правил. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ разбора CAD. */
+export type CadParseResponse = z.infer<typeof CadParseResponseSchema>;
 
 /** Допустимые напряжения потребительской сети, В (ПУЭ-7). */
 export const SupplyVoltageSchema = z.union([z.literal(220), z.literal(230), z.literal(400)]);
@@ -680,3 +937,67 @@ export const PueAuditReportSchema = z.object({
 });
 /** Отчёт аудита ПУЭ-7. */
 export type PueAuditReport = z.infer<typeof PueAuditReportSchema>;
+
+/** Запрос расчёта однофазного тока КЗ «фаза-ноль». */
+export const ShortCircuitRequestSchema = z.object({
+    /** Мощность трансформатора, kVA. */
+    transformerPowerKva: z.number().positive(),
+    /** Напряжение короткого замыкания трансформатора, %. */
+    transformerUkPercent: z.number().positive().max(100).optional(),
+    /** Фазное напряжение, V. */
+    voltageV: SupplyVoltageSchema.optional(),
+    /** Длина линии, m. */
+    cableLengthM: z.number().positive(),
+    /** Сечение жилы, mm2. */
+    crossSectionMm2: CrossSectionSchema,
+    /** Номинал группового автомата, A. */
+    breakerRatingA: z.number().positive(),
+    /** Кривая срабатывания. */
+    tripCurve: z.enum(['B', 'C', 'D']).optional(),
+    /** Номинал вводного автомата, A. */
+    upstreamBreakerRatingA: z.number().positive().optional(),
+    /** Кривая вводного автомата. */
+    upstreamTripCurve: z.enum(['B', 'C', 'D']).optional(),
+});
+/** Запрос расчёта КЗ. */
+export type ShortCircuitRequest = z.infer<typeof ShortCircuitRequestSchema>;
+
+/** Ответ расчёта однофазного КЗ и селективности. */
+export const ShortCircuitResponseSchema = z.object({
+    /** Сопротивление трансформатора, Ohm. */
+    transformerImpedanceOhm: z.number().positive(),
+    /** Сопротивление фазной жилы, Ohm. */
+    phaseResistanceOhm: z.number().positive(),
+    /** Сопротивление нулевой жилы, Ohm. */
+    neutralResistanceOhm: z.number().positive(),
+    /** Индуктивное сопротивление петли, Ohm. */
+    loopReactanceOhm: z.number().nonnegative(),
+    /** Полное сопротивление петли, Ohm. */
+    loopImpedanceOhm: z.number().positive(),
+    /** Минимальный ток однофазного КЗ, A. */
+    shortCircuitCurrentA: z.number().positive(),
+    /** Кратность гарантированного отключения. */
+    requiredMultiplicity: z.number().positive(),
+    /** Нижняя граница зоны срабатывания. */
+    minimumMultiplicity: z.number().positive(),
+    /** Фактическая кратность. */
+    actualMultiplicity: z.number().nonnegative(),
+    /** Ток мгновенного срабатывания, A. */
+    instantaneousTripA: z.number().positive(),
+    /** Мгновенное отключение гарантировано. */
+    disconnectComplies: z.boolean(),
+    /** Селективность соблюдена. */
+    selectivityOk: z.boolean(),
+    /** Отношение вводного к групповому номиналу. */
+    upstreamToDownstreamRatio: z.number().nonnegative(),
+    /** Оценка времени отключения, s. */
+    tripTimeS: z.number().nonnegative(),
+    /** Предупреждения. */
+    warnings: z.array(z.string()),
+    /** Ссылки на пункты ПУЭ. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ расчёта КЗ. */
+export type ShortCircuitResponse = z.infer<typeof ShortCircuitResponseSchema>;

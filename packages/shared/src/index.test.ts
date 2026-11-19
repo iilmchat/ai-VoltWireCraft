@@ -44,7 +44,7 @@ describe('каноническая модель графа (реэкспорт �
     it('VwcFile проходит валидацию обёртки .vwc', () => {
         const file: z.input<typeof VwcFileSchema> = {
             format: 'vwc-project',
-            schemaVersion: 1,
+            schemaVersion: 2,
             graph: createEmptyProjectGraph(),
             savedAt: new Date('2026-11-19T12:00:00.000Z').toISOString(),
         };
@@ -80,6 +80,7 @@ describe('каноническая модель графа (реэкспорт �
             from: NODE_ID,
             to: NODE_ID,
             cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu', length: 0 },
+            waypointsM: [{ x: 1, y: 2 }, { x: 2, y: 3 }],
             waypointsPx: [{ x: 1, y: 2 }],
             edgeType: CABLE_LINE_EDGE_TYPE,
             cableBrand: 'ВВГнг(А)-LS',

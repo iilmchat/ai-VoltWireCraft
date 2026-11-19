@@ -106,7 +106,7 @@ describe('graph.schema — файл .vwc', () => {
         expect(
             VwcFileSchema.safeParse({
                 format: 'vwc-project',
-                schemaVersion: 1,
+                schemaVersion: 2,
                 graph: createEmptyProjectGraph(),
                 savedAt: '2026-11-19T12:00:00.000Z',
             }).success,
