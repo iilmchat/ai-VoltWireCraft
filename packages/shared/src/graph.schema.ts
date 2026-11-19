@@ -424,3 +424,259 @@ export const CalculateCableLengthResponseSchema = z.object({
 });
 /** Ответ расчёта длины. */
 export type CalculateCableLengthResponse = z.infer<typeof CalculateCableLengthResponseSchema>;
+
+/** Допустимые напряжения потребительской сети, В (ПУЭ-7). */
+export const SupplyVoltageSchema = z.union([z.literal(220), z.literal(230), z.literal(400)]);
+/** Напряжение сети. */
+export type SupplyVoltage = z.infer<typeof SupplyVoltageSchema>;
+
+/** Число фаз ввода. */
+export const PhasesSchema = z.union([z.literal(1), z.literal(3)]);
+/** Число фаз. */
+export type Phases = z.infer<typeof PhasesSchema>;
+
+/** Способ прокладки кабеля: базовый — в трубе/штробе (DESIGN_V020 § 8). */
+export const InstallationMethodSchema = z.enum(['conduit', 'air']);
+/** Способ прокладки. */
+export type InstallationMethod = z.infer<typeof InstallationMethodSchema>;
+
+/** Вид потребителя — влияет на выбор уставки УЗО. */
+export const ConsumerKindSchema = z.enum(['socket', 'light', 'appliance', 'other']);
+/** Вид потребителя. */
+export type ConsumerKind = z.infer<typeof ConsumerKindSchema>;
+
+/** Стандартные сечения медных жил, мм² (ПУЭ-7 табл. 1.3.4). */
+export const CrossSectionSchema = z.union([
+    z.literal(1.5),
+    z.literal(2.5),
+    z.literal(4),
+    z.literal(6),
+    z.literal(10),
+    z.literal(16),
+]);
+/** Сечение жилы из стандартного ряда. */
+export type CrossSection = z.infer<typeof CrossSectionSchema>;
+
+/** Запрос расчёта потребительской линии. */
+export const LineSizingRequestSchema = z.object({
+    /** Расчётная мощность потребителя, W. */
+    powerW: z.number().positive(),
+    /** Напряжение сети, V. */
+    voltageV: SupplyVoltageSchema,
+    /** Число фаз. */
+    phases: PhasesSchema,
+    /** Коэффициент мощности cosφ (0,1 … 1). */
+    powerFactor: z.number().min(0.1).max(1),
+    /** Длина кабельной линии, m. */
+    lengthM: z.number().positive(),
+    /** Способ прокладки; по умолчанию 'conduit'. */
+    installationMethod: InstallationMethodSchema.optional(),
+    /** Вид потребителя; по умолчанию 'other'. */
+    consumerKind: ConsumerKindSchema.optional(),
+    /** Тип помещения; влияет на рекомендацию УЗО. */
+    roomType: RoomZoneTypeSchema.optional(),
+    /** Предельная потеря напряжения, %; по умолчанию 5. */
+    maxVoltageDropPercent: z.number().positive().max(100).optional(),
+});
+/** Запрос расчёта линии. */
+export type LineSizingRequest = z.infer<typeof LineSizingRequestSchema>;
+
+/** Рекомендация расчётного ядра (строка на русском языке). */
+export const CalculationRecommendationSchema = z.string().min(1);
+/** Рекомендация. */
+export type CalculationRecommendation = z.infer<typeof CalculationRecommendationSchema>;
+
+/** Ответ расчёта потребительской линии. */
+export const LineSizingResponseSchema = z.object({
+    /** Расчётный ток, A. */
+    designCurrentA: z.number().positive(),
+    /** Выбранное сечение жилы, mm2. */
+    selectedCrossSectionMm2: CrossSectionSchema,
+    /** Допустимый длительный ток для выбранного сечения, A. */
+    permissibleCurrentA: z.number().positive(),
+    /** Потеря напряжения, %. */
+    voltageDropPercent: z.number().nonnegative(),
+    /** Предельная потеря напряжения, %. */
+    voltageDropLimitPercent: z.number().positive(),
+    /** Рекомендуемый номинал автоматического выключателя, A. */
+    breakerRatingA: z.number().int().positive(),
+    /** Рекомендуемая уставка УЗО, mA. */
+    rcdCurrentMa: z.number().int().nonnegative(),
+    /** Требуется ли УЗО на линии. */
+    rcdRequired: z.boolean(),
+    /** Марка кабеля. */
+    cableType: z.string().min(1),
+    /** Рекомендации на русском языке. */
+    recommendations: z.array(CalculationRecommendationSchema),
+    /** Идентификаторы пунктов из `PUE_RULES_V02.md`. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника правил. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ расчёта линии. */
+export type LineSizingResponse = z.infer<typeof LineSizingResponseSchema>;
+
+/** Запрос детерминированной автосборки щита. */
+export const AutoPanelRequestSchema = z.object({
+    /** Узлы графа проекта. */
+    nodes: z.array(GraphNodeSchema),
+    /** Зоны помещений для определения типа среды. */
+    rooms: z.array(RoomZoneSchema),
+    /** Параметры ввода; по умолчанию 230 В, одна фаза. */
+    supply: z
+        .object({
+            voltageV: SupplyVoltageSchema,
+            phases: PhasesSchema,
+        })
+        .optional(),
+    /** Желаемый бренд модулей; учитывается агентом при выборе артикула. */
+    preferredBrand: z.enum(['IEK', 'EKF', 'КЭАЗ']).optional(),
+});
+/** Запрос автосборки щита. */
+export type AutoPanelRequest = z.infer<typeof AutoPanelRequestSchema>;
+
+/** Фаза ввода. */
+export const PhaseSchema = z.enum(['L1', 'L2', 'L3']);
+/** Фаза. */
+export type Phase = z.infer<typeof PhaseSchema>;
+
+/** Группа потребителей в щите. */
+export const PanelGroupSchema = z.object({
+    /** Идентификатор группы. */
+    id: z.string().min(1),
+    /** Название группы. */
+    name: z.string().min(1),
+    /** Помещение; `null` для мощных приборов без привязки. */
+    roomId: UuidSchema.nullable(),
+    /** Фаза ввода. */
+    phase: PhaseSchema,
+    /** Идентификаторы узлов-потребителей. */
+    consumerIds: z.array(UuidSchema),
+    /** Суммарная мощность, W. */
+    totalPowerW: z.number().nonnegative(),
+    /** Расчётный ток, A. */
+    designCurrentA: z.number().nonnegative(),
+    /** Сечение жилы, mm2. */
+    crossSectionMm2: CrossSectionSchema,
+    /** Номинал автомата, A. */
+    breakerRatingA: z.number().int().positive(),
+    /** Уставка УЗО, mA. */
+    rcdCurrentMa: z.number().int().nonnegative(),
+    /** Место на DIN-рейке. */
+    panelSlot: z.number().int().positive().nullable(),
+});
+/** Группа потребителей. */
+export type PanelGroup = z.infer<typeof PanelGroupSchema>;
+
+/** Нагрузка на одну фазу. */
+export const PhaseLoadSchema = z.object({
+    /** Мощность, W. */
+    powerW: z.number().nonnegative(),
+    /** Ток, A. */
+    currentA: z.number().nonnegative(),
+});
+/** Нагрузка фазы. */
+export type PhaseLoad = z.infer<typeof PhaseLoadSchema>;
+
+/** Модуль щита, размещённый на DIN-рейке. */
+export const PanelModuleSchema = z.object({
+    /** Тип УГО модуля. */
+    kind: NodeKindSchema,
+    /** Подпись. */
+    label: z.string().min(1),
+    /** Число занятых DIN-модулей (18 мм каждый). */
+    dinModules: z.number().int().positive(),
+    /** Порядковый номер на рейке. */
+    panelSlot: z.number().int().positive(),
+    /** Идентификатор группы, если модуль относится к линии. */
+    groupId: z.string().min(1).nullable(),
+});
+/** Модуль щита. */
+export type PanelModule = z.infer<typeof PanelModuleSchema>;
+
+/** Ответ автосборки щита. */
+export const AutoPanelResponseSchema = z.object({
+    /** Сгруппированные линии. */
+    groups: z.array(PanelGroupSchema),
+    /** Нагрузки по фазам. */
+    phaseLoads: z.object({
+        L1: PhaseLoadSchema,
+        L2: PhaseLoadSchema,
+        L3: PhaseLoadSchema,
+    }),
+    /** Перекос фаз, %. */
+    imbalancePercent: z.number().nonnegative(),
+    /** Модули на DIN-рейке. */
+    modules: z.array(PanelModuleSchema),
+    /** Занято модулей без резерва. */
+    usedDinModules: z.number().int().nonnegative(),
+    /** Требуемый корпус с +20% резерва, модулей. */
+    enclosureModules: z.number().int().nonnegative(),
+    /** Предупреждения. */
+    warnings: z.array(z.string().min(1)),
+    /** Идентификаторы пунктов ПУЭ. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника правил. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ автосборки щита. */
+export type AutoPanelResponse = z.infer<typeof AutoPanelResponseSchema>;
+
+/** Критичность нарушения ПУЭ-7. */
+export const PueSeveritySchema = z.enum(['error', 'warning', 'info']);
+/** Критичность. */
+export type PueSeverity = z.infer<typeof PueSeveritySchema>;
+
+/** Находка аудита ПУЭ-7 с ссылкой на пункт справочника. */
+export const PueFindingSchema = z.object({
+    /** Идентификатор находки. */
+    id: z.string().min(1),
+    /** Критичность. */
+    severity: PueSeveritySchema,
+    /** Идентификатор пункта из `PUE_RULES_V02.md` (начинается с `PUE-`). */
+    ruleId: z.string().regex(/^PUE-[A-Z0-9.-]+$/),
+    /** Раздел норматива. */
+    section: z.string().min(1),
+    /** Описание на русском языке. */
+    message: z.string().min(1),
+    /** Узлы графа, к которым относится находка. */
+    nodeIds: z.array(UuidSchema),
+    /** Рекомендация по устранению. */
+    recommendation: z.string().min(1),
+});
+/** Находка аудита. */
+export type PueFinding = z.infer<typeof PueFindingSchema>;
+
+/** Цитата из норматива, найденная в `normative_chunks`. */
+export const PueCitationSchema = z.object({
+    /** Идентификатор пункта. */
+    ruleId: z.string().min(1),
+    /** Выдержка. */
+    excerpt: z.string().min(1),
+    /** Источник, например `PUE-7`. */
+    document: z.string().min(1),
+});
+/** Цитата норматива. */
+export type PueCitation = z.infer<typeof PueCitationSchema>;
+
+/** Структурированный отчёт аудита ПУЭ-7. */
+export const PueAuditReportSchema = z.object({
+    /** Идентификатор проекта. */
+    projectId: UuidSchema,
+    /** Находки. */
+    findings: z.array(PueFindingSchema),
+    /** Сводка по критичности. */
+    summary: z.object({
+        errors: z.number().int().nonnegative(),
+        warnings: z.number().int().nonnegative(),
+        info: z.number().int().nonnegative(),
+    }),
+    /** Цитаты из справочника. */
+    citations: z.array(PueCitationSchema),
+    /** Версия справочника. */
+    rulesVersion: z.string().min(1),
+    /** Объяснение агента на русском языке. */
+    explanation: z.string().min(1),
+});
+/** Отчёт аудита ПУЭ-7. */
+export type PueAuditReport = z.infer<typeof PueAuditReportSchema>;
