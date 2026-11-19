@@ -8,6 +8,7 @@ import { ApiClientError, apiClient } from '../lib/apiClient.js';
 import { downloadProjectAsync, parseProject } from '../lib/persistence.js';
 import type { ImportErrorCode } from '../lib/persistence.js';
 import { useEditorStore } from '../store/editorStore.js';
+import { useUiStore } from '../store/uiStore.js';
 
 /**
  * Верхняя панель: проект, язык, офлайн-файл и серверное хранение.
@@ -158,6 +159,13 @@ export function Header() {
                 className="rounded border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-950"
             >
                 {t('header.loadServer')}
+            </button>
+            <button
+                type="button"
+                onClick={() => useUiStore.getState().setAiDrawerOpen(true)}
+                className="rounded border border-violet-500 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-950"
+            >
+                {t('ai.open')}
             </button>
         </header>
     );

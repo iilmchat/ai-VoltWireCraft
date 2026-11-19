@@ -164,9 +164,50 @@ describe('apiClient', () => {
         expect(init?.headers).toBeUndefined();
     });
 
+    it('вызывает автосборку щита и проверяет ответ', async () => {
+        const payload = { graph: validGraph, summary: 'Щит собран' };
+        const fakeFetch = vi.fn(
+            async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+                okResponse(payload),
+        );
+        const client = createApiClient({ baseUrl: BASE_URL, fetch: fakeFetch });
+
+        await expect(client.assemblePanelAsync(PROJECT_ID)).resolves.toEqual(payload);
+        const [url, init] = fakeFetch.mock.calls[0] ?? [];
+        expect(url).toBe(`${BASE_URL}/projects/${encodeURIComponent(PROJECT_ID)}/ai/assemble-panel`);
+        expect(init?.method).toBe('POST');
+    });
+
+    it('вызывает аудит ПУЭ и проверяет список замечаний', async () => {
+        const payload = {
+            issues: [
+                {
+                    id: 'issue-1',
+                    severity: 'warning',
+                    message: 'Проверить УЗО',
+                    nodeId: null,
+                    edgeId: null,
+                    citation: 'ПУЭ-7 7.1.3',
+                },
+            ],
+            summary: 'Аудит выполнен',
+        };
+        const fakeFetch = vi.fn(
+            async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+                okResponse(payload),
+        );
+        const client = createApiClient({ baseUrl: BASE_URL, fetch: fakeFetch });
+
+        await expect(client.auditPueAsync(PROJECT_ID)).resolves.toEqual(payload);
+        const [url] = fakeFetch.mock.calls[0] ?? [];
+        expect(url).toBe(`${BASE_URL}/projects/${encodeURIComponent(PROJECT_ID)}/ai/audit-pue`);
+    });
+
     it('экспортирует клиент по умолчанию', () => {
         expect(apiClient).toBeDefined();
         expect(typeof apiClient.createProjectAsync).toBe('function');
+        expect(typeof apiClient.assemblePanelAsync).toBe('function');
+        expect(typeof apiClient.auditPueAsync).toBe('function');
         expect(typeof apiClient.getProjectAsync).toBe('function');
         expect(typeof apiClient.updateProjectGraphAsync).toBe('function');
         expect(typeof apiClient.uploadFloorPlanAsync).toBe('function');

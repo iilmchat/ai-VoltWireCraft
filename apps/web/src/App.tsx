@@ -1,49 +1,74 @@
-import { PlanCanvas } from './components/PlanCanvas.js';
-import { selectNodeList, useGraphStore } from './store/graph-store.js';
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+/** Корневой компонент: оболочка редактора с вкладками проекций графа. */
+import { useState } from 'react';
+import { AiAssistantDrawer } from './components/AiAssistantDrawer.js';
+import { BillOfMaterialsTable } from './components/BillOfMaterialsTable.js';
+import { FloorPlanEditor } from './components/FloorPlanEditor.js';
+import { Header } from './components/Header.js';
+import { InspectorPanel } from './components/InspectorPanel.js';
+import { PanelLayoutEditor } from './components/PanelLayoutEditor.js';
+import { Palette } from './components/Palette.js';
+import { SingleLineDiagramView } from './components/SingleLineDiagramView.js';
+import { I18nProvider, useI18n } from './i18n/index.js';
+import type { Locale, TranslationKey } from './i18n/index.js';
+import { useUiStore } from './store/uiStore.js';
+import type { WorkspaceView } from './store/uiStore.js';
 
-/** Корневой компонент клиента. */
-export function App(): React.JSX.Element {
-  const graph = useGraphStore((state) => state.graph);
-  const nodes = useGraphStore(selectNodeList);
-  const selectedNodeId = useGraphStore((state) => state.selectedNodeId);
-  const selectNode = useGraphStore((state) => state.selectNode);
+/** Перечень вкладок рабочей области. */
+const VIEWS: readonly WorkspaceView[] = ['plan', 'panel', 'singleLine', 'bom'];
 
-  return (
-    <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold">VoltWireCraft</h1>
-        <p className="text-sm text-slate-400">
-          Проект: {graph.name} · узлов: {nodes.length} · связей: {graph.edges.length}
-        </p>
-      </header>
+/**
+ * Корневой компонент приложения: подключает локализацию и оболочку.
+ * @returns React-элемент приложения.
+ */
+export function App() {
+    const [locale, setLocale] = useState<Locale>('ru');
+    return (
+        <I18nProvider locale={locale} setLocale={setLocale}>
+            <AppShell />
+        </I18nProvider>
+    );
+}
 
-      <div className="flex flex-wrap gap-6">
-        <section aria-label="План этажа">
-          <PlanCanvas />
-        </section>
+/**
+ * Оболочка редактора: шапка, вкладки, рабочая область и панели.
+ * @returns React-элемент оболочки.
+ */
+function AppShell() {
+    const { t } = useI18n();
+    const activeView = useUiStore((state) => state.activeView);
+    const setActiveView = useUiStore((state) => state.setActiveView);
 
-        <aside className="min-w-64 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h2 className="mb-3 text-lg font-medium">Элементы графа</h2>
-          <ul className="space-y-2">
-            {nodes.map((node) => (
-              <li key={node.id}>
-                <button
-                  type="button"
-                  onClick={() => selectNode(node.id)}
-                  className={`w-full rounded px-3 py-2 text-left text-sm ${
-                    node.id === selectedNodeId
-                      ? 'bg-sky-700 text-white'
-                      : 'bg-slate-800 hover:bg-slate-700'
-                  }`}
-                >
-                  <span className="font-medium">{node.label}</span>
-                  <span className="ml-2 text-xs text-slate-400">{node.kind}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      </div>
-    </main>
-  );
+    return (
+        <div className="flex h-full flex-col bg-slate-950 text-slate-100">
+            <Header />
+            <nav className="flex shrink-0 gap-1 border-b border-slate-700 bg-slate-900 px-4" aria-label={t('app.title')}>
+                {VIEWS.map((view) => (
+                    <button
+                        key={view}
+                        type="button"
+                        onClick={() => setActiveView(view)}
+                        className={`border-b-2 px-4 py-2 text-sm ${
+                            activeView === view
+                                ? 'border-sky-400 font-medium text-sky-300'
+                                : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                    >
+                        {t(`tab.${view}` as TranslationKey)}
+                    </button>
+                ))}
+            </nav>
+            <div className="flex min-h-0 flex-1">
+                <Palette />
+                <main className="min-w-0 flex-1 overflow-auto">
+                    {activeView === 'plan' && <FloorPlanEditor />}
+                    {activeView === 'panel' && <PanelLayoutEditor />}
+                    {activeView === 'singleLine' && <SingleLineDiagramView />}
+                    {activeView === 'bom' && <BillOfMaterialsTable />}
+                </main>
+                <InspectorPanel />
+                <AiAssistantDrawer />
+            </div>
+        </div>
+    );
 }

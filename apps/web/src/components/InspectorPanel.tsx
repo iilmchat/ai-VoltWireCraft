@@ -62,6 +62,22 @@ export function InspectorPanel() {
                         />
                     </label>
                     <label className="block">
+                        <span className="mb-1 block text-xs text-slate-400">{t('sld.current')}, A</span>
+                        <input
+                            type="number"
+                            min="0.1"
+                            step="any"
+                            value={node.specs.ratedCurrent}
+                            onChange={(event) => {
+                                const value = Number(event.target.value);
+                                if (Number.isFinite(value) && value > 0) {
+                                    useEditorStore.getState().updateNode(node.id, { ratedCurrent: value });
+                                }
+                            }}
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
+                        />
+                    </label>
+                    <label className="block">
                         <span className="mb-1 block text-xs text-slate-400">{t('inspector.height')}</span>
                         <input
                             type="number"

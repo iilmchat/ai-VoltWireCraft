@@ -54,6 +54,8 @@ export type NodePatch = {
     label?: string;
     /** Номинальная мощность, Вт. */
     ratedPower?: number;
+    /** Номинальный ток, А. */
+    ratedCurrent?: number;
     /** Высота установки, м. */
     mountingHeight?: number;
     /** Привязка к зоне помещения. */
@@ -351,6 +353,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
                 const specs = {
                     ...node.specs,
                     ...(patch.ratedPower !== undefined ? { ratedPower: patch.ratedPower } : {}),
+                    ...(patch.ratedCurrent !== undefined ? { ratedCurrent: patch.ratedCurrent } : {}),
                     ...(patch.mountingHeight !== undefined ? { mountingHeight: patch.mountingHeight } : {}),
                 };
                 return GraphNodeSchema.parse({

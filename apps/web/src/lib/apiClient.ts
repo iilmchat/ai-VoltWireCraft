@@ -8,6 +8,14 @@
 
 import { z } from 'zod';
 import {
+    PanelAssemblyResultSchema,
+    PueAuditResultSchema,
+} from './aiContracts.js';
+import type {
+    PanelAssemblyResult,
+    PueAuditResult,
+} from './aiContracts.js';
+import {
     CreateProjectDtoSchema,
     FloorPlanUploadDtoSchema,
     ProjectDtoSchema,
@@ -194,6 +202,36 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 { method: 'POST', body: formData },
             );
             return parseResponse(response, FloorPlanUploadDtoSchema);
+        },
+
+        /**
+         * Автосборка щита ИИ-агентом: `POST /projects/:id/ai/assemble-panel`.
+         * @param id — идентификатор проекта.
+         * @returns обновлённый граф и пояснение агента.
+         */
+        async assemblePanelAsync(id: Uuid): Promise<PanelAssemblyResult> {
+            const projectId = UuidSchema.parse(id);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/ai/assemble-panel`,
+                'POST',
+                {},
+                PanelAssemblyResultSchema,
+            );
+        },
+
+        /**
+         * Аудит проекта по ПУЭ-7: `POST /projects/:id/ai/audit-pue`.
+         * @param id — идентификатор проекта.
+         * @returns список замечаний и пояснение агента.
+         */
+        async auditPueAsync(id: Uuid): Promise<PueAuditResult> {
+            const projectId = UuidSchema.parse(id);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/ai/audit-pue`,
+                'POST',
+                {},
+                PueAuditResultSchema,
+            );
         },
     };
 }

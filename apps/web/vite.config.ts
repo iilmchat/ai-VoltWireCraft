@@ -8,8 +8,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    // Konva.js — крупная библиотека; порог поднят, чтобы сборка была без предупреждений.
-    chunkSizeWarningLimit: 700,
+    // React + Konva + UI-библиотеки: основной чанк ~719 КБ; порог поднят без скрытия ошибок.
+    chunkSizeWarningLimit: 800,
   },
   test: {
     environment: 'node',
