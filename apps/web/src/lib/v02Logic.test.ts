@@ -76,6 +76,7 @@ describe('buildBomRows', () => {
                     from: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
                     to: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
                     cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu' as const, length: 12 },
+                    waypointsM: [{ x: 0, y: 0 }, { x: 12, y: 0 }],
                     cableBrand: 'ВВГнг(А)-LS',
                 },
                 {
@@ -83,6 +84,7 @@ describe('buildBomRows', () => {
                     from: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
                     to: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
                     cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu' as const, length: 8 },
+                    waypointsM: [{ x: 0, y: 0 }, { x: 8, y: 0 }],
                     cableBrand: 'ВВГнг(А)-LS',
                 },
             ],

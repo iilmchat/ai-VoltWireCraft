@@ -316,3 +316,26 @@
   API-каталога; синхронизация прайса перенесена на `v0.3.0`.
 - Сводка реестра после пересчёта (RULES § 3.9): Fixed — 1, Documented — 1,
   Deferred — 2, всего 4 записи.
+- `KI-003` и `KI-004` переведены в `Fixed` в разделе UI v0.3.0 ниже; итоговая
+  сводка: Fixed — 3, Resolved — 1, всего 4 записи.
+
+### Added (UI релиза v0.3.0)
+
+- Адаптация `apps/web` к канонической `ProjectGraphSchema` версии 2: импорт
+  `.vwc` v1 и загрузка с сервера проходят через `parseVwcFile` /
+  `migrateProjectGraphV1ToV2`; экспорт записывает схему v2 с `waypointsM`.
+- Векторный слой стен `graph.walls` на `FloorPlanEditor` и магнитное прилипание
+  ЭУИ к стенам в радиусе 0,2 м (`lib/snap.ts`); кнопка «Импорт DXF/DWG»
+  вызывает `POST /projects/:id/import-cad` и добавляет нормализованные стены в граф.
+- `KI-004` закрыт: `GET /catalog/devices` с кэшем в `uiStore` (TTL 5 минут,
+  кнопка «Обновить прайс»), реальные артикулы и цены в `BillOfMaterialsTable`
+  и экспорте CSV/XLSX, фолбэк на локальный справочник в офлайн-Tauri.
+- Отображение расчётного тока КЗ, потери напряжения и зелёного/красного
+  бейджа селективности в `InspectorPanel` и `SingleLineDiagramView`; кнопка
+  «Расчёт КЗ» запускает `POST /projects/:id/short-circuit`.
+- Нативные диалоги Tauri: плагины `dialog`/`fs` в `src-tauri` (Rust + capabilities),
+  адаптер `lib/tauriAdapter.ts`, `saveProjectAsync` / `openProjectAsync`
+  в `persistence.ts`; в среде Tauri кнопки сохраняют/открывают `*.vwc` через ОС,
+  в браузере остаётся скачивание (RULES § 5.4). Индикатор «Офлайн (Tauri)» в шапке.
+- Новые строки UI добавлены в `ru.json` / `en.json`; тесты web расширены
+  (миграция v1→v2, каталог, CAD-контракты, прилипание к стенам).

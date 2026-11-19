@@ -5,8 +5,14 @@ import type { ChangeEvent } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { Locale } from '../i18n/index.js';
 import { ApiClientError, apiClient } from '../lib/apiClient.js';
-import { downloadProjectAsync, parseProject } from '../lib/persistence.js';
+import {
+    openProjectAsync,
+    parseProject,
+    saveProjectAsync,
+} from '../lib/persistence.js';
 import type { ImportErrorCode } from '../lib/persistence.js';
+import { isDesktop } from '../lib/tauriAdapter.js';
+import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { useUiStore } from '../store/uiStore.js';
 
@@ -19,6 +25,8 @@ export function Header() {
     const graph = useEditorStore((state) => state.graph);
     const serverProjectId = useEditorStore((state) => state.serverProjectId);
     const fileRef = useRef<HTMLInputElement | null>(null);
+    const cadFileRef = useRef<HTMLInputElement | null>(null);
+    const desktop = isDesktop();
 
     const importErrorKeys: Record<ImportErrorCode, Parameters<typeof t>[0]> = {
         invalidJson: 'import.invalidJson',
@@ -48,10 +56,71 @@ export function Header() {
         event.target.value = '';
     };
 
-    const handleExport = async (): Promise<void> => {
+    const projectBaseName = (): string => {
         const name = graph.name.replace(/[^\p{L}\p{N}._-]+/gu, '_');
-        await downloadProjectAsync(graph, name.length > 0 ? name : 'project');
+        return name.length > 0 ? name : 'project';
+    };
+
+    const handleExport = async (): Promise<void> => {
+        await saveProjectAsync(graph, projectBaseName());
         useEditorStore.getState().setStatus('status.projectSaved');
+    };
+
+    const handleNativeSave = async (): Promise<void> => {
+        const saved = await saveProjectAsync(graph, projectBaseName());
+        if (saved) {
+            useEditorStore.getState().setStatus('status.nativeSaved');
+        }
+    };
+
+    const handleNativeOpen = async (): Promise<void> => {
+        try {
+            const text = await openProjectAsync();
+            if (text === null) {
+                return;
+            }
+            const result = parseProject(text);
+            if (result.ok) {
+                useEditorStore.getState().setGraph(result.graph);
+                useEditorStore.getState().setStatus('status.nativeOpened');
+            } else {
+                useEditorStore.getState().setStatus(importErrorKeys[result.code]);
+            }
+        } catch {
+            useEditorStore.getState().setStatus('import.unknown');
+        }
+    };
+
+    const handleCadImport = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+        const file = event.target.files?.[0];
+        if (file === undefined) {
+            return;
+        }
+        try {
+            if (serverProjectId === null) {
+                useEditorStore.getState().setStatus('cad.noProject');
+                return;
+            }
+            const parsed = UuidSchema.safeParse(serverProjectId);
+            if (!parsed.success) {
+                useEditorStore.getState().setStatus('cad.failed');
+                return;
+            }
+            const result = await apiClient.importCadAsync(parsed.data, file);
+            const current = useEditorStore.getState().graph;
+            useEditorStore.getState().setGraph({
+                ...current,
+                walls: [...current.walls, ...result.walls],
+            });
+            useEditorStore.getState().setStatus('status.dxfImported');
+        } catch {
+            useEditorStore.getState().setStatus('cad.failed');
+        }
+        event.target.value = '';
+    };
+
+    const handleCalculate = async (): Promise<void> => {
+        await useCalculationStore.getState().loadShortCircuitAsync();
     };
 
     const handleSaveServer = async (): Promise<void> => {
@@ -159,6 +228,48 @@ export function Header() {
                 className="rounded border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-950"
             >
                 {t('header.loadServer')}
+            </button>
+            <span className={`rounded px-2 py-1 text-xs ${desktop ? 'bg-amber-900/50 text-amber-300' : 'bg-slate-800 text-slate-400'}`}>
+                {desktop ? t('header.offline') : t('header.online')}
+            </span>
+            {desktop && (
+                <>
+                    <button
+                        type="button"
+                        onClick={() => void handleNativeSave()}
+                        className="rounded border border-amber-600 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-950"
+                    >
+                        {t('header.saveNative')}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => void handleNativeOpen()}
+                        className="rounded border border-amber-600 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-950"
+                    >
+                        {t('header.openNative')}
+                    </button>
+                </>
+            )}
+            <input
+                ref={cadFileRef}
+                type="file"
+                accept=".dxf,.dwg"
+                className="hidden"
+                onChange={(event) => void handleCadImport(event)}
+            />
+            <button
+                type="button"
+                onClick={() => cadFileRef.current?.click()}
+                className="rounded border border-cyan-600 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-950"
+            >
+                {t('header.importCad')}
+            </button>
+            <button
+                type="button"
+                onClick={() => void handleCalculate()}
+                className="rounded border border-rose-600 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-950"
+            >
+                {t('header.calcShortCircuit')}
             </button>
             <button
                 type="button"

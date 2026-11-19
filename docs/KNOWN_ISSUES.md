@@ -46,38 +46,40 @@ push и pull request. Локальные интеграционные тесты
 
 ---
 
-### KI-003 — Координаты графа хранятся в пикселях подложки 🟡 Medium · Deferred (v0.3.0)
+### KI-003 — Координаты графа хранятся в пикселях подложки 🟡 Medium · Fixed (2026-11-19)
 
 **Проблема.** RULES § 5.3 требует хранить длины в базовых единицах СИ. Граф
 хранит координаты в пикселях (`positionPx`, `waypointsPx`, `polygonPx`) и
 масштаб `scaleMetersPerPx`; физические длины получаются умножением на масштаб
 в расчётном ядре.
 
-**Обоснование.** Пиксельная привязка к подложке необходима для 2D-редактора;
-перевод в метры выполняется детерминированно в `calc-engine`. Спецификация
-миграции `schemaVersion: 1 → 2` зафиксирована в `DESIGN_V020` § 3.1.1, но
-сама миграция перенесена на `v0.3.0`: в `v0.2.0` приоритет отдан расчётному
-ядру, щиту НКУ, однолинейной схеме и ИИ-агентам. Физические длины при этом
-всегда вычисляются в СИ, поэтому неверных результатов расчёта нет.
+**Решение.** В `packages/shared/src/graph.schema.ts` добавлена каноническая
+схема `ProjectGraphSchema` (`schemaVersion: 2`) с обязательными `waypointsM`
+в рёбрах; функции `migrateProjectGraphV1ToV2` / `parseVwcFile` автоматически
+мигрируют проекты v1 при чтении `.vwc` и с сервера. Web использует каноническую
+схему и мигратор, новые линии создаются сразу с метрическими координатами.
+Пиксельные координаты остаются свойством холста.
 
-**Файлы.** `packages/shared/src/graph.schema.ts`, `apps/calc-engine/app/calculator.py`,
-`docs/development/v0.2/DESIGN_V020_CALC_AND_AI_AGENTS.md` § 3.1.1.
+**Файлы.** `packages/shared/src/graph.schema.ts`, `apps/web/src/lib/persistence.ts`,
+`apps/web/src/store/editorStore.ts`, `docs/development/v0.3/DESIGN_V030_CAD_SHORT_CIRCUIT_DESKTOP.md`.
 
 ---
 
-### KI-004 — Цены в спецификации не синхронизированы с API-каталогом 🟡 Medium · Deferred (v0.3.0)
+### KI-004 — Цены в спецификации не синхронизированы с API-каталогом 🟡 Medium · Fixed (2026-11-19)
 
 **Проблема.** `BillOfMaterialsTable` и `lib/bomExport.ts` берут цены из
 локальных констант (`CABLE_PRICE_RUB_PER_M`, `DEVICE_PRICE_RUB`), а не из
 таблицы `catalog_devices`, доступной через API. При изменении прайса в
 каталоге спецификация показывает устаревшую стоимость.
 
-**Обоснование.** В `v0.2.0` каталог используется для подбора оборудования и
-компоновки щита; подключение актуальных цен к экспорту CSV/XLSX перенесено
-на `v0.3.0` вместе с версионированием прайса и валюты.
+**Решение.** Добавлен клиент `GET /catalog/devices` с Zod-валидацией и кэшем
+в `uiStore` (TTL 5 минут, ручное обновление кнопкой «Обновить прайс»).
+`BillOfMaterialsTable` и `bomExport.ts` используют реальные артикулы и цены
+каталога, а при недоступности API (офлайн-Tauri) переключаются на встроенный
+справочник. Цены и артикулы попадают в CSV/XLSX.
 
-**Файлы.** `apps/web/src/lib/bomExport.ts`, `apps/web/src/components/BillOfMaterialsTable.tsx`,
-`apps/api/src/database/schema.ts`.
+**Файлы.** `apps/web/src/lib/catalogClient.ts`, `apps/web/src/store/uiStore.ts`,
+`apps/web/src/lib/bomExport.ts`, `apps/web/src/components/BillOfMaterialsTable.tsx`.
 
 ---
 
@@ -87,9 +89,9 @@ push и pull request. Локальные интеграционные тесты
 |---|---|
 | Open | 0 |
 | In Progress | 0 |
-| Fixed | 1 |
+| Fixed | 3 |
 | Documented | 0 |
-| Deferred | 2 |
+| Deferred | 0 |
 | Won't Fix | 0 |
 | Resolved | 1 |
 | **Всего** | **4** |

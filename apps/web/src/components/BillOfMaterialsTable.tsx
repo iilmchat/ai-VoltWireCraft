@@ -1,10 +1,11 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import type { BomRow } from '../lib/bomExport.js';
 import { buildBomRows, exportBomCsvAsync, exportBomXlsxAsync } from '../lib/bomExport.js';
 import { useEditorStore } from '../store/editorStore.js';
+import { useUiStore } from '../store/uiStore.js';
 
 /** Ключи локализованных заголовков в порядке столбцов таблицы и экспорта. */
 const HEADER_KEYS: readonly TranslationKey[] = [
@@ -139,8 +140,16 @@ export function BillOfMaterialsTable() {
     const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
     const selectEdge = useEditorStore((state) => state.selectEdge);
     const selectNode = useEditorStore((state) => state.selectNode);
+    const catalog = useUiStore((state) => state.catalog);
+    const catalogLoading = useUiStore((state) => state.catalogLoading);
+    const catalogError = useUiStore((state) => state.catalogError);
 
-    const { cables, devices } = useMemo(() => buildBomRows(graph), [graph]);
+    // Каталог грузится один раз при монтировании (дальше — кэш в uiStore на 5 минут).
+    useEffect(() => {
+        void useUiStore.getState().loadCatalogAsync();
+    }, []);
+
+    const { cables, devices } = useMemo(() => buildBomRows(graph, catalog), [graph, catalog]);
     const allRows = useMemo(() => [...cables, ...devices], [cables, devices]);
     const grandTotal = useMemo(
         () => allRows.reduce((sum, row) => sum + row.totalRub, 0),
@@ -155,10 +164,34 @@ export function BillOfMaterialsTable() {
     return (
         <section className="rounded border border-slate-700 bg-slate-900 p-4">
             <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
-                    {t('bom.title')}
-                </h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+                        {t('bom.title')}
+                    </h2>
+                    <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                            catalog.length > 0 && !catalogError
+                                ? 'bg-emerald-900/60 text-emerald-300'
+                                : 'bg-amber-900/60 text-amber-300'
+                        }`}
+                        title={catalogLoading ? t('catalog.refresh' as TranslationKey) : undefined}
+                    >
+                        {catalog.length > 0 && !catalogError
+                            ? t('catalog.live' as TranslationKey)
+                            : t('catalog.offline' as TranslationKey)}
+                    </span>
+                </div>
                 <div className="flex gap-2">
+                    <button
+                        type="button"
+                        disabled={catalogLoading}
+                        onClick={() => {
+                            void useUiStore.getState().loadCatalogAsync(true);
+                        }}
+                        className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {t('catalog.refresh' as TranslationKey)}
+                    </button>
                     <button
                         type="button"
                         onClick={() => {

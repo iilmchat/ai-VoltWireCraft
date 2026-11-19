@@ -16,7 +16,7 @@ const UPLOAD_ID: Uuid = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 /** Канонический валидный граф проекта. */
 const validGraph: ProjectGraph = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: GRAPH_ID,
     name: 'Тестовый проект',
     floorPlan: {

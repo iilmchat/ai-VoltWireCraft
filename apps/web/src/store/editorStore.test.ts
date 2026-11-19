@@ -61,7 +61,8 @@ describe('editorStore (канонический граф)', () => {
         expect(edge?.cableBrand).toBe('ВВГнг(А)-LS');
         expect(edge?.cableSpecs.conductorCount).toBe(3);
         expect(edge?.cableSpecs.crossSection).toBe(1.5);
-        expect(edge?.waypointsPx).toHaveLength(2);
+        expect(edge?.waypointsPx).toHaveLength(3);
+        expect(edge?.waypointsM).toHaveLength(3);
     });
 
     it('удаляет связанные линии при удалении узла', () => {

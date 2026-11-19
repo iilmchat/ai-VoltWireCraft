@@ -19,6 +19,7 @@ import { create } from 'zustand';
 import type { TranslationKey } from '../i18n/index.js';
 import type { ScreenPoint, Viewport } from '../lib/geometry.js';
 import { effectiveScale, isValidPolygon, metersToPx, pxToMeters } from '../lib/geometry.js';
+import { snapToWalls } from '../lib/snap.js';
 
 /** Идентификатор активного инструмента. */
 export type ToolId = 'select' | 'scale' | 'room' | 'device' | 'cable';
@@ -306,11 +307,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             light_fixture: { label: 'Светильник', ratedPower: 60, ratedCurrent: 6, crossSection: 1.5, mountingHeight: 2.5 },
             appliance: { label: 'Прибор', ratedPower: 1000, ratedCurrent: 16, crossSection: 2.5, mountingHeight: 0 },
         };
+        const snapped = snapToWalls(point, state.graph.walls, scale);
         const node = GraphNodeSchema.parse({
             id: crypto.randomUUID(),
             kind,
             label: defaults[kind].label,
-            planPosition: pxToMeters(point, scale),
+            planPosition: pxToMeters(snapped, scale),
             panelSlot: null,
             roomId: null,
             specs: {
@@ -332,7 +334,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     moveNode: (id, point) => {
         const state = get();
         const scale = state.graph.floorPlan.scaleMetersPerPx;
-        const planPosition = pxToMeters(point, scale);
+        const planPosition = pxToMeters(snapToWalls(point, state.graph.walls, scale), scale);
         set({
             graph: ProjectGraphSchema.parse({
                 ...state.graph,
@@ -435,6 +437,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const targetPx = target.planPosition === null
             ? (draft.waypointsPx[draft.waypointsPx.length - 1] ?? { x: 0, y: 0 })
             : metersToPx(target.planPosition, state.graph.floorPlan.scaleMetersPerPx);
+        const source = state.graph.nodes.find((node) => node.id === draft.sourceNodeId);
+        const sourcePx = source?.planPosition === null || source === undefined
+            ? (draft.waypointsPx[0] ?? { x: 0, y: 0 })
+            : metersToPx(source.planPosition, state.graph.floorPlan.scaleMetersPerPx);
+        const waypointsPx = [
+            { x: sourcePx.x, y: sourcePx.y },
+            ...draft.waypointsPx.map((point) => ({ x: point.x, y: point.y })),
+            { x: targetPx.x, y: targetPx.y },
+        ];
+        const scale = state.graph.floorPlan.scaleMetersPerPx;
         const edge = GraphEdgeSchema.parse({
             id: crypto.randomUUID(),
             from: draft.sourceNodeId,
@@ -445,10 +457,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
                 material: 'cu',
                 length: 0,
             },
-            waypointsPx: [
-                ...draft.waypointsPx.map((point) => ({ x: point.x, y: point.y })),
-                { x: targetPx.x, y: targetPx.y },
-            ],
+            waypointsPx,
+            waypointsM: waypointsPx.map((point) => pxToMeters(point, scale)),
             edgeType: CABLE_LINE_EDGE_TYPE,
             cableBrand: 'ВВГнг(А)-LS',
         });

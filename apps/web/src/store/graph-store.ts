@@ -54,6 +54,7 @@ function createDemoGraph(): ProjectGraph {
                 edgeType: 'cable_line',
                 cableBrand: 'ВВГнг(А)-LS',
                 waypointsPx: [{ x: 100, y: 100 }, { x: 400, y: 200 }],
+                waypointsM: [{ x: 1, y: 1 }, { x: 4, y: 2 }],
             },
             {
                 id: '55555555-5555-4555-8555-555555555555',
@@ -63,6 +64,7 @@ function createDemoGraph(): ProjectGraph {
                 edgeType: 'cable_line',
                 cableBrand: 'ВВГнг(А)-LS',
                 waypointsPx: [{ x: 100, y: 100 }, { x: 600, y: 300 }],
+                waypointsM: [{ x: 1, y: 1 }, { x: 6, y: 3 }],
             },
         ],
     };

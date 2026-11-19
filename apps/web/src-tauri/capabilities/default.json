@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Разрешения для нативных диалогов и работы с файлами проекта .vwc",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    {
+      "identifier": "fs:allow-save",
+      "allow": ["**/*.vwc"]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": ["**/*.vwc"]
+    },
+    "fs:default"
+  ]
+}

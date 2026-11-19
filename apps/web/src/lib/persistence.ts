@@ -1,9 +1,16 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+/** Локальное сохранение проекта `.vwc` в формате схемы v2 (RULES § 5.4). */
 import {
     ProjectGraphSchema,
     VwcFileSchema,
+    parseVwcFile,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type { ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
+import {
+    isDesktop,
+    openProjectNativeAsync,
+    saveProjectNativeAsync,
+} from './tauriAdapter.js';
 
 /** Код ошибки импорта проекта. */
 export type ImportErrorCode =
@@ -23,31 +30,27 @@ export type ImportResult =
 const FILE_FORMAT = 'vwc-project';
 
 /** Поддерживаемая версия схемы. */
-const SUPPORTED_SCHEMA_VERSION = 1;
+export const SUPPORTED_SCHEMA_VERSION = 2;
 
 /**
- * Сериализовать граф проекта в текст файла `.vwc`.
- * Граф проверяется через ProjectGraphSchema перед записью (RULES § 1.12).
+ * Сериализовать граф проекта в текст файла `.vwc` версии 2.
  * @param graph Граф проекта.
  * @returns Строка JSON со строго валидированным графом.
  * @throws Если граф не проходит валидацию.
  */
 export function serializeProject(graph: ProjectGraph): string {
     const validatedGraph = ProjectGraphSchema.parse(graph);
-    return JSON.stringify(
-        {
-            format: FILE_FORMAT,
-            schemaVersion: SUPPORTED_SCHEMA_VERSION,
-            graph: validatedGraph,
-            savedAt: new Date().toISOString(),
-        },
-        null,
-        2,
-    );
+    const file = VwcFileSchema.parse({
+        format: FILE_FORMAT,
+        schemaVersion: SUPPORTED_SCHEMA_VERSION,
+        graph: validatedGraph,
+        savedAt: new Date().toISOString(),
+    });
+    return JSON.stringify(file, null, 2);
 }
 
 /**
- * Разобрать текст файла `.vwc` с проверкой формата, версии и графа.
+ * Разобрать текст файла `.vwc`: v1 мигрируется в v2 канонической функцией.
  * @param text Содержимое файла.
  * @returns Успешно загруженный граф или код ошибки.
  */
@@ -59,8 +62,10 @@ export function parseProject(text: string): ImportResult {
         return { ok: false, code: 'invalidJson' };
     }
 
-    const envelope = VwcFileSchema.safeParse(raw);
-    if (!envelope.success) {
+    try {
+        const file = parseVwcFile(raw);
+        return { ok: true, graph: file.graph };
+    } catch {
         const body = isRecord(raw) ? raw : null;
         if (body === null || body['format'] !== FILE_FORMAT) {
             return { ok: false, code: 'invalidFormat' };
@@ -69,17 +74,11 @@ export function parseProject(text: string): ImportResult {
         if (typeof version === 'number' && version > SUPPORTED_SCHEMA_VERSION) {
             return { ok: false, code: 'newerVersion' };
         }
-        if (typeof version === 'number' && version < SUPPORTED_SCHEMA_VERSION) {
+        if (typeof version === 'number' && version < 1) {
             return { ok: false, code: 'olderVersion' };
         }
-        const graphResult = ProjectGraphSchema.safeParse(body['graph']);
-        if (!graphResult.success) {
-            return { ok: false, code: 'invalidGraph' };
-        }
-        return { ok: false, code: 'unknown' };
+        return { ok: false, code: 'invalidGraph' };
     }
-
-    return { ok: true, graph: envelope.data.graph };
 }
 
 /**
@@ -109,4 +108,30 @@ export async function downloadProjectAsync(graph: ProjectGraph, fileName: string
     anchor.remove();
     URL.revokeObjectURL(objectUrl);
     await Promise.resolve();
+}
+
+/**
+ * Сохранить проект: нативный диалог в Tauri, скачивание в браузере (RULES § 5.4).
+ * @param graph Граф проекта.
+ * @param fileName Имя файла без расширения.
+ * @returns true, если сохранение подтверждено/инициировано.
+ */
+export async function saveProjectAsync(graph: ProjectGraph, fileName: string): Promise<boolean> {
+    const contents = serializeProject(graph);
+    if (isDesktop()) {
+        return saveProjectNativeAsync(contents, `${fileName}.vwc`);
+    }
+    await downloadProjectAsync(graph, fileName);
+    return true;
+}
+
+/**
+ * Открыть проект через нативный диалог Tauri.
+ * @returns Содержимое `.vwc` или null (браузер использует file input).
+ */
+export async function openProjectAsync(): Promise<string | null> {
+    if (!isDesktop()) {
+        return null;
+    }
+    return openProjectNativeAsync();
 }

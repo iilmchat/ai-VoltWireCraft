@@ -16,6 +16,14 @@ import type {
     PueAuditReport,
 } from './aiContracts.js';
 import {
+    CadImportResultSchema,
+    ProjectShortCircuitSchema,
+} from './cadContracts.js';
+import type {
+    CadImportResult,
+    ProjectShortCircuit,
+} from './cadContracts.js';
+import {
     CreateProjectDtoSchema,
     FloorPlanUploadDtoSchema,
     ProjectDtoSchema,
@@ -236,6 +244,38 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 'POST',
                 {},
                 PueAuditReportSchema,
+            );
+        },
+
+        /**
+         * Импорт чертежа DXF/DWG: `POST /projects/:id/import-cad`.
+         * @param id — идентификатор проекта.
+         * @param file — файл чертежа.
+         * @returns нормализованные слои стен.
+         */
+        async importCadAsync(id: Uuid, file: File): Promise<CadImportResult> {
+            const projectId = UuidSchema.parse(id);
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetchFn(
+                `${baseUrl}/projects/${encodeURIComponent(projectId)}/import-cad`,
+                { method: 'POST', body: formData },
+            );
+            return parseResponse(response, CadImportResultSchema);
+        },
+
+        /**
+         * Расчёт однофазного КЗ и селективности: `POST /projects/:id/short-circuit`.
+         * @param id — идентификатор проекта.
+         * @returns токи КЗ, потери напряжения и статус селективности.
+         */
+        async calculateShortCircuitAsync(id: Uuid): Promise<ProjectShortCircuit> {
+            const projectId = UuidSchema.parse(id);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/short-circuit`,
+                'POST',
+                {},
+                ProjectShortCircuitSchema,
             );
         },
     };

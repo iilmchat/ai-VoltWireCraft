@@ -328,6 +328,21 @@ export function FloorPlanEditor() {
                         )}
                     </Layer>
 
+                    <Layer listening={false}>
+                        {graph.walls.map((wall) => {
+                            const points = wall.path.map((point) => metersToPx(point, scale));
+                            return (
+                                <Line
+                                    key={wall.id}
+                                    points={flattenPoints(points)}
+                                    stroke={wall.kind === 'doorway' ? '#22c55e' : wall.kind === 'window' ? '#38bdf8' : '#e2e8f0'}
+                                    strokeWidth={wall.kind === 'wall' ? 4 : 2}
+                                    dash={wall.kind === 'partition' ? [8, 4] : undefined}
+                                />
+                            );
+                        })}
+                    </Layer>
+
                     <Layer>
                         {graph.rooms.map((room: RoomZone) => {
                             const points = room.polygon.map((point) => metersToPx(point, scale));

@@ -3,6 +3,7 @@ import type { GraphEdge, GraphNode, NodeKind, ProjectGraph } from '@voltwirecraf
 import { useMemo, useRef } from 'react';
 import { useI18n } from '../i18n/index.js';
 import { downloadPdfAsync, downloadPngAsync, downloadSvgAsync } from '../lib/diagramExport.js';
+import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 
 /** Ширина символа узла, px. */
@@ -276,6 +277,7 @@ export function SingleLineDiagramView(): React.JSX.Element {
     const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId);
     const selectNode = useEditorStore((state) => state.selectNode);
     const selectEdge = useEditorStore((state) => state.selectEdge);
+    const shortCircuit = useCalculationStore((state) => state.shortCircuit);
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const layout = useMemo(() => buildLayout(graph), [graph]);
@@ -413,8 +415,12 @@ export function SingleLineDiagramView(): React.JSX.Element {
                             const selected = edge.id === selectedEdgeId;
                             const labelX = target.x + NODE_WIDTH + 10;
                             const labelY = target.y + 8;
+                            const scLine = shortCircuit?.lines.find((item) => item.edgeId === edge.id);
                             const firstLine = `${edge.cableBrand ?? '—'} · ${edge.cableSpecs.crossSection}мм²`;
                             const secondLine = `${edge.cableSpecs.length.toFixed(1)}м · ${(target.node.specs.ratedPower / 1000).toFixed(2)}кВт · ${target.node.specs.ratedCurrent}А`;
+                            const thirdLine = scLine === undefined
+                                ? 'Iкз: —'
+                                : `Iкз ${scLine.shortCircuitCurrentA.toFixed(0)}A · ΔU ${scLine.voltageDropPercent.toFixed(1)}% · ${scLine.selectivityOk ? 'OK' : 'ERR'}`;
                             return (
                                 <g
                                     key={edge.id}
@@ -425,7 +431,7 @@ export function SingleLineDiagramView(): React.JSX.Element {
                                         x={labelX}
                                         y={labelY}
                                         width={180}
-                                        height={34}
+                                        height={48}
                                         rx={3}
                                         fill="#f8fafc"
                                         stroke={selected ? '#38bdf8' : '#cbd5e1'}
@@ -436,6 +442,14 @@ export function SingleLineDiagramView(): React.JSX.Element {
                                     </text>
                                     <text x={labelX + 6} y={labelY + 27} fontSize={10} fill="#334155">
                                         {truncate(secondLine, 30)}
+                                    </text>
+                                    <text
+                                        x={labelX + 6}
+                                        y={labelY + 41}
+                                        fontSize={10}
+                                        fill={scLine === undefined ? '#64748b' : scLine.selectivityOk ? '#15803d' : '#b91c1c'}
+                                    >
+                                        {truncate(thirdLine, 30)}
                                     </text>
                                 </g>
                             );

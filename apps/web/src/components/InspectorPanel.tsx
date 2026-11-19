@@ -3,6 +3,7 @@ import type { RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import { useEditorStore } from '../store/editorStore.js';
+import { ShortCircuitBadge } from './ShortCircuitBadge.js';
 
 /** Типы помещений, доступные в инспекторе. */
 const ROOM_KINDS: readonly RoomZoneType[] = ['living', 'wet', 'kitchen', 'outdoor', 'utility'];
@@ -118,6 +119,7 @@ export function InspectorPanel() {
                             ? '—'
                             : `${node.planPosition.x.toFixed(3)}, ${node.planPosition.y.toFixed(3)}`}
                     </p>
+                    <ShortCircuitBadge />
                 </div>
             )}
 
@@ -206,6 +208,7 @@ export function InspectorPanel() {
                     <p className="text-xs text-slate-500">
                         {t('cable.waypoints')}: {edge.waypointsPx?.length ?? 0}
                     </p>
+                    <ShortCircuitBadge edgeId={edge.id} />
                 </div>
             )}
 

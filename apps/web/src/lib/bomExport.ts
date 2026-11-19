@@ -1,5 +1,6 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 import type { GraphEdge, GraphNode, ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
+import type { CatalogDevice } from './catalogClient.js';
 
 /** Марка кабеля по умолчанию, если в ребре графа марка не указана. */
 const DEFAULT_CABLE_BRAND = 'ВВГнг(А)-LS';
@@ -150,6 +151,81 @@ function deviceArticle(kind: DeviceBomKind, currentA: number): string {
     }
 }
 
+/** Соответствие типа УГО узла типу устройства в каталоге. */
+const DEVICE_KIND_TO_CATALOG_TYPE: Readonly<Partial<Record<GraphNode['kind'], CatalogDevice['deviceType']>>> = {
+    panel: 'panel',
+    circuit_breaker: 'circuit_breaker',
+    rcd: 'rcd',
+    rcbo: 'rcbo',
+    relay_voltage: 'relay_voltage',
+    contactor: 'contactor',
+};
+
+/**
+ * Привести текст к сопоставимому виду: нижний регистр и только буквы/цифры.
+ * @param value Исходная строка (наименование или артикул).
+ * @returns Нормализованная строка.
+ */
+function normalizeCatalogText(value: string): string {
+    return value.toLocaleLowerCase('ru-RU').replace(/[^a-zа-яё0-9]+/gi, '');
+}
+
+/**
+ * Найти позицию каталога для узла-аппарата по типу, номинальному току,
+ * нормализованному наименованию и артикулу.
+ * @param node Узел графа-аппарата.
+ * @param catalog Загруженный каталог с актуальными ценами.
+ * @returns Наиболее подходящая позиция либо `undefined` (тогда используется локальная цена).
+ */
+function findCatalogDevice(
+    node: GraphNode,
+    catalog: readonly CatalogDevice[],
+): CatalogDevice | undefined {
+    const wantedType = DEVICE_KIND_TO_CATALOG_TYPE[node.kind];
+    const wantedCurrent = node.specs.ratedCurrent;
+    const label = normalizeCatalogText(node.label);
+    const currentText = String(wantedCurrent);
+    let best: { device: CatalogDevice; score: number } | undefined;
+
+    for (const device of catalog) {
+        const name = normalizeCatalogText(device.name);
+        const sku = normalizeCatalogText(device.sku);
+        let score = 0;
+
+        if (label.length > 0) {
+            if (label === name || label === sku) {
+                score += 8;
+            } else if (
+                (name.length > 0 && label.includes(name))
+                || (sku.length > 0 && label.includes(sku))
+                || (name.length > 0 && name.includes(label))
+                || (sku.length > 0 && sku.includes(label))
+            ) {
+                score += 4;
+            }
+        }
+        if (wantedType !== undefined && device.deviceType === wantedType) {
+            score += 3;
+        }
+        if (device.ratedCurrentA === wantedCurrent) {
+            score += 2;
+        }
+        if (name.includes(currentText) || sku.includes(currentText)) {
+            score += 1;
+        }
+
+        // Требуем либо совпадение типа, либо совпадение имени/артикула.
+        if (score < 3) {
+            continue;
+        }
+        if (best === undefined || score > best.score) {
+            best = { device, score };
+        }
+    }
+
+    return best?.device;
+}
+
 /**
  * Построить спецификацию кабелей и защитных аппаратов из канонического графа.
  *
@@ -158,9 +234,14 @@ function deviceArticle(kind: DeviceBomKind, currentA: number): string {
  * и масштабу плана (RULES § 5.2, § 5.3).
  *
  * @param graph Канонический граф проекта — единственный источник истины.
+ * @param catalog Каталог с актуальными ценами (KI-004); если не передан,
+ * используются локальные справочные цены и артикулы.
  * @returns Две группы строк спецификации: кабели и защитные аппараты.
  */
-export function buildBomRows(graph: ProjectGraph): { cables: BomRow[]; devices: BomRow[] } {
+export function buildBomRows(
+    graph: ProjectGraph,
+    catalog: readonly CatalogDevice[] = [],
+): { cables: BomRow[]; devices: BomRow[] } {
     const cableGroups = new Map<string, {
         brand: string;
         crossSection: number;
@@ -210,12 +291,13 @@ export function buildBomRows(graph: ProjectGraph): { cables: BomRow[]; devices: 
         if (!isDeviceBomKind(node.kind)) {
             continue;
         }
-        const priceRub = DEVICE_PRICE_RUB[node.kind];
+        const catalogDevice = catalog.length > 0 ? findCatalogDevice(node, catalog) : undefined;
+        const priceRub = catalogDevice?.priceRub ?? DEVICE_PRICE_RUB[node.kind];
         devices.push({
             name: node.label,
             quantity: 1,
             lengthM: null,
-            article: deviceArticle(node.kind, node.specs.ratedCurrent),
+            article: catalogDevice?.sku ?? deviceArticle(node.kind, node.specs.ratedCurrent),
             priceRub,
             totalRub: roundMoney(priceRub),
             sourceId: node.id,
