@@ -16,9 +16,12 @@ import type {
     ProjectDto,
     ProjectGraph,
 } from '@voltwirecraft/shared/graph.schema.js';
+import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
 import { DRIZZLE_DB } from '../database/drizzle.provider.js';
 import type { Database } from '../database/drizzle.provider.js';
 import { floorPlans, projects } from '../database/schema.js';
+import { buildCableRequest, ProjectCalculationDtoSchema } from './calculation.js';
+import type { CalculationEdge, ProjectCalculationDto } from './calculation.js';
 import { detectFloorPlanType } from './file-signature.js';
 import type { UploadedFloorPlanFile } from './file-signature.js';
 import { FLOOR_PLAN_STORAGE } from './storage/floor-plan-storage.js';
@@ -36,10 +39,12 @@ export class ProjectsService {
   /**
    * @param db — типизированный Drizzle-клиент.
    * @param storage — хранилище файлов подложек.
+   * @param calcClient — клиент детерминированного расчётного ядра.
    */
   public constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
     @Inject(FLOOR_PLAN_STORAGE) private readonly storage: FloorPlanStorage,
+    @Inject(CalcEngineClient) private readonly calcClient: CalcEngineClient,
   ) {}
 
   /**
@@ -124,6 +129,44 @@ export class ProjectsService {
       throw new NotFoundException(`Проект ${id} не найден`);
     }
     return this.mapToDto(row);
+  }
+
+  /**
+   * Прогоняет все кабельные линии графа через расчётное ядро.
+   * Линии рассчитываются независимо: отказ одной не прерывает остальные
+   * (RULES § 4.13). Математика выполняется только в calc-engine (RULES § 5.1).
+   *
+   * @param id — идентификатор проекта.
+   * @returns суммарная длина и статус каждой линии.
+   * @throws {NotFoundException} если проект не найден.
+   */
+  public async calculateAsync(id: string): Promise<ProjectCalculationDto> {
+    const project = await this.getByIdAsync(id);
+    const edges = project.graph.edges;
+
+    const results = await Promise.allSettled(
+      edges.map(async (edge) =>
+        this.calcClient.calculateCableLengthAsync(buildCableRequest(project.graph, edge)),
+      ),
+    );
+
+    const calculated: CalculationEdge[] = edges.map((edge, index) => {
+      const result = results[index];
+      if (result?.status === 'fulfilled') {
+        return { edgeId: edge.id, status: 'ok', lengthM: result.value.lengthM };
+      }
+      return {
+        edgeId: edge.id,
+        status: 'error',
+        error:
+          result?.status === 'rejected'
+            ? String(result.reason)
+            : 'Неизвестная ошибка расчёта линии',
+      };
+    });
+
+    const totalLengthM = calculated.reduce((sum, item) => sum + (item.lengthM ?? 0), 0);
+    return ProjectCalculationDtoSchema.parse({ projectId: id, totalLengthM, edges: calculated });
   }
 
   /**

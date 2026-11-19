@@ -17,6 +17,7 @@ import type {
 } from '@voltwirecraft/shared/graph.schema.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import type { ApiResponse } from '../common/api-response.js';
+import type { ProjectCalculationDto } from './calculation.js';
 import { MAX_FLOOR_PLAN_SIZE_BYTES } from './file-signature.js';
 import type { UploadedFloorPlanFile } from './file-signature.js';
 import { ProjectsService } from './projects.service.js';
@@ -71,6 +72,20 @@ export class ProjectsController {
   ): Promise<ApiResponse<ProjectDto>> {
     const data = await this.service.updateGraphAsync(id, dto.graph);
     return { success: true, data, message: 'Граф сохранён' };
+  }
+
+  /**
+   * Рассчитывает длины кабельных линий графа в расчётном ядре.
+   *
+   * @param id — UUID проекта.
+   * @returns суммарная длина и статус каждой линии в обёртке `ApiResponse`.
+   */
+  @Post(':id/calculate')
+  public async calculateAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+  ): Promise<ApiResponse<ProjectCalculationDto>> {
+    const data = await this.service.calculateAsync(id);
+    return { success: true, data, message: 'Расчёт выполнен' };
   }
 
   /**

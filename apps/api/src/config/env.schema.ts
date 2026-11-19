@@ -15,6 +15,15 @@ export const EnvSchema = z.object({
     .url()
     .refine((value) => /^https?:\/\//.test(value), 'Ожидается http:// или https://'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // LLM-роутер: OpenAI-совместимый cloud API или локальный LM Studio / Ollama.
+  LLM_BASE_URL: z
+    .url()
+    .refine((value) => /^https?:\/\//.test(value), 'Ожидается http:// или https://')
+    .default('https://api.openai.com'),
+  /** Для локальных провайдеров допускается заглушка; реальный ключ — только в `.env`. */
+  LLM_API_KEY: z.string().min(1).optional(),
+  LLM_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  EMBEDDING_MODEL: z.string().min(1).default('text-embedding-3-small'),
   // Хранилище подложек: локальная файловая система или S3-совместимое хранилище.
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   LOCAL_STORAGE_DIR: z.string().min(1).default('./storage/floor-plans'),

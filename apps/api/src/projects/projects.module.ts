@@ -3,6 +3,7 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CalcEngineModule } from '../calc-engine/calc-engine.module.js';
 import { drizzleProvider } from '../database/drizzle.provider.js';
 import { floorPlanStorageProvider } from './storage/floor-plan-storage.js';
 import { ProjectsController } from './projects.controller.js';
@@ -10,7 +11,7 @@ import { ProjectsService } from './projects.service.js';
 
 /** Модуль хранения проектов и подложек. */
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, CalcEngineModule],
   controllers: [ProjectsController],
   providers: [ProjectsService, drizzleProvider, floorPlanStorageProvider],
   exports: [ProjectsService],
