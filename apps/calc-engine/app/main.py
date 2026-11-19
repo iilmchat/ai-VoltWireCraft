@@ -11,11 +11,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
+from .auto_panel import auto_assemble_panel
 from .calculator import calculate_cable_length
+from .line_sizing import calculate_line_sizing
 from .schemas import (
+    AutoPanelRequest,
+    AutoPanelResponse,
     CalculateCableLengthRequest,
     CalculateCableLengthResponse,
     HealthResponse,
+    LineSizingRequest,
+    LineSizingResponse,
 )
 
 app = FastAPI(
@@ -46,6 +52,18 @@ def calculate_cable_length_endpoint(
 ) -> CalculateCableLengthResponse:
     """Рассчитывает длину кабельной линии по точкам трассы и высотам."""
     return calculate_cable_length(request)
+
+
+@app.post("/v1/calc/line-sizing", response_model=LineSizingResponse)
+def calculate_line_sizing_endpoint(request: LineSizingRequest) -> LineSizingResponse:
+    """Подбирает сечение кабеля, автомат и УЗО по мощности и длине линии."""
+    return calculate_line_sizing(request)
+
+
+@app.post("/v1/calc/auto-panel", response_model=AutoPanelResponse)
+def auto_assemble_panel_endpoint(request: AutoPanelRequest) -> AutoPanelResponse:
+    """Собирает щит НКУ: группы, фазы и расстановку модулей на DIN-рейке."""
+    return auto_assemble_panel(request)
 
 
 # Обратная совместимость с ранним каркасом: прежний путь остаётся рабочим.
