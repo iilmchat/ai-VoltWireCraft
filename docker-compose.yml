@@ -1,0 +1,84 @@
+name: voltwirecraft
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: vwc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-voltwirecraft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-replace-with-local-dev-password}
+      POSTGRES_DB: ${POSTGRES_DB:-voltwirecraft}
+    ports:
+      - '${POSTGRES_PORT:-5436}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: vwc-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6381}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: vwc-minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-replace-with-local-dev-user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-replace-with-local-dev-password}
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  calc-engine:
+    build:
+      context: ./apps/calc-engine
+      dockerfile: Dockerfile
+    image: voltwirecraft/calc-engine:0.1.0
+    container_name: vwc-calc-engine
+    restart: unless-stopped
+    environment:
+      CALC_ENGINE_HOST: 0.0.0.0
+      CALC_ENGINE_PORT: 8000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '${CALC_ENGINE_PORT:-8000}:8000'
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2)'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

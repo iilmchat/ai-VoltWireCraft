@@ -1,0 +1,34 @@
+# Зависимости и сборки
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# Переменные окружения и локальные секреты
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Логи, ОС, редакторы
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,32 @@
+[project]
+name = "voltwirecraft-calc-engine"
+version = "0.1.0"
+description = "Детерминированное расчётное ядро VoltWireCraft: длины трасс, сечения и проверки ПУЭ-7"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "pydantic>=2.9,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27,<1.0",
+    "pytest>=8.3,<10.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+# Внешний pytest-asyncio предупреждает о незаданном scope; ядро синхронное.
+filterwarnings = [
+    "ignore:.*asyncio_default_fixture_loop_scope.*:pytest.PytestDeprecationWarning",
+]

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node (typecheck / lint / test / build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build shared contracts
+        run: pnpm --filter @voltwirecraft/shared build
+
+      - name: Typecheck
+        run: pnpm --filter @voltwirecraft/shared typecheck && pnpm --filter api typecheck && pnpm --filter web typecheck
+
+      - name: Test
+        run: pnpm --filter @voltwirecraft/shared test && pnpm --filter api test && pnpm --filter web test
+
+      - name: Build API
+        run: pnpm --filter api build
+
+      - name: Build Web
+        run: pnpm --filter web build
+
+  python:
+    name: Python (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/calc-engine/requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+        working-directory: apps/calc-engine
+
+      - name: Test
+        run: python -m pytest
+        working-directory: apps/calc-engine
+
+  compose:
+    name: Docker Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate compose file
+        run: docker compose config --quiet

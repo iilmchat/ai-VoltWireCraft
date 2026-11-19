@@ -1,0 +1,37 @@
+{
+  "name": "voltwirecraft",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "VoltWireCraft — монорепозиторий САПР электрических сетей 0,4 кВ и сборки щитов НКУ",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22 <25",
+    "pnpm": ">=12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "compose:config": "docker compose config --quiet",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.6",
+    "eslint": "10.15.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.1",
+    "turbo": "2.11.13",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.73.0",
+    "vitest": "5.1.1"
+  },
+  "lint-staged": {
+    "*": "node scripts/check-secrets.mjs",
+    "*.{js,mjs,cjs,ts,tsx}": "eslint --fix"
+  }
+}
