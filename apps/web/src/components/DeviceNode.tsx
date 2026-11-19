@@ -1,33 +1,33 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import type { ElectricalDevice } from '@voltwirecraft/shared';
+import type { GraphNode } from '@voltwirecraft/shared/graph.schema.js';
 import { Circle, Group, Line, Rect, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ScreenPoint } from '../lib/geometry.js';
 
 /** Свойства узла ЭУИ на холсте. */
 export interface DeviceNodeProps {
-    /** ЭУИ из графа. */
-    device: ElectricalDevice;
+    /** Узел канонического графа. */
+    node: GraphNode;
     /** Позиция в пикселях подложки. */
-    position: ScreenPoint;
+    positionPx: ScreenPoint;
     /** Признак выделения. */
     selected: boolean;
-    /** Разрешить перетаскивание (только инструмент «Выбор»). */
+    /** Разрешить перетаскивание. */
     draggable: boolean;
-    /** Обработчик выбора. */
+    /** Обработчик выбора узла. */
     onSelect: () => void;
     /** Обработчик перемещения (позиция в пикселях подложки). */
     onMove: (point: ScreenPoint) => void;
 }
 
 /**
- * Условное графическое обозначение ЭУИ на плане.
+ * Условное графическое обозначение узла графа на плане.
  * @param props Свойства узла.
  * @returns React-элемент группы Konva.
  */
 export function DeviceNode({
-    device,
-    position,
+    node,
+    positionPx,
     selected,
     draggable,
     onSelect,
@@ -42,14 +42,14 @@ export function DeviceNode({
 
     return (
         <Group
-            x={position.x}
-            y={position.y}
+            x={positionPx.x}
+            y={positionPx.y}
             draggable={draggable}
             onDragEnd={handleDragEnd}
             onClick={onSelect}
             onTap={onSelect}
         >
-            {device.kind === 'panel' && (
+            {node.kind === 'panel' && (
                 <>
                     <Rect
                         x={-20}
@@ -61,17 +61,17 @@ export function DeviceNode({
                         strokeWidth={strokeWidth}
                         cornerRadius={3}
                     />
-                    <Text x={-7} y={-7} text="НКУ" fontSize={10} fill="#e0f2fe" />
+                    <Text x={-8} y={-6} text="НКУ" fontSize={10} fill="#e0f2fe" />
                 </>
             )}
-            {device.kind === 'socket' && (
+            {node.kind === 'socket' && (
                 <>
                     <Circle radius={11} fill="#fef3c7" stroke={stroke} strokeWidth={strokeWidth} />
                     <Line points={[-5, -5, 5, 5]} stroke="#92400e" strokeWidth={2} />
                     <Line points={[-5, 5, 5, -5]} stroke="#92400e" strokeWidth={2} />
                 </>
             )}
-            {device.kind === 'switch' && (
+            {node.kind === 'switch' && (
                 <>
                     <Rect
                         x={-9}
@@ -86,14 +86,14 @@ export function DeviceNode({
                     <Line points={[-5, 3, 5, -3]} stroke="#166534" strokeWidth={2} />
                 </>
             )}
-            {device.kind === 'light_fixture' && (
+            {node.kind === 'light_fixture' && (
                 <>
                     <Circle radius={12} fill="#fef9c3" stroke={stroke} strokeWidth={strokeWidth} />
                     <Line points={[-7, 0, 7, 0]} stroke="#a16207" strokeWidth={2} />
                     <Line points={[0, -7, 0, 7]} stroke="#a16207" strokeWidth={2} />
                 </>
             )}
-            {device.kind === 'appliance' && (
+            {node.kind === 'appliance' && (
                 <>
                     <Rect
                         x={-13}
@@ -108,12 +108,15 @@ export function DeviceNode({
                     <Text x={-9} y={-6} text="П" fontSize={11} fill="#9f1239" />
                 </>
             )}
+            {!['panel', 'socket', 'switch', 'light_fixture', 'appliance'].includes(node.kind) && (
+                <Circle radius={10} fill="#cbd5e1" stroke={stroke} strokeWidth={strokeWidth} />
+            )}
             <Text
                 x={-55}
                 y={16}
                 width={110}
                 align="center"
-                text={device.ugo}
+                text={node.label}
                 fontSize={11}
                 fill="#e2e8f0"
                 listening={false}

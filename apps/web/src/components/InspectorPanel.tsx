@@ -1,22 +1,26 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { ROOM_TYPES } from '@voltwirecraft/shared';
-import type { RoomType } from '@voltwirecraft/shared';
+import type { RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import { useEditorStore } from '../store/editorStore.js';
 
+/** Типы помещений, доступные в инспекторе. */
+const ROOM_KINDS: readonly RoomZoneType[] = ['living', 'wet', 'kitchen', 'outdoor', 'utility'];
+
 /**
- * Правая панель свойств выбранного ЭУИ или помещения.
+ * Правая панель свойств узла, зоны или кабельной линии.
  * @returns React-элемент панели.
  */
 export function InspectorPanel() {
     const { t } = useI18n();
     const graph = useEditorStore((state) => state.graph);
-    const selectedDeviceId = useEditorStore((state) => state.selectedDeviceId);
+    const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
     const selectedRoomId = useEditorStore((state) => state.selectedRoomId);
+    const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId);
 
-    const device = graph.devices.find((item) => item.id === selectedDeviceId) ?? null;
+    const node = graph.nodes.find((item) => item.id === selectedNodeId) ?? null;
     const room = graph.rooms.find((item) => item.id === selectedRoomId) ?? null;
+    const edge = graph.edges.find((item) => item.id === selectedEdgeId) ?? null;
     const scale = graph.floorPlan.scaleMetersPerPx;
 
     return (
@@ -25,18 +29,18 @@ export function InspectorPanel() {
                 {t('inspector.title')}
             </h2>
 
-            {device !== null && (
+            {node !== null && (
                 <div className="flex flex-col gap-4">
                     <div className="rounded bg-slate-800 px-3 py-2 text-xs text-slate-300">
-                        {t(`device.${device.kind}` as TranslationKey)}
+                        {t(`device.${node.kind}` as TranslationKey)}
                     </div>
                     <label className="block">
                         <span className="mb-1 block text-xs text-slate-400">{t('inspector.ugo')}</span>
                         <input
                             type="text"
-                            value={device.ugo}
+                            value={node.label}
                             onChange={(event) =>
-                                useEditorStore.getState().updateDevice(device.id, { ugo: event.target.value })
+                                useEditorStore.getState().updateNode(node.id, { label: event.target.value })
                             }
                             className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
                         />
@@ -47,11 +51,11 @@ export function InspectorPanel() {
                             type="number"
                             min="0"
                             step="any"
-                            value={device.powerW}
+                            value={node.specs.ratedPower}
                             onChange={(event) => {
                                 const value = Number(event.target.value);
                                 if (Number.isFinite(value) && value >= 0) {
-                                    useEditorStore.getState().updateDevice(device.id, { powerW: value });
+                                    useEditorStore.getState().updateNode(node.id, { ratedPower: value });
                                 }
                             }}
                             className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
@@ -63,11 +67,11 @@ export function InspectorPanel() {
                             type="number"
                             min="0"
                             step="any"
-                            value={device.mountingHeightM}
+                            value={node.specs.mountingHeight}
                             onChange={(event) => {
                                 const value = Number(event.target.value);
                                 if (Number.isFinite(value) && value >= 0) {
-                                    useEditorStore.getState().updateDevice(device.id, { mountingHeightM: value });
+                                    useEditorStore.getState().updateNode(node.id, { mountingHeight: value });
                                 }
                             }}
                             className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
@@ -76,9 +80,9 @@ export function InspectorPanel() {
                     <label className="block">
                         <span className="mb-1 block text-xs text-slate-400">{t('inspector.room')}</span>
                         <select
-                            value={device.roomId ?? ''}
+                            value={node.roomId ?? ''}
                             onChange={(event) =>
-                                useEditorStore.getState().updateDevice(device.id, {
+                                useEditorStore.getState().updateNode(node.id, {
                                     roomId: event.target.value === '' ? null : event.target.value,
                                 })
                             }
@@ -93,12 +97,15 @@ export function InspectorPanel() {
                         </select>
                     </label>
                     <p className="text-xs text-slate-500">
-                        {t('inspector.position')}: {device.position.x.toFixed(3)}, {device.position.y.toFixed(3)}
+                        {t('inspector.position')}:{' '}
+                        {node.planPosition === null
+                            ? '—'
+                            : `${node.planPosition.x.toFixed(3)}, ${node.planPosition.y.toFixed(3)}`}
                     </p>
                 </div>
             )}
 
-            {device === null && room !== null && (
+            {node === null && room !== null && (
                 <div className="flex flex-col gap-4">
                     <label className="block">
                         <span className="mb-1 block text-xs text-slate-400">{t('inspector.roomName')}</span>
@@ -117,25 +124,76 @@ export function InspectorPanel() {
                             value={room.type}
                             onChange={(event) =>
                                 useEditorStore.getState().updateRoom(room.id, {
-                                    type: event.target.value as RoomType,
+                                    type: event.target.value as RoomZoneType,
                                 })
                             }
                             className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
                         >
-                            {ROOM_TYPES.map((type) => (
-                                <option key={type} value={type}>
-                                    {t(`room.${type}` as TranslationKey)}
+                            {ROOM_KINDS.map((kind) => (
+                                <option key={kind} value={kind}>
+                                    {t(`room.${kind}` as TranslationKey)}
                                 </option>
                             ))}
                         </select>
                     </label>
+                </div>
+            )}
+
+            {node === null && room === null && edge !== null && (
+                <div className="flex flex-col gap-4">
+                    <div className="rounded bg-slate-800 px-3 py-2 text-xs text-slate-300">
+                        {edge.edgeType === 'cable_line' ? t('cable.type') : t('inspector.cableLine')}
+                    </div>
+                    <label className="block">
+                        <span className="mb-1 block text-xs text-slate-400">{t('cable.brand')}</span>
+                        <input
+                            type="text"
+                            value={edge.cableBrand ?? ''}
+                            onChange={(event) =>
+                                useEditorStore.getState().updateEdge(edge.id, { cableBrand: event.target.value })
+                            }
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1 block text-xs text-slate-400">{t('cable.crossSection')}</span>
+                        <input
+                            type="number"
+                            min="0.1"
+                            step="0.1"
+                            value={edge.cableSpecs.crossSection}
+                            onChange={(event) => {
+                                const value = Number(event.target.value);
+                                if (Number.isFinite(value) && value > 0) {
+                                    useEditorStore.getState().updateEdge(edge.id, { crossSection: value });
+                                }
+                            }}
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1 block text-xs text-slate-400">{t('cable.conductors')}</span>
+                        <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={edge.cableSpecs.conductorCount}
+                            onChange={(event) => {
+                                const value = Number(event.target.value);
+                                if (Number.isFinite(value) && value > 0) {
+                                    useEditorStore.getState().updateEdge(edge.id, { conductorCount: value });
+                                }
+                            }}
+                            className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
+                        />
+                    </label>
                     <p className="text-xs text-slate-500">
-                        {t('palette.roomType')}: {t(`room.${room.type}` as TranslationKey)}
+                        {t('cable.waypoints')}: {edge.waypointsPx?.length ?? 0}
                     </p>
                 </div>
             )}
 
-            {device === null && room === null && (
+            {node === null && room === null && edge === null && (
                 <div className="flex flex-col gap-3 text-sm text-slate-400">
                     <p>{t('inspector.noSelection')}</p>
                     <div className="mt-2 rounded border border-slate-700 bg-slate-800/50 p-3 text-xs">

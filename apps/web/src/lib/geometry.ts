@@ -1,5 +1,4 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import type { Point } from '@voltwirecraft/shared';
 
 /** Точка в пикселях холста/подложки. */
 export interface ScreenPoint {
@@ -45,7 +44,7 @@ export function effectiveScale(scaleMetersPerPx: number | null): number {
  * @param scaleMetersPerPx Масштаб метры/пикс.
  * @returns Точка в метрах.
  */
-export function pxToMeters(point: ScreenPoint, scaleMetersPerPx: number | null): Point {
+export function pxToMeters(point: ScreenPoint, scaleMetersPerPx: number | null): ScreenPoint {
     const scale = effectiveScale(scaleMetersPerPx);
     return { x: point.x * scale, y: point.y * scale };
 }
@@ -56,7 +55,7 @@ export function pxToMeters(point: ScreenPoint, scaleMetersPerPx: number | null):
  * @param scaleMetersPerPx Масштаб метры/пикс.
  * @returns Точка в пикселях.
  */
-export function metersToPx(point: Point, scaleMetersPerPx: number | null): ScreenPoint {
+export function metersToPx(point: ScreenPoint, scaleMetersPerPx: number | null): ScreenPoint {
     const scale = effectiveScale(scaleMetersPerPx);
     return { x: point.x / scale, y: point.y / scale };
 }

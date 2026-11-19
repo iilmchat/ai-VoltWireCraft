@@ -1,6 +1,5 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import type { DeviceKind, RoomType } from '@voltwirecraft/shared';
-import { DEVICE_KINDS } from '@voltwirecraft/shared';
+import type { GraphNode, RoomZone, RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
 import { Circle, Image as KonvaImage, Layer, Line, Stage, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useEffect, useRef, useState } from 'react';
@@ -18,12 +17,15 @@ import {
 } from '../lib/geometry.js';
 import type { ScreenPoint } from '../lib/geometry.js';
 import { useEditorStore } from '../store/editorStore.js';
+import type { UiDeviceKind } from '../store/editorStore.js';
+import { CableRouteTool } from './tools/CableRouteTool.js';
+import { UI_DEVICE_KINDS } from './tools/DevicePlacementTool.js';
 import { DeviceNode } from './DeviceNode.js';
 import { RoomZoneTool } from './tools/RoomZoneTool.js';
 import { ScaleCalibratorTool } from './tools/ScaleCalibratorTool.js';
 
 /** Цвета заливки типов помещений. */
-const ROOM_COLORS: Record<RoomType, string> = {
+const ROOM_COLORS: Record<RoomZoneType, string> = {
     living: '#38bdf8',
     wet: '#22d3ee',
     kitchen: '#fbbf24',
@@ -32,12 +34,12 @@ const ROOM_COLORS: Record<RoomType, string> = {
 };
 
 /**
- * Проверить, что строка — поддерживаемый тип ЭУИ.
+ * Проверить, что строка — поддерживаемый тип ЭУИ палитры.
  * @param value Проверяемое значение.
  * @returns true для типа из DEVICE_KINDS.
  */
-function isDeviceKind(value: string): value is DeviceKind {
-    return DEVICE_KINDS.some((kind) => kind === value);
+function isUiDeviceKind(value: string): value is UiDeviceKind {
+    return UI_DEVICE_KINDS.some((kind) => kind === value);
 }
 
 /**
@@ -54,7 +56,7 @@ function isEditingTarget(target: EventTarget | null): boolean {
 
 /**
  * Интерактивный холст редактора плана.
- * Слои: подложка → помещения → ЭУИ → инструменты (RULES § 5.2).
+ * Слои: подложка → помещения → ЭУИ → трассы → инструменты (RULES § 5.2).
  * @returns React-элемент редактора.
  */
 export function FloorPlanEditor() {
@@ -72,15 +74,16 @@ export function FloorPlanEditor() {
     const armedDeviceKind = useEditorStore((state) => state.armedDeviceKind);
     const roomDraft = useEditorStore((state) => state.roomDraft);
     const scaleDraft = useEditorStore((state) => state.scaleDraft);
+    const cableDraft = useEditorStore((state) => state.cableDraft);
     const backgroundImage = useEditorStore((state) => state.backgroundImage);
-    const selectedDeviceId = useEditorStore((state) => state.selectedDeviceId);
+    const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
     const selectedRoomId = useEditorStore((state) => state.selectedRoomId);
+    const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId);
 
     const scale = graph.floorPlan.scaleMetersPerPx;
     const background = graph.floorPlan.background;
     const backgroundKey = background?.dataUrl ?? '';
 
-    // Измерить область холста и следить за её размером.
     useEffect(() => {
         const element = containerRef.current;
         if (element === null) {
@@ -99,7 +102,7 @@ export function FloorPlanEditor() {
         return () => observer.disconnect();
     }, []);
 
-    // Восстановить растр подложки из графа после импорта проекта.
+    // Восстановить растр подложки после импорта проекта.
     useEffect(() => {
         let cancelled = false;
         const store = useEditorStore.getState();
@@ -123,7 +126,6 @@ export function FloorPlanEditor() {
         };
     }, [backgroundKey]);
 
-    // Вписать свежезагруженную подложку в холст.
     useEffect(() => {
         if (backgroundKey === '') {
             return;
@@ -135,7 +137,6 @@ export function FloorPlanEditor() {
         );
     }, [backgroundKey]);
 
-    // Горячие клавиши: Space+drag, Enter — замкнуть контур, Delete — удалить.
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent): void => {
             if (isEditingTarget(event.target)) {
@@ -150,6 +151,7 @@ export function FloorPlanEditor() {
             } else if (event.key === 'Escape') {
                 store.clearRoomDraft();
                 store.setScaleDraft(null);
+                store.cancelCable();
             } else if (event.key === 'Delete' || event.key === 'Backspace') {
                 store.deleteSelected();
             }
@@ -211,13 +213,20 @@ export function FloorPlanEditor() {
         }
         if (store.tool === 'device') {
             if (store.armedDeviceKind !== null) {
-                store.addDevice(store.armedDeviceKind, world);
+                store.addNode(store.armedDeviceKind, world);
+            }
+            return;
+        }
+        if (store.tool === 'cable') {
+            if (store.cableDraft !== null) {
+                store.addCableWaypoint(world);
             }
             return;
         }
         if (event.target === stage) {
-            store.selectDevice(null);
-            store.selectRoom(null);
+            useEditorStore.getState().selectNode(null);
+            useEditorStore.getState().selectRoom(null);
+            useEditorStore.getState().selectEdge(null);
         }
     };
 
@@ -257,7 +266,7 @@ export function FloorPlanEditor() {
     const handleDrop = (event: DragEvent<HTMLDivElement>): void => {
         event.preventDefault();
         const value = event.dataTransfer.getData('application/x-vwc-device');
-        if (!isDeviceKind(value)) {
+        if (!isUiDeviceKind(value)) {
             return;
         }
         const rect = containerRef.current?.getBoundingClientRect();
@@ -266,11 +275,28 @@ export function FloorPlanEditor() {
         }
         const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
         const store = useEditorStore.getState();
-        store.addDevice(value, screenToWorld(pointer, store.viewport));
+        store.addNode(value, screenToWorld(pointer, store.viewport));
+    };
+
+    const handleNodeSelect = (node: GraphNode): void => {
+        const store = useEditorStore.getState();
+        if (store.tool === 'cable') {
+            if (store.cableDraft === null) {
+                store.startCable(node.id);
+            } else {
+                store.finishCable(node.id);
+            }
+            return;
+        }
+        store.selectNode(node.id);
     };
 
     const roomDraftPoints = cursor === null ? roomDraft : [...roomDraft, cursor];
     const scaleDraftLength = scaleDraft === null ? 0 : distance(scaleDraft.start, scaleDraft.end);
+    const cablePointsPx = cableDraft === null ? [] : [...cableDraft.waypointsPx, ...(cursor === null ? [] : [cursor])];
+    const cableSourceNode = cableDraft === null
+        ? undefined
+        : graph.nodes.find((node) => node.id === cableDraft.sourceNodeId);
 
     return (
         <div className="relative h-full w-full overflow-hidden bg-slate-950">
@@ -303,7 +329,7 @@ export function FloorPlanEditor() {
                     </Layer>
 
                     <Layer>
-                        {graph.rooms.map((room) => {
+                        {graph.rooms.map((room: RoomZone) => {
                             const points = room.polygon.map((point) => metersToPx(point, scale));
                             const centroid = polygonCentroid(points);
                             return (
@@ -335,17 +361,44 @@ export function FloorPlanEditor() {
                     </Layer>
 
                     <Layer>
-                        {graph.devices.map((device) => {
-                            const position = metersToPx(device.position, scale);
+                        {graph.edges.map((edge) => {
+                            const source = graph.nodes.find((node) => node.id === edge.from);
+                            const target = graph.nodes.find((node) => node.id === edge.to);
+                            const sourcePx = source?.planPosition === null || source === undefined
+                                ? { x: 0, y: 0 }
+                                : metersToPx(source.planPosition, scale);
+                            const targetPx = target?.planPosition === null || target === undefined
+                                ? { x: 0, y: 0 }
+                                : metersToPx(target.planPosition, scale);
+                            const pointsPx = edge.waypointsPx !== undefined && edge.waypointsPx.length > 1
+                                ? edge.waypointsPx
+                                : [sourcePx, ...(edge.waypointsPx ?? []), targetPx];
+                            return (
+                                <Line
+                                    key={edge.id}
+                                    points={flattenPoints(pointsPx)}
+                                    stroke={selectedEdgeId === edge.id ? '#f472b6' : '#38bdf8'}
+                                    strokeWidth={selectedEdgeId === edge.id ? 4 : 2}
+                                    onClick={() => useEditorStore.getState().selectEdge(edge.id)}
+                                />
+                            );
+                        })}
+                    </Layer>
+
+                    <Layer>
+                        {graph.nodes.map((node) => {
+                            const positionPx = node.planPosition === null
+                                ? { x: 0, y: 0 }
+                                : metersToPx(node.planPosition, scale);
                             return (
                                 <DeviceNode
-                                    key={device.id}
-                                    device={device}
-                                    position={position}
-                                    selected={selectedDeviceId === device.id}
+                                    key={node.id}
+                                    node={node}
+                                    positionPx={positionPx}
+                                    selected={selectedNodeId === node.id}
                                     draggable={tool === 'select'}
-                                    onSelect={() => useEditorStore.getState().selectDevice(device.id)}
-                                    onMove={(point) => useEditorStore.getState().moveDevice(device.id, point)}
+                                    onSelect={() => handleNodeSelect(node)}
+                                    onMove={(point) => useEditorStore.getState().moveNode(node.id, point)}
                                 />
                             );
                         })}
@@ -386,6 +439,30 @@ export function FloorPlanEditor() {
                                 />
                             </>
                         )}
+                        {tool === 'cable' && cableDraft !== null && (
+                            <>
+                                {cableSourceNode?.planPosition !== null && cableSourceNode !== undefined && (
+                                    <Circle
+                                        x={metersToPx(cableSourceNode.planPosition, scale).x}
+                                        y={metersToPx(cableSourceNode.planPosition, scale).y}
+                                        radius={14}
+                                        stroke="#f472b6"
+                                        strokeWidth={3}
+                                    />
+                                )}
+                                {cablePointsPx.length > 1 && (
+                                    <Line
+                                        points={flattenPoints(cablePointsPx)}
+                                        stroke="#f472b6"
+                                        strokeWidth={3}
+                                        dash={[8, 4]}
+                                    />
+                                )}
+                                {cablePointsPx.map((point, index) => (
+                                    <Circle key={index} x={point.x} y={point.y} radius={5} fill="#f472b6" />
+                                ))}
+                            </>
+                        )}
                     </Layer>
                 </Stage>
             </div>
@@ -397,6 +474,7 @@ export function FloorPlanEditor() {
 
             <ScaleCalibratorTool />
             <RoomZoneTool />
+            <CableRouteTool />
         </div>
     );
 }

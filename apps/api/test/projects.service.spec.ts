@@ -122,7 +122,9 @@ describe('ProjectsService (интеграционные тесты)', () => {
     expect(created.networkSystem).toBe(DTO.networkSystem);
     expect(created.graph.id).toBe(created.id);
     expect(created.graph.schemaVersion).toBe(1);
-    expect(created.graph.floorPlans).toEqual([]);
+    expect(created.graph.floorPlan.background).toBeNull();
+    expect(created.graph.rooms).toEqual([]);
+    expect(created.graph.nodes).toEqual([]);
     expect(created.graph.edges).toEqual([]);
     expect(new Date(created.createdAt).toISOString()).toBe(created.createdAt);
   });
@@ -149,15 +151,19 @@ describe('ProjectsService (интеграционные тесты)', () => {
     const created = await service.createAsync(DTO);
     const graph: ProjectGraph = {
       ...createEmptyProjectGraph(DTO.title, created.id),
-      floorPlans: [
+      floorPlan: {
+        background: null,
+        scaleMetersPerPx: 0.01,
+        ceilingHeightM: 2.7,
+      },
+      nodes: [
         {
           id: randomUUID(),
-          name: '1-й этаж',
-          background: null,
-          widthPx: 1000,
-          heightPx: 800,
-          scaleMetersPerPx: 0.01,
-          ceilingHeightM: 2.7,
+          kind: 'socket',
+          label: 'Розетка Р1',
+          planPosition: { x: 1, y: 2 },
+          panelSlot: null,
+          specs: { ratedPower: 0, ratedCurrent: 16, crossSection: 2.5, mountingHeight: 0.3 },
         },
       ],
     };
@@ -165,7 +171,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
     const updated = await service.updateGraphAsync(created.id, graph);
     const loaded = await service.getByIdAsync(created.id);
 
-    expect(updated.graph.floorPlans).toHaveLength(1);
+    expect(updated.graph.nodes).toHaveLength(1);
     expect(loaded.graph).toEqual(graph);
     expect(new Date(updated.updatedAt).getTime()).toBeGreaterThanOrEqual(
       new Date(created.updatedAt).getTime(),
@@ -179,14 +185,9 @@ describe('ProjectsService (интеграционные тесты)', () => {
       edges: [
         {
           id: randomUUID(),
-          sourceNodeId: randomUUID(),
-          targetNodeId: randomUUID(),
-          kind: 'power',
-          waypointsPx: [
-            { x: 0, y: 0 },
-            { x: 1, y: 1 },
-          ],
-          crossSectionMm2: 1.5,
+          from: randomUUID(),
+          to: randomUUID(),
+          cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu', length: 0 },
         },
       ],
     };

@@ -1,6 +1,6 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { BackgroundSchema } from '@voltwirecraft/shared';
-import type { Background } from '@voltwirecraft/shared';
+import { BackgroundSchema } from '@voltwirecraft/shared/graph.schema.js';
+import type { Background } from '@voltwirecraft/shared/graph.schema.js';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 /** Масштаб растеризации страницы PDF. */

@@ -86,11 +86,12 @@
 
 ### Added (бэкенд-хранилище и расчёты)
 
-- `packages/shared/src/graph.schema.ts` — канонический бэкенд-контракт:
-  `FloorPlanSchema`, `RoomZoneSchema`, `GraphNodeSchema`, `GraphEdgeSchema`,
-  `ProjectGraphSchema` с проверкой уникальности идентификаторов и ссылочной
-  целостности, `VwcFileSchema`, DTO проектов и контракты расчёта длины кабеля.
-  Экспорт через подпуть `@voltwirecraft/shared/graph.schema`.
+- `packages/shared/src/graph.schema.ts` — единственная каноническая модель
+  проекта по DESIGN_V010 § 3.1: `floorPlan`, `rooms`, `walls`, `nodes`
+  (11 типов УГО, `planPosition`, `panelSlot`, `specs`), `edges` с `cableSpecs`,
+  `ProjectGraphSchema` с проверкой уникальности ID и ссылочной целостности,
+  `VwcFileSchema`, DTO проектов и контракты расчёта длины кабеля.
+  Экспорт через основной API и подпуть `@voltwirecraft/shared/graph.schema`.
 - Таблицы `projects` (`graph_json` JSONB) и `floor_plans` (FK + CASCADE) в
   `apps/api/src/database/schema.ts`; сгенерированная миграция
   `0000_common_clea.sql`, команды `db:generate` / `db:migrate`.
@@ -105,8 +106,33 @@
 - Юнит-тесты расчётного ядра (25 тестов) и интеграционные тесты `ProjectsService`
   на PGlite с применением реальной сгенерированной миграции (15 тестов).
 
+### Added (завершение UI v0.1)
+
+- Фронтенд переведён на каноническую `ProjectGraphSchema` из
+  `@voltwirecraft/shared/graph.schema`: `apps/web` использует единые типы
+  `ProjectGraph`, `FloorPlan`, `RoomZone`, `GraphNode`, `GraphEdge`,
+  `VwcFileSchema`; дублирующая схема из `index.ts` удалена (KI-001).
+- `CableRouteTool`: трассировка кабеля от щита/ВРУ/УЗО к потребителю через
+  поворотные точки `waypointsPx`; создаётся `GraphEdge` с `edgeType:
+  'cable_line'`, маркой `ВВГнг(А)-LS`, числом жил и сечением в мм².
+- `apps/web/src/lib/apiClient.ts` — типизированный клиент с Zod-валидацией
+  ответов для `POST /projects`, `GET /projects/:id`, `PUT /projects/:id/graph`,
+  `POST /projects/:id/floor-plans`; ошибки превращаются в `ApiClientError`.
+- Кнопки «Сохранить на сервер» и «Загрузить с сервера» в `Header` при сохранении
+  офлайн-кнопок экспорта/импорта `.vwc` (RULES § 5.4).
+- Тесты UI обновлены под канонический граф: калибровка, зонирование,
+  расстановка ЭУИ, кабельные трассы, Zod-валидация API-ответов (28 тестов).
+
+### Changed
+
+- Граф унифицирован: удалены дублирующие `packages/shared/src/graph.ts` и
+  `cable.ts` вместе с `BackendProjectGraphSchema`. `index.ts` стал чистым
+  реэкспортом канонической схемы; API, клиент, Drizzle-колонка `graph_json`
+  и файл `.vwc` используют один и тот же `ProjectGraph` (RULES § 5.2).
+
 ### Fixed
 
+- KI-001 закрыт: две конкурирующие модели графа в `shared` устранены.
 - Расчёт длины кабеля приведён к контракту задания: `waypointsPx`,
   `scaleMetersPerPx`, высоты потолка/установки и коэффициент запаса 1.15.
   Ранее каркас использовал несовместимый контракт `points`/`slack`.
@@ -116,6 +142,7 @@
 ### Documented
 
 - `apps/calc-engine/README.md` — формула расчёта, формат контракта и запуск.
-- `docs/KNOWN_ISSUES.md` — зарегистрированы `KI-001` (две схемы в `shared`),
+- `docs/KNOWN_ISSUES.md` — `KI-001` закрыт после унификации графа;
   `KI-002` (проверка миграций на PGlite вместо реального PostgreSQL) и
-  `KI-003` (координаты графа в пикселях при СИ-величинах).
+  `KI-003` (координаты трассы в пикселях при СИ-величинах) остаются
+  задокументированными ограничениями.

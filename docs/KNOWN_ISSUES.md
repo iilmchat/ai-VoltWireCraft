@@ -10,19 +10,21 @@
 
 ## Реестр
 
-### KI-001 — Две схемы графа в пакете `shared` 🟠 High · Open
+### KI-001 — Две схемы графа в пакете `shared` 🟠 High · Fixed (2026-11-19)
 
-**Проблема.** В `@voltwirecraft/shared` сосуществуют два контракта графа:
-фронтенд-совместимая схема в `src/index.ts` / `src/graph.ts` (поля `floorPlan`,
-`rooms`, `devices`, `routes`) и канонический бэкенд-контракт в
-`src/graph.schema.ts` (поля `floorPlans`, `roomZones`, `nodes`, `edges`).
-Web-редактор и бэкенд пока используют разные проекции.
+**Проблема.** В `@voltwirecraft/shared` сосуществовали два контракта графа:
+фронтенд-совместимая схема в `src/index.ts` / `src/graph.ts` (`floorPlan`,
+`rooms`, `devices`, `routes`) и бэкенд-контракт `BackendProjectGraphSchema`
+(`version`, `nodes`, `edges` с `cable`). Это нарушало Graph-First (RULES § 5.2).
 
-**Влияние.** Требуется адаптер или миграция web-стора на каноническую схему;
-до этого API и редактор обмениваются графами через преобразование.
+**Решение.** Удалены `src/graph.ts` и `src/cable.ts`. Единственная каноническая
+`ProjectGraphSchema` зафиксирована в `src/graph.schema.ts` по DESIGN_V010 § 3.1:
+`floorPlan`, `rooms`, `walls`, `nodes` (11 типов УГО), `edges` с `cableSpecs`,
+`VwcFileSchema`. `src/index.ts` — чистый реэкспорт. API, клиент и `.vwc`
+используют одну и ту же модель и типы из неё.
 
-**Файлы.** `packages/shared/src/index.ts`, `packages/shared/src/graph.ts`,
-`packages/shared/src/graph.schema.ts`, `apps/web/src/store/`.
+**Файлы.** `packages/shared/src/graph.schema.ts`, `packages/shared/src/index.ts`,
+`apps/api/src/database/schema.ts`, `apps/web/src/store/`.
 
 ---
 
@@ -61,9 +63,9 @@ Web-редактор и бэкенд пока используют разные 
 
 | Статус | Количество |
 |---|---|
-| Open | 1 |
+| Open | 0 |
 | In Progress | 0 |
-| Fixed | 0 |
+| Fixed | 1 |
 | Documented | 2 |
 | Deferred | 0 |
 | Won't Fix | 0 |

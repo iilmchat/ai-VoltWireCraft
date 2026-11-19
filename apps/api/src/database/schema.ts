@@ -8,7 +8,7 @@ import type { ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 export const OBJECT_TYPES = ['house', 'apartment', 'commercial'] as const;
 /** Система заземления — зеркало `NetworkSystemSchema`. */
 export const NETWORK_SYSTEMS = ['tn-s', 'tn-c-s', 'tn-c', 'tt', 'it'] as const;
-/** Формат загруженной подложки — зеркало `FloorPlanImageKindSchema`. */
+/** Формат загруженной подложки — зеркало `BackgroundKindSchema`. */
 export const FLOOR_PLAN_KINDS = ['pdf', 'png', 'jpg'] as const;
 
 /**

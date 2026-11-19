@@ -1,12 +1,20 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { DEVICE_KINDS } from '@voltwirecraft/shared';
-import type { DeviceKind } from '@voltwirecraft/shared';
 import { useI18n } from '../../i18n/index.js';
 import type { TranslationKey } from '../../i18n/index.js';
 import { useEditorStore } from '../../store/editorStore.js';
+import type { UiDeviceKind } from '../../store/editorStore.js';
 
 /** MIME-тип переноса ЭУИ из палитры на холст. */
 export const DEVICE_DRAG_MIME = 'application/x-vwc-device';
+
+/** Типы ЭУИ, доступные в палитре редактора. */
+export const UI_DEVICE_KINDS: readonly UiDeviceKind[] = [
+    'panel',
+    'socket',
+    'switch',
+    'light_fixture',
+    'appliance',
+];
 
 /**
  * Палитра ЭУИ и щита с drag-and-drop и установкой кликом.
@@ -21,7 +29,7 @@ export function DevicePlacementTool() {
         return null;
     }
 
-    const arm = (kind: DeviceKind): void => {
+    const arm = (kind: UiDeviceKind): void => {
         const store = useEditorStore.getState();
         store.setArmedDeviceKind(store.armedDeviceKind === kind ? null : kind);
     };
@@ -31,7 +39,7 @@ export function DevicePlacementTool() {
             <h3 className="mb-1 text-sm font-semibold text-slate-200">{t('palette.devicePalette')}</h3>
             <p className="mb-3 text-xs text-slate-400">{t('palette.dragHint')}</p>
             <div className="grid grid-cols-2 gap-2">
-                {DEVICE_KINDS.map((kind) => (
+                {UI_DEVICE_KINDS.map((kind) => (
                     <button
                         key={kind}
                         type="button"

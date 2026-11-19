@@ -1,68 +1,105 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { z } from 'zod';
+import type { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 import {
+    CABLE_LINE_EDGE_TYPE,
     createEmptyProjectGraph,
-    ElectricalDeviceSchema,
+    GraphNodeSchema,
     metersToPixels,
+    parseProjectGraph,
     pixelsToMeters,
     ProjectGraphSchema,
-    RoomZoneSchema,
+    RoomZoneTypeSchema,
     UuidSchema,
     VwcFileSchema,
 } from './index.js';
 
-describe('контракты графа проекта', () => {
+const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const NODE_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+/** Собирает корректный канонический граф с одним узлом. */
+function makeGraph() {
+    const graph = createEmptyProjectGraph('Тестовый проект', PROJECT_ID);
+    graph.nodes.push(
+        GraphNodeSchema.parse({
+            id: NODE_ID,
+            kind: 'socket',
+            label: 'Розетка Р1',
+            planPosition: { x: 1, y: 2 },
+            panelSlot: null,
+            specs: { ratedPower: 0, ratedCurrent: 16, crossSection: 2.5, mountingHeight: 0.3 },
+        }),
+    );
+    return graph;
+}
+
+describe('каноническая модель графа (реэкспорт из index)', () => {
     it('createEmptyProjectGraph возвращает граф, проходящий ProjectGraphSchema', () => {
         const graph = createEmptyProjectGraph();
         expect(ProjectGraphSchema.safeParse(graph).success).toBe(true);
+        expect(graph.nodes).toEqual([]);
+        expect(graph.floorPlan.ceilingHeightM).toBeGreaterThan(0);
     });
 
-    it('VwcFile, собранный из пустого графа, проходит VwcFileSchema', () => {
-        const graph = createEmptyProjectGraph();
+    it('VwcFile проходит валидацию обёртки .vwc', () => {
         const file: z.input<typeof VwcFileSchema> = {
             format: 'vwc-project',
             schemaVersion: 1,
-            graph,
+            graph: createEmptyProjectGraph(),
             savedAt: new Date('2026-11-19T12:00:00.000Z').toISOString(),
         };
         expect(VwcFileSchema.safeParse(file).success).toBe(true);
     });
 
-    it('ProjectGraphSchema отклоняет граф с schemaVersion 2', () => {
-        const graph = createEmptyProjectGraph();
-        expect(ProjectGraphSchema.safeParse({ ...graph, schemaVersion: 2 }).success).toBe(false);
+    it('граф отклоняет неположительный масштаб плана', () => {
+        const graph = makeGraph();
+        graph.floorPlan.scaleMetersPerPx = 0;
+        expect(ProjectGraphSchema.safeParse(graph).success).toBe(false);
     });
 
-    it('ElectricalDeviceSchema отклоняет устройство с недопустимым видом', () => {
-        const badDevice = {
-            id: '00000000-0000-4000-8000-000000000001',
-            kind: 'board',
-            ugo: 'ЩР1',
-            position: { x: 0, y: 0 },
-            powerW: 1000,
-            mountingHeightM: 1.5,
-            roomId: null,
-        };
-        expect(ElectricalDeviceSchema.safeParse(badDevice).success).toBe(false);
-    });
-
-    it('RoomZoneSchema отклоняет многоугольник из двух вершин', () => {
+    it('граф отклоняет неизвестный тип зоны помещения', () => {
+        const graph = makeGraph();
         const badRoom = {
-            id: '00000000-0000-4000-8000-000000000002',
+            id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
             name: 'Кухня',
-            type: 'kitchen',
+            type: 'unknown',
             polygon: [
                 { x: 0, y: 0 },
                 { x: 1, y: 0 },
+                { x: 0, y: 1 },
             ],
         };
-        expect(RoomZoneSchema.safeParse(badRoom).success).toBe(false);
+        expect(ProjectGraphSchema.safeParse({ ...graph, rooms: [badRoom] }).success).toBe(false);
+        expect(RoomZoneTypeSchema.safeParse('unknown').success).toBe(false);
+    });
+
+    it('опциональные поля кабельной линии сохраняются при разборе', () => {
+        const graph = makeGraph();
+        graph.edges.push({
+            id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            from: NODE_ID,
+            to: NODE_ID,
+            cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu', length: 0 },
+            waypointsPx: [{ x: 1, y: 2 }],
+            edgeType: CABLE_LINE_EDGE_TYPE,
+            cableBrand: 'ВВГнг(А)-LS',
+        });
+
+        const parsed = parseProjectGraph(graph);
+        expect(parsed.edges[0]?.edgeType).toBe('cable_line');
+        expect(parsed.edges[0]?.cableBrand).toBe('ВВГнг(А)-LS');
+        expect(parsed.edges[0]?.waypointsPx).toEqual([{ x: 1, y: 2 }]);
+    });
+
+    it('узел с привязкой к зоне помещения проходит валидацию', () => {
+        const graph = makeGraph();
+        graph.nodes[0]!.roomId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+        const parsed = parseProjectGraph(graph);
+        expect(parsed.nodes[0]?.roomId).toBe('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
     });
 
     it('UuidSchema отклоняет строку, не являющуюся UUID', () => {
-        const value: unknown = z.string().parse('не-uuid');
-        expect(UuidSchema.safeParse(value).success).toBe(false);
+        expect(UuidSchema.safeParse('не-uuid').success).toBe(false);
     });
 });
 

@@ -8,7 +8,7 @@ import type { ToolId } from '../store/editorStore.js';
 import { DevicePlacementTool } from './tools/DevicePlacementTool.js';
 
 /** Доступные инструменты. */
-const TOOLS: ToolId[] = ['select', 'scale', 'room', 'device'];
+const TOOLS: ToolId[] = ['select', 'scale', 'room', 'device', 'cable'];
 
 /**
  * Левая панель с инструментами и загрузкой подложки.

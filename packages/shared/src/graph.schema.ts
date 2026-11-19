@@ -1,192 +1,206 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 /**
- * Канонический контракт бэкенда: граф проекта `.vwc` и API-контракты.
+ * Единственная каноническая модель проекта: граф, файл `.vwc` и API-контракты.
  *
- * Файл — единственный источник истины для API и расчётного ядра. Модули
- * `graph.ts`/`cable.ts` и функции в `index.ts` оставлены для совместимости с
- * текущим web-редактором и будут консолидированы отдельно (см. KI-001).
- *
- * Геометрия хранится в пикселях подложки; физические длины — в базовых
- * единицах СИ: метры (`m`), сечения — `mm2`, мощности — `W` (RULES § 5.3).
+ * Основа — `docs/development/v0.1/DESIGN_V010_CORE_AND_PLANNER.md` § 3.1.
+ * Граф — источник истины для плана, схемы, БД и файла (RULES § 5.2);
+ * физические величины хранятся в базовых единицах СИ (RULES § 5.3).
  */
 
 import { z } from 'zod';
 
-/** Идентификатор сущности графа: UUID версии 1–5 (RULES § 4.11). */
+/** Идентификатор сущности графа — UUID (RULES § 4.11). */
 export const UuidSchema = z.uuid();
 /** Тип идентификатора сущности графа. */
 export type Uuid = z.infer<typeof UuidSchema>;
 
-/** Точка трассы или полигона в координатах подложки (пикселях). */
-export const PointPxSchema = z.object({
-    /** Горизонтальная координата, px. */
+/** Точка на плане; координаты в метрах (СИ). */
+export const PointSchema = z.object({
+    /** Координата X, m. */
     x: z.number().finite(),
-    /** Вертикальная координата, px. */
+    /** Координата Y, m. */
     y: z.number().finite(),
 });
-/** Точка в координатах подложки. */
-export type PointPx = z.infer<typeof PointPxSchema>;
+/** Точка на плане. */
+export type Point = z.infer<typeof PointSchema>;
 
-/** Допустимые форматы загружаемой подложки. */
-export const FloorPlanImageKindSchema = z.enum(['pdf', 'png', 'jpg']);
-/** Формат загружаемой подложки. */
-export type FloorPlanImageKind = z.infer<typeof FloorPlanImageKindSchema>;
+/** Базовый набор УГО узлов графа: 11 типов, утверждён в DESIGN § 8. */
+export const NodeKindSchema = z.enum([
+    'input_source',
+    'panel',
+    'circuit_breaker',
+    'rcd',
+    'rcbo',
+    'relay_voltage',
+    'contactor',
+    'socket',
+    'light_fixture',
+    'switch',
+    'appliance',
+]);
+/** Тип узла графа (УГО). */
+export type NodeKind = z.infer<typeof NodeKindSchema>;
 
-/**
- * Метаданные файла подложки, сохранённого в S3 или локальном хранилище.
- * MIME-тип проверен по magic bytes на границе API (RULES § 6.5).
- */
-export const FloorPlanBackgroundSchema = z.object({
-    /** Ключ объекта в хранилище. */
-    storageKey: z.string().min(1),
-    /** Логический формат файла. */
-    kind: FloorPlanImageKindSchema,
-    /** Оригинальное имя файла. */
-    fileName: z.string().min(1),
-    /** Подтверждённый MIME-тип. */
-    mimeType: z.string().min(1),
-    /** Размер файла в байтах (не более 25 МБ). */
-    sizeBytes: z.number().int().nonnegative().max(25 * 1024 * 1024),
-    /** Момент загрузки в ISO 8601. */
-    uploadedAt: z.iso.datetime(),
+/** Формат подложки плана этажа. */
+export const BackgroundKindSchema = z.enum(['pdf', 'png', 'jpg']);
+/** Формат подложки. */
+export type BackgroundKind = z.infer<typeof BackgroundKindSchema>;
+
+/** Подложка: отрендеренная страница PDF или растр PNG/JPG. */
+export const BackgroundSchema = z.object({
+    /** Формат файла. */
+    kind: BackgroundKindSchema,
+    /** Имя файла. */
+    name: z.string().min(1),
+    /** Номер страницы PDF; `null` для растровых форматов. */
+    pageNumber: z.number().int().positive().nullable(),
+    /** Ширина растра, px. */
+    widthPx: z.number().positive(),
+    /** Высота растра, px. */
+    heightPx: z.number().positive(),
+    /** Data URL растра для клиента. */
+    dataUrl: z.string().min(1),
 });
-/** Метаданные подложки. */
-export type FloorPlanBackground = z.infer<typeof FloorPlanBackgroundSchema>;
+/** Подложка плана этажа. */
+export type Background = z.infer<typeof BackgroundSchema>;
 
 /**
- * План этажа: привязка подложки, масштаб и высота потолка.
- * `scaleMetersPerPx` и `ceilingHeightM` нужны расчётному ядру.
+ * Параметры плана этажа: подложка, масштаб и высота потолка.
+ * `scaleMetersPerPx = null`, если масштаб ещё не откалиброван.
  */
 export const FloorPlanSchema = z.object({
-    /** Идентификатор плана. */
-    id: UuidSchema,
-    /** Человекочитаемое название, например «1-й этаж». */
-    name: z.string().min(1).max(200),
-    /** Подложка; `null`, если план создан вручную. */
-    background: FloorPlanBackgroundSchema.nullable(),
-    /** Ширина холста подложки, px. */
-    widthPx: z.number().positive(),
-    /** Высота холста подложки, px. */
-    heightPx: z.number().positive(),
-    /** Масштаб: метров на один пиксель подложки. */
-    scaleMetersPerPx: z.number().positive(),
+    /** Подложка или `null`. */
+    background: BackgroundSchema.nullable(),
+    /** Масштаб: m/px. */
+    scaleMetersPerPx: z.number().positive().nullable(),
     /** Высота потолка, m. */
     ceilingHeightM: z.number().positive(),
 });
-/** План этажа. */
+/** Параметры плана этажа. */
 export type FloorPlan = z.infer<typeof FloorPlanSchema>;
 
-/** Назначение помещения. */
-export const RoomZoneKindSchema = z.enum([
-    'living',
-    'kitchen',
-    'wet',
-    'corridor',
-    'utility',
-    'outdoor',
-    'other',
-]);
-/** Назначение помещения. */
-export type RoomZoneKind = z.infer<typeof RoomZoneKindSchema>;
+/** Тип зоны помещения. */
+export const RoomZoneTypeSchema = z.enum(['living', 'wet', 'kitchen', 'outdoor', 'utility']);
+/** Тип зоны помещения. */
+export type RoomZoneType = z.infer<typeof RoomZoneTypeSchema>;
 
-/** Зона помещения на плане этажа (полигон в пикселях). */
+/** Зона помещения: вершины многоугольника в метрах (СИ). */
 export const RoomZoneSchema = z.object({
     /** Идентификатор зоны. */
     id: UuidSchema,
-    /** План этажа, которому принадлежит зона. */
-    floorPlanId: UuidSchema,
     /** Название помещения. */
-    name: z.string().min(1).max(200),
-    /** Назначение помещения. */
-    kind: RoomZoneKindSchema,
-    /** Вершины полигона (не менее трёх), px. */
-    polygonPx: z.array(PointPxSchema).min(3),
+    name: z.string().min(1),
+    /** Тип помещения. */
+    type: RoomZoneTypeSchema,
+    /** Вершины полигона, m (не менее трёх). */
+    polygon: z.array(PointSchema).min(3),
 });
 /** Зона помещения. */
 export type RoomZone = z.infer<typeof RoomZoneSchema>;
 
-/** Вид узла графа: ЭУИ, щит НКУ, источник или нагрузка. */
-export const GraphNodeKindSchema = z.enum([
-    'source',
-    'panel',
-    'socket',
-    'switch',
-    'luminaire',
-    'junction',
-    'load',
-    'other',
-]);
-/** Вид узла графа. */
-export type GraphNodeKind = z.infer<typeof GraphNodeKindSchema>;
+/** Стена, перегородка или проём; координаты в метрах (СИ). */
+export const WallSchema = z.object({
+    /** Идентификатор стены. */
+    id: UuidSchema,
+    /** Вид конструктива. */
+    kind: z.enum(['wall', 'partition', 'doorway', 'window']),
+    /** Точки линии стены, m (не менее двух). */
+    path: z.array(PointSchema).min(2),
+    /** Толщина, m. */
+    thickness: z.number().nonnegative(),
+});
+/** Стена или проём. */
+export type Wall = z.infer<typeof WallSchema>;
 
-/**
- * Узел графа проекта — электроустановочное изделие или устройство.
- * Высота установки `mountHeightM` измеряется от чистого пола, m.
- */
+/** Спецификация узла графа (электротехнические параметры в СИ). */
+export const NodeSpecsSchema = z.object({
+    /** Номинальная мощность, W. */
+    ratedPower: z.number().nonnegative(),
+    /** Номинальный ток, A. */
+    ratedCurrent: z.number().positive(),
+    /** Сечение жилы, mm2. */
+    crossSection: z.number().positive(),
+    /** Высота установки от пола, m. */
+    mountingHeight: z.number().nonnegative(),
+});
+/** Спецификация узла. */
+export type NodeSpecs = z.infer<typeof NodeSpecsSchema>;
+
+/** Узел графа: УГО, положение на плане, место в щите и спецификация. */
 export const GraphNodeSchema = z.object({
     /** Идентификатор узла. */
     id: UuidSchema,
-    /** План этажа, на котором расположен узел. */
-    floorPlanId: UuidSchema,
-    /** Помещение; `null`, если узел не привязан к зоне. */
-    roomZoneId: UuidSchema.nullable(),
-    /** Вид узла. */
-    kind: GraphNodeKindSchema,
-    /** Подпись узла (например, «Розетка Р1»). */
-    label: z.string().min(1).max(128),
-    /** Положение узла на подложке, px. */
-    positionPx: PointPxSchema,
-    /** Высота установки от пола, m. */
-    mountHeightM: z.number().nonnegative(),
-    /** Номинальная мощность, W; `null`, если не задана. */
-    ratedPowerW: z.number().nonnegative().nullable(),
+    /** Тип УГО. */
+    kind: NodeKindSchema,
+    /** Подпись узла. */
+    label: z.string().min(1),
+    /** Положение на плане, m; `null` — узел только на схеме. */
+    planPosition: PointSchema.nullable(),
+    /** Место в щите НКУ; `null`, если узел вне щита. */
+    panelSlot: z.number().int().positive().nullable(),
+    /** Электротехнические параметры. */
+    specs: NodeSpecsSchema,
+    /** Зона помещения, к которой привязан узел (для инспектора). */
+    roomId: UuidSchema.nullable().optional(),
 });
 /** Узел графа проекта. */
 export type GraphNode = z.infer<typeof GraphNodeSchema>;
 
-/** Назначение кабельной линии. */
-export const GraphEdgeKindSchema = z.enum(['power', 'lighting', 'data', 'other']);
-/** Назначение кабельной линии. */
-export type GraphEdgeKind = z.infer<typeof GraphEdgeKindSchema>;
+/** Параметры кабеля линии. */
+export const CableSpecsSchema = z.object({
+    /** Сечение жилы, mm2. */
+    crossSection: z.number().positive(),
+    /** Число жил. */
+    conductorCount: z.number().int().positive(),
+    /** Материал жилы. */
+    material: z.enum(['cu', 'al']),
+    /** Длина линии, m; вычисляется расчётным ядром. */
+    length: z.number().nonnegative(),
+});
+/** Параметры кабеля. */
+export type CableSpecs = z.infer<typeof CableSpecsSchema>;
 
-/**
- * Ребро графа — кабельная линия между узлами.
- * Точки `waypointsPx` задают трассу; длину считает расчётное ядро.
- */
+/** Тип линии графа: кабельная трасса. */
+export const CABLE_LINE_EDGE_TYPE = 'cable_line' as const;
+
+/** Ребро графа: кабельная линия между узлами. */
 export const GraphEdgeSchema = z.object({
-    /** Идентификатор ребра. */
+    /** Идентификатор линии. */
     id: UuidSchema,
     /** Исходный узел. */
-    sourceNodeId: UuidSchema,
+    from: UuidSchema,
     /** Конечный узел. */
-    targetNodeId: UuidSchema,
-    /** Назначение линии. */
-    kind: GraphEdgeKindSchema,
-    /** Точки ломаной трассы (не менее двух), px. */
-    waypointsPx: z.array(PointPxSchema).min(2),
-    /** Сечение токопроводящей жилы, mm2. */
-    crossSectionMm2: z.number().positive(),
+    to: UuidSchema,
+    /** Параметры кабеля. */
+    cableSpecs: CableSpecsSchema,
+    /** Точки трассы в координатах подложки, px. */
+    waypointsPx: z.array(PointSchema).optional(),
+    /** Тип линии; для кабельных трасс — `'cable_line'`. */
+    edgeType: z.literal('cable_line').optional(),
+    /** Марка кабеля, например «ВВГнг(А)-LS». */
+    cableBrand: z.string().min(1).optional(),
 });
 /** Ребро графа проекта. */
 export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
 
 /**
- * Граф проекта — единственный источник истины для плана этажа и схемы
- * (RULES § 5.2). Дополнительно проверяются ссылочная целостность и уникальность
- * идентификаторов; ошибки возвращаются с путём к конкретному полю.
+ * Граф проекта — единый источник истины (RULES § 5.2).
+ * Дополнительно проверяются уникальность идентификаторов и ссылки линий на узлы.
  */
 export const ProjectGraphSchema = z
     .object({
-        /** Версия формата графа. */
+        /** Версия формата. */
         schemaVersion: z.literal(1),
         /** Идентификатор проекта. */
         id: UuidSchema,
         /** Название проекта. */
-        name: z.string().min(1).max(200),
-        /** Планы этажей. */
-        floorPlans: z.array(FloorPlanSchema),
+        name: z.string().min(1),
+        /** Параметры плана этажа. */
+        floorPlan: FloorPlanSchema,
         /** Зоны помещений. */
-        roomZones: z.array(RoomZoneSchema),
+        rooms: z.array(RoomZoneSchema),
+        /** Стены и проёмы. */
+        walls: z.array(WallSchema),
         /** Узлы графа. */
         nodes: z.array(GraphNodeSchema),
         /** Кабельные линии. */
@@ -198,58 +212,40 @@ export const ProjectGraphSchema = z
             context.issues.push({ code: 'custom', message, path, input: graph });
         };
 
-        const floorPlanIds = new Set<string>();
-        graph.floorPlans.forEach((plan, index) => {
-            if (floorPlanIds.has(plan.id)) {
-                addIssue(['floorPlans', index, 'id'], 'Идентификатор плана должен быть уникальным');
-            }
-            floorPlanIds.add(plan.id);
-        });
+        const checkUnique = (values: readonly { id: string }[], section: string): void => {
+            const seen = new Set<string>();
+            values.forEach((item, index) => {
+                if (seen.has(item.id)) {
+                    addIssue([section, index, 'id'], `Идентификатор в ${section} должен быть уникальным`);
+                }
+                seen.add(item.id);
+            });
+        };
 
-        const roomZoneIds = new Set<string>();
-        graph.roomZones.forEach((zone, index) => {
-            if (roomZoneIds.has(zone.id)) {
-                addIssue(['roomZones', index, 'id'], 'Идентификатор зоны должен быть уникальным');
-            }
-            roomZoneIds.add(zone.id);
-            if (!floorPlanIds.has(zone.floorPlanId)) {
-                addIssue(['roomZones', index, 'floorPlanId'], 'Зона ссылается на несуществующий план этажа');
-            }
-        });
+        checkUnique(graph.rooms, 'rooms');
+        checkUnique(graph.walls, 'walls');
+        checkUnique(graph.nodes, 'nodes');
 
-        const nodeIds = new Set<string>();
-        graph.nodes.forEach((node, index) => {
-            if (nodeIds.has(node.id)) {
-                addIssue(['nodes', index, 'id'], 'Идентификатор узла должен быть уникальным');
-            }
-            nodeIds.add(node.id);
-            if (!floorPlanIds.has(node.floorPlanId)) {
-                addIssue(['nodes', index, 'floorPlanId'], 'Узел ссылается на несуществующий план этажа');
-            }
-            if (node.roomZoneId !== null && !roomZoneIds.has(node.roomZoneId)) {
-                addIssue(['nodes', index, 'roomZoneId'], 'Узел ссылается на несуществующую зону помещения');
-            }
-        });
-
+        const nodeIds = new Set(graph.nodes.map((node) => node.id));
         const edgeIds = new Set<string>();
         graph.edges.forEach((edge, index) => {
             if (edgeIds.has(edge.id)) {
                 addIssue(['edges', index, 'id'], 'Идентификатор линии должен быть уникальным');
             }
             edgeIds.add(edge.id);
-            if (!nodeIds.has(edge.sourceNodeId)) {
-                addIssue(['edges', index, 'sourceNodeId'], 'Линия ссылается на несуществующий узел');
+            if (!nodeIds.has(edge.from)) {
+                addIssue(['edges', index, 'from'], 'Линия ссылается на несуществующий узел');
             }
-            if (!nodeIds.has(edge.targetNodeId)) {
-                addIssue(['edges', index, 'targetNodeId'], 'Линия ссылается на несуществующий узел');
+            if (!nodeIds.has(edge.to)) {
+                addIssue(['edges', index, 'to'], 'Линия ссылается на несуществующий узел');
             }
         });
     });
 
-/** Граф проекта. */
+/** Канонический граф проекта. */
 export type ProjectGraph = z.infer<typeof ProjectGraphSchema>;
 
-/** Файл проекта `.vwc`: JSON-обёртка над графом (RULES § 5.4). */
+/** Файл проекта `.vwc`: обёртка над графом (RULES § 5.4). */
 export const VwcFileSchema = z.object({
     /** Маркер формата. */
     format: z.literal('vwc-project'),
@@ -257,13 +253,73 @@ export const VwcFileSchema = z.object({
     schemaVersion: z.literal(1),
     /** Граф проекта. */
     graph: ProjectGraphSchema,
-    /** Время сохранения в ISO 8601. */
+    /** Время сохранения, ISO 8601. */
     savedAt: z.iso.datetime(),
 });
 /** Файл проекта `.vwc`. */
 export type VwcFile = z.infer<typeof VwcFileSchema>;
 
-/** Тип объектной сети: жилой дом, квартира или коммерческая недвижимость. */
+/**
+ * Создаёт пустой валидный граф проекта.
+ *
+ * @param name — название проекта.
+ * @param graphId — идентификатор графа; по умолчанию генерируется UUID.
+ * @returns граф с пустыми rooms/walls/nodes/edges и неоткалиброванным масштабом.
+ */
+export function createEmptyProjectGraph(
+    name = 'Новый проект',
+    graphId: Uuid = crypto.randomUUID(),
+): ProjectGraph {
+    return {
+        schemaVersion: 1,
+        id: graphId,
+        name,
+        floorPlan: {
+            background: null,
+            scaleMetersPerPx: null,
+            ceilingHeightM: 2.7,
+        },
+        rooms: [],
+        walls: [],
+        nodes: [],
+        edges: [],
+    };
+}
+
+/**
+ * Валидирует граф проекта на границе внешних данных.
+ *
+ * @param value — данные из HTTP, БД или файла `.vwc`.
+ * @returns провалидированный граф.
+ * @throws {ZodError} если граф некорректен.
+ */
+export function parseProjectGraph(value: unknown): ProjectGraph {
+    return ProjectGraphSchema.parse(value);
+}
+
+/**
+ * Переводит точку из пикселей в метры.
+ *
+ * @param point — точка в пикселях.
+ * @param scaleMetersPerPx — масштаб: m/px.
+ * @returns точка в метрах.
+ */
+export function pixelsToMeters(point: Point, scaleMetersPerPx: number): Point {
+    return { x: point.x * scaleMetersPerPx, y: point.y * scaleMetersPerPx };
+}
+
+/**
+ * Переводит точку из метров в пиксели.
+ *
+ * @param point — точка в метрах.
+ * @param scaleMetersPerPx — масштаб: m/px.
+ * @returns точка в пикселях.
+ */
+export function metersToPixels(point: Point, scaleMetersPerPx: number): Point {
+    return { x: point.x / scaleMetersPerPx, y: point.y / scaleMetersPerPx };
+}
+
+/** Тип объекта недвижимости. */
 export const ObjectTypeSchema = z.enum(['house', 'apartment', 'commercial']);
 /** Тип объекта. */
 export type ObjectType = z.infer<typeof ObjectTypeSchema>;
@@ -297,7 +353,7 @@ export type UpdateProjectGraphDto = z.infer<typeof UpdateProjectGraphDtoSchema>;
 export const ProjectDtoSchema = z.object({
     /** Идентификатор проекта. */
     id: UuidSchema,
-    /** Название проекта. */
+    /** Название. */
     title: z.string(),
     /** Тип объекта. */
     objectType: ObjectTypeSchema,
@@ -313,9 +369,9 @@ export const ProjectDtoSchema = z.object({
 /** DTO проекта. */
 export type ProjectDto = z.infer<typeof ProjectDtoSchema>;
 
-/** Результат загрузки подложки плана этажа. */
+/** Результат загрузки подложки. */
 export const FloorPlanUploadDtoSchema = z.object({
-    /** Идентификатор записи о подложке. */
+    /** Идентификатор записи. */
     id: UuidSchema,
     /** Идентификатор проекта. */
     projectId: UuidSchema,
@@ -324,7 +380,7 @@ export const FloorPlanUploadDtoSchema = z.object({
     /** Оригинальное имя файла. */
     fileName: z.string().min(1),
     /** Подтверждённый формат. */
-    kind: FloorPlanImageKindSchema,
+    kind: BackgroundKindSchema,
     /** MIME-тип по magic bytes. */
     mimeType: z.string().min(1),
     /** Размер файла в байтах. */
@@ -335,11 +391,11 @@ export const FloorPlanUploadDtoSchema = z.object({
 /** DTO загруженной подложки. */
 export type FloorPlanUploadDto = z.infer<typeof FloorPlanUploadDtoSchema>;
 
-/** Тело запроса расчёта длины кабельной линии. */
+/** Запрос расчёта длины кабельной линии. */
 export const CalculateCableLengthRequestSchema = z.object({
-    /** Точки трассы, px (ноль или одна точка — нулевая трасса). */
-    waypointsPx: z.array(PointPxSchema),
-    /** Масштаб: метров на пиксель. */
+    /** Точки трассы, px. */
+    waypointsPx: z.array(PointSchema),
+    /** Масштаб: m/px. */
     scaleMetersPerPx: z.number().positive(),
     /** Высота потолка, m. */
     ceilingHeightM: z.number().nonnegative(),
@@ -350,7 +406,7 @@ export const CalculateCableLengthRequestSchema = z.object({
     /** Коэффициент запаса; по умолчанию 1.15 (подставляется ядром). */
     reserveFactor: z.number().min(1).optional(),
 });
-/** Запрос расчёта длины кабеля. */
+/** Запрос расчёта длины. */
 export type CalculateCableLengthRequest = z.infer<typeof CalculateCableLengthRequestSchema>;
 
 /** Ответ расчёта длины кабельной линии. */
@@ -366,49 +422,5 @@ export const CalculateCableLengthResponseSchema = z.object({
     /** Число точек трассы. */
     waypointsCount: z.number().int().nonnegative(),
 });
-/** Ответ расчёта длины кабеля. */
+/** Ответ расчёта длины. */
 export type CalculateCableLengthResponse = z.infer<typeof CalculateCableLengthResponseSchema>;
-
-/**
- * Создаёт пустой валидный граф проекта.
- *
- * @param name — название проекта.
- * @param graphId — идентификатор графа; по умолчанию генерируется UUID.
- * @returns граф с нулевым числом планов, зон, узлов и линий.
- */
-export function createEmptyProjectGraph(
-    name = 'Новый проект',
-    graphId: Uuid = crypto.randomUUID(),
-): ProjectGraph {
-    return {
-        schemaVersion: 1,
-        id: graphId,
-        name,
-        floorPlans: [],
-        roomZones: [],
-        nodes: [],
-        edges: [],
-    };
-}
-
-/**
- * Переводит координату из пикселей в метры.
- *
- * @param point — точка в пикселях.
- * @param scaleMetersPerPx — масштаб: метров на пиксель.
- * @returns точка в метрах.
- */
-export function pixelsToMeters(point: PointPx, scaleMetersPerPx: number): PointPx {
-    return { x: point.x * scaleMetersPerPx, y: point.y * scaleMetersPerPx };
-}
-
-/**
- * Переводит координату из метров в пиксели.
- *
- * @param point — точка в метрах.
- * @param scaleMetersPerPx — масштаб: метров на пиксель.
- * @returns точка в пикселях.
- */
-export function metersToPixels(point: PointPx, scaleMetersPerPx: number): PointPx {
-    return { x: point.x / scaleMetersPerPx, y: point.y / scaleMetersPerPx };
-}

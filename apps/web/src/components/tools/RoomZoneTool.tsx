@@ -1,9 +1,11 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { ROOM_TYPES } from '@voltwirecraft/shared';
-import type { RoomType } from '@voltwirecraft/shared';
 import { useI18n } from '../../i18n/index.js';
 import type { TranslationKey } from '../../i18n/index.js';
 import { useEditorStore } from '../../store/editorStore.js';
+import type { UiRoomKind } from '../../store/editorStore.js';
+
+/** Типы помещений, доступные в палитре редактора. */
+const UI_ROOM_TYPES: readonly UiRoomKind[] = ['living', 'wet', 'kitchen', 'outdoor', 'utility'];
 
 /**
  * Панель инструмента зонирования: тип помещения и управление контуром.
@@ -12,7 +14,7 @@ import { useEditorStore } from '../../store/editorStore.js';
 export function RoomZoneTool() {
     const { t } = useI18n();
     const tool = useEditorStore((state) => state.tool);
-    const roomDraftType = useEditorStore((state) => state.roomDraftType);
+    const roomDraftKind = useEditorStore((state) => state.roomDraftKind);
     const vertexCount = useEditorStore((state) => state.roomDraft.length);
 
     if (tool !== 'room') {
@@ -27,13 +29,13 @@ export function RoomZoneTool() {
             </label>
             <select
                 id="room-type"
-                value={roomDraftType}
+                value={roomDraftKind}
                 onChange={(event) =>
-                    useEditorStore.getState().setRoomDraftType(event.target.value as RoomType)
+                    useEditorStore.getState().setRoomDraftKind(event.target.value as UiRoomKind)
                 }
                 className="mb-3 w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100"
             >
-                {ROOM_TYPES.map((type) => (
+                {UI_ROOM_TYPES.map((type) => (
                     <option key={type} value={type}>
                         {t(`room.${type}` as TranslationKey)}
                     </option>

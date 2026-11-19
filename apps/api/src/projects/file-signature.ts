@@ -2,7 +2,7 @@
 /** Проверка подложек по magic bytes — доверять объявленному MIME-типу нельзя (RULES § 6.5). */
 
 import { BadRequestException } from '@nestjs/common';
-import type { FloorPlanImageKind } from '@voltwirecraft/shared/graph.schema.js';
+import type { BackgroundKind } from '@voltwirecraft/shared/graph.schema.js';
 
 /** Максимальный размер загружаемой подложки: 25 МБ. */
 export const MAX_FLOOR_PLAN_SIZE_BYTES = 25 * 1024 * 1024;
@@ -20,13 +20,13 @@ export interface UploadedFloorPlanFile {
 /** Подтверждённый по содержимому тип файла. */
 export interface DetectedFloorPlanType {
   /** Логический формат. */
-  readonly kind: FloorPlanImageKind;
+  readonly kind: BackgroundKind;
   /** MIME-тип, соответствующий сигнатуре. */
   readonly mimeType: string;
 }
 
 interface Signature {
-  readonly kind: FloorPlanImageKind;
+  readonly kind: BackgroundKind;
   readonly mimeType: string;
   readonly matches: (bytes: Buffer) => boolean;
 }

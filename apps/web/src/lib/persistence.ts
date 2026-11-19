@@ -2,8 +2,8 @@
 import {
     ProjectGraphSchema,
     VwcFileSchema,
-} from '@voltwirecraft/shared';
-import type { ProjectGraph } from '@voltwirecraft/shared';
+} from '@voltwirecraft/shared/graph.schema.js';
+import type { ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 
 /** Код ошибки импорта проекта. */
 export type ImportErrorCode =
