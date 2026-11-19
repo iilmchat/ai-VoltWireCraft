@@ -32,6 +32,20 @@
   под `KI-001`.
 - `docs/development/v0.1/DESIGN_V010_CORE_AND_PLANNER.md` — заготовка
   дизайн-документа релиза 0.1 по структуре из 8 обязательных секций.
+- Инфраструктура монорепозитория: `pnpm` workspaces + Turborepo, корневой
+  `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json` (TypeScript 6,
+  `strict: true`, ESM), `turbo.json`, единый flat-конфиг ESLint с запретом `any`.
+- Каркасы приложений: `packages/shared` (`@voltwirecraft/shared` с Zod-контрактами),
+  `apps/api` (NestJS 12, Zod-валидация env, `GET /health` с проверками PostgreSQL,
+  Redis и calc-engine), `apps/calc-engine` (FastAPI, `GET /health`,
+  `POST /calculate/cable-length`), `apps/web` (React 19 + Vite 8 + Tailwind CSS 4
+  + Zustand 5 + Konva.js, конфигурация Tauri 2).
+- `docker-compose.yml` и `.env.example`: PostgreSQL 17 + pgvector (5436),
+  Redis 7 (6381), MinIO (9000/9001), calc-engine (8000) с healthcheck.
+- `.gitignore`, `.gitattributes` (`eol=lf`), Husky + lint-staged со скриптом
+  проверки на утечку секретов `scripts/check-secrets.mjs`.
+- `.github/workflows/ci.yml`: typecheck, lint, test и сборка для `shared`, `api`,
+  `web`; `pytest` для `calc-engine`; валидация `docker compose config`.
 
 ### Changed
 

@@ -3,14 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Единые типизированные контракты VoltWireCraft (граф проекта, подложки, расчёты)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./graph.schema": {
+      "types": "./dist/graph.schema.d.ts",
+      "import": "./dist/graph.schema.js"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "vitest run",
-    "lint": "eslint src"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src test",
+    "test": "vitest run"
   },
-  "dependencies": { "zod": "^4.6.7" },
-  "devDependencies": { "typescript": "^5.9.3", "vitest": "^5.1.1" }
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "6.0.3",
+    "vitest": "5.1.1"
+  }
 }
