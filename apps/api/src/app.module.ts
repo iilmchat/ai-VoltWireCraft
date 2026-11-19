@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CalcEngineModule } from './calc-engine/calc-engine.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
 import { validateEnv } from './config/env.schema.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
@@ -18,6 +19,7 @@ import { RedisModule } from './redis/redis.module.js';
     }),
     DatabaseModule,
     CalcEngineModule,
+    CatalogModule,
     RedisModule,
     HealthModule,
     ProjectsModule,
