@@ -15,6 +15,29 @@ export const EnvSchema = z.object({
     .url()
     .refine((value) => /^https?:\/\//.test(value), 'Ожидается http:// или https://'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // Хранилище подложек: локальная файловая система или S3-совместимое хранилище.
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  LOCAL_STORAGE_DIR: z.string().min(1).default('./storage/floor-plans'),
+  S3_BUCKET: z.string().min(1).optional(),
+  S3_REGION: z.string().min(1).optional(),
+  S3_ENDPOINT: z.url().optional(),
+  S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+  S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false'),
+}).superRefine((env, context) => {
+  if (env.STORAGE_DRIVER !== 's3') {
+    return;
+  }
+  for (const key of ['S3_BUCKET', 'S3_REGION'] as const) {
+    if (env[key] === undefined) {
+      context.addIssue({
+        code: 'custom',
+        input: env[key],
+        path: [key],
+        message: `При STORAGE_DRIVER=s3 необходимо задать ${key}`,
+      });
+    }
+  }
 });
 
 /** Тип валидированной конфигурации приложения. */
