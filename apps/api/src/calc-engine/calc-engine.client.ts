@@ -5,19 +5,43 @@ import { BadGatewayException, GatewayTimeoutException, Inject, Injectable } from
 import { ConfigService } from '@nestjs/config';
 import { ZodError } from 'zod';
 import {
+  AutoPanelRequestSchema,
+  AutoPanelResponseSchema,
   CalculateCableLengthRequestSchema,
   CalculateCableLengthResponseSchema,
+  LineSizingRequestSchema,
+  LineSizingResponseSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
+  AutoPanelRequest,
+  AutoPanelResponse,
   CalculateCableLengthRequest,
   CalculateCableLengthResponse,
+  LineSizingRequest,
+  LineSizingResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type { Env } from '../config/env.schema.js';
 
 /** Таймаут одного расчёта, мс. */
 const REQUEST_TIMEOUT_MS = 5000;
-/** Актуальный путь эндпоинта расчётного ядра. */
+/** Путь расчёта длины трассы. */
 const CALCULATION_PATH = '/v1/calc/cable-length';
+/** Путь расчёта потребительской линии. */
+const LINE_SIZING_PATH = '/v1/calc/line-sizing';
+/** Путь автосборки щита НКУ. */
+const AUTO_PANEL_PATH = '/v1/calc/auto-panel';
+
+/** Параметры одного вызова расчётного ядра. */
+interface CalculationCall<TPayload, TResult> {
+  /** Путь эндпоинта. */
+  readonly path: string;
+  /** Тело запроса. */
+  readonly payload: TPayload;
+  /** Схема ответа для валидации на границе. */
+  readonly responseSchema: {
+    parse: (value: unknown) => TResult;
+  };
+}
 
 /**
  * Клиент calc-engine: все ответы проверяются Zod на границе,
@@ -41,8 +65,52 @@ export class CalcEngineClient {
   public async calculateCableLengthAsync(
     request: CalculateCableLengthRequest,
   ): Promise<CalculateCableLengthResponse> {
-    const payload = CalculateCableLengthRequestSchema.parse(request);
-    const url = new URL(CALCULATION_PATH, this.config.get('CALC_ENGINE_URL', { infer: true }));
+    return this.postAsync({
+      path: CALCULATION_PATH,
+      payload: CalculateCableLengthRequestSchema.parse(request),
+      responseSchema: CalculateCableLengthResponseSchema,
+    });
+  }
+
+  /**
+   * Рассчитывает ток, сечение, потерю напряжения и аппараты защиты линии.
+   *
+   * @param request — мощность, напряжение, cosφ, длина и способ прокладки.
+   * @returns провалидированный ответ ядра.
+   * @throws {BadGatewayException} если ядро недоступно или вернуло некорректный ответ.
+   */
+  public async calculateLineSizingAsync(request: LineSizingRequest): Promise<LineSizingResponse> {
+    return this.postAsync({
+      path: LINE_SIZING_PATH,
+      payload: LineSizingRequestSchema.parse(request),
+      responseSchema: LineSizingResponseSchema,
+    });
+  }
+
+  /**
+   * Вызывает детерминированную автосборку щита НКУ в расчётном ядре.
+   *
+   * @param request — узлы, помещения и параметры ввода.
+   * @returns провалидированный проект щита.
+   * @throws {BadGatewayException} если ядро недоступно или вернуло некорректный ответ.
+   */
+  public async autoAssemblePanelAsync(request: AutoPanelRequest): Promise<AutoPanelResponse> {
+    return this.postAsync({
+      path: AUTO_PANEL_PATH,
+      payload: AutoPanelRequestSchema.parse(request),
+      responseSchema: AutoPanelResponseSchema,
+    });
+  }
+
+  /**
+   * Выполняет POST-запрос к ядру и проверяет ответ по Zod-схеме.
+   *
+   * @param call — путь, тело и схема ответа.
+   * @returns провалидированный результат расчёта.
+   * @throws {BadGatewayException|GatewayTimeoutException} при ошибке вызова.
+   */
+  private async postAsync<TPayload, TResult>(call: CalculationCall<TPayload, TResult>): Promise<TResult> {
+    const url = new URL(call.path, this.config.get('CALC_ENGINE_URL', { infer: true }));
     const controller = new AbortController();
     const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -50,7 +118,7 @@ export class CalcEngineClient {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(call.payload),
         signal: controller.signal,
       });
 
@@ -59,7 +127,7 @@ export class CalcEngineClient {
       }
 
       const body: unknown = await response.json();
-      return CalculateCableLengthResponseSchema.parse(body);
+      return call.responseSchema.parse(body);
     } catch (error: unknown) {
       if (error instanceof BadGatewayException || error instanceof GatewayTimeoutException) {
         throw error;

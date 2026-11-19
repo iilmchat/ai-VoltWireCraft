@@ -229,3 +229,33 @@
   `KI-002` (проверка миграций на PGlite вместо реального PostgreSQL) и
   `KI-003` (координаты трассы в пикселях при СИ-величинах) остаются
   задокументированными ограничениями.
+
+### Added (расчёты и агенты v0.2.0)
+
+- Контракты `packages/shared/src/graph.schema.ts`: `LineSizingRequest/Response`,
+  `AutoPanelRequest/Response`, `PueAuditReportSchema` с привязкой находок к ID
+  пунктов `docs/domain/PUE_RULES_V02.md` (SECTION `PUE-*`).
+- `apps/calc-engine`: `POST /v1/calc/line-sizing` — расчётный ток для 1/3 фаз,
+  потеря напряжения ≤ 5 %, подбор сечения ВВГнг(А)-LS 1.5–16 мм² по ПУЭ
+  1.3.4 (в трубе/штробе), номинал АВ и уставка УЗО 10/30 мА; все расчёты —
+  в `Decimal`.
+- `apps/calc-engine`: `POST /v1/calc/auto-panel` — группировка потребителей
+  по помещениям, отдельные линии для приборов > 2000 Вт, балансировка L1/L2/L3
+  с контролем перекоса ≤ 15 %, расстановка модулей по `panelSlot` и корпус
+  с +20 % резерва.
+- `apps/api/src/agents/`: `LlmClient` (OpenAI-совместимый `LLM_BASE_URL`, только
+  пояснения), `ToolRegistry` с инструментами `calculate_line_tool`,
+  `auto_assemble_panel_tool`, `inspect_pue_rules_tool`, `CatalogService`,
+  `NormativeService`, `PanelArchitectAgent` и `PueAuditorAgent`. Математика
+  выполняется только в `calc-engine` (RULES § 5.1).
+- `CalcEngineClient`: методы `calculateLineSizingAsync` и
+  `autoAssemblePanelAsync` с Zod-валидацией ответов и таймаутом.
+- `apps/api/src/database/seed-normatives.ts` — парсер справочника ПУЭ-7 в
+  `normative_chunks` с детерминированными ключевыми эмбеддингами; команда
+  `pnpm --filter api db:seed:normatives`.
+- Эндпоинты `POST /projects/:id/ai/assemble-panel` и
+  `POST /projects/:id/ai/audit-pue`; обновлённый граф сохраняется через
+  `ProjectsService.updateGraphAsync` после Zod-валидации.
+- Тесты: 31 юнит-тест `pytest` для line-sizing и auto-panel (включая баню
+  с кабелем 80 м и перекос фаз), 13 тестов Vitest для агентов, сида, клиента
+  и эндпоинтов с моком LLM и проверкой вызовов calc-engine.

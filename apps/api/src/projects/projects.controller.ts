@@ -15,6 +15,11 @@ import type {
     ProjectDto,
     UpdateProjectGraphDto,
 } from '@voltwirecraft/shared/graph.schema.js';
+import type { PueAuditReport } from '@voltwirecraft/shared/graph.schema.js';
+import { AssemblePanelRequestSchema } from '../agents/agents.schemas.js';
+import type { AssemblePanelRequest, AssemblePanelResult } from '../agents/agents.schemas.js';
+import { PanelArchitectAgent } from '../agents/panel-architect.agent.js';
+import { PueAuditorAgent } from '../agents/pue-auditor.agent.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import type { ApiResponse } from '../common/api-response.js';
 import type { ProjectCalculationDto } from './calculation.js';
@@ -27,8 +32,14 @@ import { ProjectsService } from './projects.service.js';
 export class ProjectsController {
   /**
    * @param service — сервис проектов.
+   * @param panelArchitect — агент сборки щита.
+   * @param pueAuditor — агент аудита ПУЭ-7.
    */
-  public constructor(@Inject(ProjectsService) private readonly service: ProjectsService) {}
+  public constructor(
+    @Inject(ProjectsService) private readonly service: ProjectsService,
+    @Inject(PanelArchitectAgent) private readonly panelArchitect: PanelArchitectAgent,
+    @Inject(PueAuditorAgent) private readonly pueAuditor: PueAuditorAgent,
+  ) {}
 
   /**
    * Создаёт проект с пустым графом.
@@ -108,5 +119,38 @@ export class ProjectsController {
   ): Promise<ApiResponse<FloorPlanUploadDto>> {
     const data = await this.service.uploadFloorPlanAsync(id, file);
     return { success: true, data, message: 'Подложка загружена' };
+  }
+
+  /**
+   * Собирает щит НКУ: расчёт уходит в calc-engine, артикулы — в каталог.
+   *
+   * @param id — UUID проекта.
+   * @param dto — предпочтительный бренд оборудования.
+   * @returns обновлённый граф и пояснение агента.
+   */
+  @Post(':id/ai/assemble-panel')
+  public async assemblePanelAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+    @Body(new ZodValidationPipe(AssemblePanelRequestSchema)) dto: AssemblePanelRequest,
+  ): Promise<ApiResponse<AssemblePanelResult>> {
+    const project = await this.service.getByIdAsync(id);
+    const result = await this.panelArchitect.assembleAsync(project.graph, dto);
+    await this.service.updateGraphAsync(id, result.graph);
+    return { success: true, data: result, message: 'Щит НКУ собран' };
+  }
+
+  /**
+   * Проводит аудит проекта по ПУЭ-7 с цитированием пунктов справочника.
+   *
+   * @param id — UUID проекта.
+   * @returns структурированный отчёт.
+   */
+  @Post(':id/ai/audit-pue')
+  public async auditPueAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+  ): Promise<ApiResponse<PueAuditReport>> {
+    const project = await this.service.getByIdAsync(id);
+    const data = await this.pueAuditor.auditAsync(id, project.graph);
+    return { success: true, data, message: 'Аудит ПУЭ-7 выполнен' };
   }
 }
