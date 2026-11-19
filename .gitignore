@@ -27,6 +27,7 @@ src-tauri/gen/
 
 # Логи, ОС, редакторы
 *.log
+storage/
 .DS_Store
 Thumbs.db
 .idea/

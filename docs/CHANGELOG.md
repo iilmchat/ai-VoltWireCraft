@@ -83,3 +83,39 @@
 - `README.md`: обновлён URL репозитория на
   `https://github.com/iilmchat/ai-VoltWireCraft.git`, уточнены поддерживаемые
   форматы подложек и стек (Drizzle ORM, `pdfjs-dist`).
+
+### Added (бэкенд-хранилище и расчёты)
+
+- `packages/shared/src/graph.schema.ts` — канонический бэкенд-контракт:
+  `FloorPlanSchema`, `RoomZoneSchema`, `GraphNodeSchema`, `GraphEdgeSchema`,
+  `ProjectGraphSchema` с проверкой уникальности идентификаторов и ссылочной
+  целостности, `VwcFileSchema`, DTO проектов и контракты расчёта длины кабеля.
+  Экспорт через подпуть `@voltwirecraft/shared/graph.schema`.
+- Таблицы `projects` (`graph_json` JSONB) и `floor_plans` (FK + CASCADE) в
+  `apps/api/src/database/schema.ts`; сгенерированная миграция
+  `0000_common_clea.sql`, команды `db:generate` / `db:migrate`.
+- `ProjectsService` и `ProjectsController`: `POST /projects`, `GET /projects/:id`,
+  `PUT /projects/:id/graph`, `POST /projects/:id/floor-plans`. Все ответы — в
+  единой обёртке `ApiResponse`; вход и выход валидируются Zod.
+- Загрузка подложек PDF/PNG/JPG до 25 МБ с определением формата по magic bytes
+  и адаптерами `LocalFloorPlanStorage` / `S3FloorPlanStorage`.
+- `apps/calc-engine`: детерминированный `app/calculator.py` (расчёт в `Decimal`,
+  округление до 1 мкм), Pydantic-контракты `app/schemas.py`, FastAPI-эндпоинт
+  `POST /v1/calc/cable-length` и обратно совместимый `POST /calculate/cable-length`.
+- Юнит-тесты расчётного ядра (25 тестов) и интеграционные тесты `ProjectsService`
+  на PGlite с применением реальной сгенерированной миграции (15 тестов).
+
+### Fixed
+
+- Расчёт длины кабеля приведён к контракту задания: `waypointsPx`,
+  `scaleMetersPerPx`, высоты потолка/установки и коэффициент запаса 1.15.
+  Ранее каркас использовал несовместимый контракт `points`/`slack`.
+- Конфигурация `turbo.json`: для `test` больше не запрашиваются несуществующие
+  файлы `coverage/**`, что убирало предупреждения Turborepo.
+
+### Documented
+
+- `apps/calc-engine/README.md` — формула расчёта, формат контракта и запуск.
+- `docs/KNOWN_ISSUES.md` — зарегистрированы `KI-001` (две схемы в `shared`),
+  `KI-002` (проверка миграций на PGlite вместо реального PostgreSQL) и
+  `KI-003` (координаты графа в пикселях при СИ-величинах).
