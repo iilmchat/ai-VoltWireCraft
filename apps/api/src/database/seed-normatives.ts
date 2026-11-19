@@ -85,7 +85,7 @@ export function parseNormativeMarkdown(markdown: string): NormativeChunkInsert[]
  */
 export async function seedNormativesAsync(): Promise<void> {
   const env = SeedEnvSchema.parse(process.env);
-  const path = fileURLToPath(new URL('../../../docs/domain/PUE_RULES_V02.md', import.meta.url));
+  const path = fileURLToPath(new URL('../../../../docs/domain/PUE_RULES_V02.md', import.meta.url));
   const rows = parseNormativeMarkdown(await readFile(path, 'utf8'));
   if (rows.length === 0) {
     throw new Error('Справочник ПУЭ не содержит ни одного пункта с идентификатором PUE-*');
