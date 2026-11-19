@@ -29,6 +29,34 @@
   (ПУЭ-7 гл. 1.7, время отключения ≤ 0,4 с при 230 В), кратности расцепителей
   B/C/D (3–5 / 5–10 / 10–20 `I_n`) и токово-временной селективности.
 
+- Зависимость `ezdxf` в `pyproject.toml` и `requirements.txt` расчётного ядра —
+  основа изолированного конвейера разбора DXF (RULES § 5.5).
+- `apps/calc-engine/app/config.py`: валидация лимитов `CAD_MAX_FILE_SIZE_MB=50`
+  и `CAD_PARSE_TIMEOUT_SEC=30` при старте, проверка размера файла и
+  непривилегированный пользователь в Dockerfile для разбора CAD-файлов.
+- Публичный `CatalogController`: `GET /catalog/devices` с фильтрами `brand`,
+  `deviceType`, `ratedCurrentA` и пагинацией; запрос и ответ валидируются Zod
+  (основа для закрытия `KI-004`). Интеграционные тесты каталога на PGlite.
+- `.github/workflows/ci.yml`: экшены обновлены до `checkout@v7`,
+  `setup-node@v7`, `setup-python@v7`, `pnpm/action-setup@v6`; включён
+  `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`. В job `Node` добавлен сервис
+  `pgvector/pgvector:pg17` и шаг `db:migrate` + `db:seed` + `db:seed:normatives`
+  на реальной БД — `KI-002` закрыт.
+- `.github/workflows/release-desktop.yml`: ручной запуск и триггер по тегу `v*`,
+  matrix-сборка Tauri на Windows (`.msi`/`.exe`) и Linux (`.AppImage`) с
+  загрузкой артефактов. В `web` добавлен `@tauri-apps/cli`, включён `bundle.active`
+  и иконки приложения.
+
+### Changed
+
+- Версии GitHub Actions и конфигурация Tauri приведены к актуальным; сборка
+  десктопа вынесена в отдельный workflow, не блокирующий основной CI.
+
+### Fixed
+
+- `KI-002`: миграции и сиды теперь проверяются в CI на реальном PostgreSQL 17
+  с расширением `vector`, а не только на PGlite.
+
 ## [0.2.0] — 2026-11-19
 
 ### Added

@@ -28,18 +28,21 @@
 
 ---
 
-### KI-002 — Миграции проверены на PGlite, а не на реальном PostgreSQL 17 🟡 Medium · Documented
+### KI-002 — Миграции проверены на PGlite, а не на реальном PostgreSQL 17 🟡 Medium · Resolved (2026-11-19)
 
 **Проблема.** В среде разработки Docker Desktop установлен, но демон Docker не
 запущен, поэтому поднять PostgreSQL 17 + pgvector не удалось.
 
-**Митигация.** Сгенерированная Drizzle-миграция применяется в
-интеграционных тестах к PGlite (PostgreSQL-совместимый WASM-движок).
-Перед релизом требуется повторить `pnpm --filter api db:migrate` на реальной
-БД из `docker-compose.yml`.
+**Решение.** В `.github/workflows/ci.yml` добавлен сервисный контейнер
+`pgvector/pgvector:pg17`; job `Node` после тестов выполняет `db:migrate`,
+`db:seed` и `db:seed:normatives` с реальным `DATABASE_URL`. Таким образом
+сгенерированные Drizzle-миграции (включая `CREATE EXTENSION vector` и HNSW),
+сид каталога и загрузка нормативных чанков проверяются на целевой БД при каждом
+push и pull request. Локальные интеграционные тесты на PGlite сохранены как
+быстрая проверка.
 
-**Файлы.** `apps/api/src/database/migrations/`,
-`apps/api/test/projects.service.spec.ts`.
+**Файлы.** `.github/workflows/ci.yml`, `apps/api/src/database/migrations/`,
+`apps/api/src/database/seed-catalog.ts`, `apps/api/src/database/seed-normatives.ts`.
 
 ---
 
@@ -85,10 +88,10 @@
 | Open | 0 |
 | In Progress | 0 |
 | Fixed | 1 |
-| Documented | 1 |
+| Documented | 0 |
 | Deferred | 2 |
 | Won't Fix | 0 |
-| Resolved | 0 |
+| Resolved | 1 |
 | **Всего** | **4** |
 
 > Сводка пересчитана поиском по файлу перед правкой (RULES § 3.9).
