@@ -27,7 +27,9 @@ src-tauri/gen/
 
 # Логи, ОС, редакторы
 *.log
+# Временные файлы хранилища; исходный код модуля storage не игнорируется
 storage/
+!apps/api/src/projects/storage/
 .DS_Store
 Thumbs.db
 .idea/

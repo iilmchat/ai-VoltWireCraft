@@ -18,6 +18,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Исключён из `.gitignore` исходный код `apps/api/src/projects/storage/floor-plan-storage.ts`:
+  шаблон `storage/` скрывал модуль хранилища подложек, из-за чего CI не мог
+  выполнить typecheck и сборку API.
+
 ## [0.1.0] — 2026-11-19
 
 ### Added
