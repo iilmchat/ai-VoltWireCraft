@@ -8,12 +8,12 @@
 
 import { z } from 'zod';
 import {
-    PanelAssemblyResultSchema,
-    PueAuditResultSchema,
+    AssemblePanelResultSchema,
+    PueAuditReportSchema,
 } from './aiContracts.js';
 import type {
-    PanelAssemblyResult,
-    PueAuditResult,
+    AssemblePanelResult,
+    PueAuditReport,
 } from './aiContracts.js';
 import {
     CreateProjectDtoSchema,
@@ -207,30 +207,35 @@ export function createApiClient(options: ApiClientOptions = {}) {
         /**
          * Автосборка щита ИИ-агентом: `POST /projects/:id/ai/assemble-panel`.
          * @param id — идентификатор проекта.
-         * @returns обновлённый граф и пояснение агента.
+         * @param preferredBrand — предпочтительный бренд модулей.
+         * @returns обновлённый граф, протокол и результат сборки щита.
          */
-        async assemblePanelAsync(id: Uuid): Promise<PanelAssemblyResult> {
+        async assemblePanelAsync(
+            id: Uuid,
+            preferredBrand?: 'IEK' | 'EKF' | 'КЭАЗ',
+        ): Promise<AssemblePanelResult> {
             const projectId = UuidSchema.parse(id);
+            const payload = preferredBrand === undefined ? {} : { preferredBrand };
             return sendJsonAsync(
                 `/projects/${encodeURIComponent(projectId)}/ai/assemble-panel`,
                 'POST',
-                {},
-                PanelAssemblyResultSchema,
+                payload,
+                AssemblePanelResultSchema,
             );
         },
 
         /**
          * Аудит проекта по ПУЭ-7: `POST /projects/:id/ai/audit-pue`.
          * @param id — идентификатор проекта.
-         * @returns список замечаний и пояснение агента.
+         * @returns структурированный отчёт аудита.
          */
-        async auditPueAsync(id: Uuid): Promise<PueAuditResult> {
+        async auditPueAsync(id: Uuid): Promise<PueAuditReport> {
             const projectId = UuidSchema.parse(id);
             return sendJsonAsync(
                 `/projects/${encodeURIComponent(projectId)}/ai/audit-pue`,
                 'POST',
                 {},
-                PueAuditResultSchema,
+                PueAuditReportSchema,
             );
         },
     };

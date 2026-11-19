@@ -164,33 +164,60 @@ describe('apiClient', () => {
         expect(init?.headers).toBeUndefined();
     });
 
-    it('вызывает автосборку щита и проверяет ответ', async () => {
-        const payload = { graph: validGraph, summary: 'Щит собран' };
+    it('вызывает автосборку щита и проверяет канонический ответ', async () => {
+        const payload = {
+            graph: validGraph,
+            explanation: 'Щит НКУ собран',
+            toolCalls: [{ tool: 'catalog_lookup', summary: 'Подобраны модули IEK' }],
+            panel: {
+                groups: [],
+                phaseLoads: {
+                    L1: { powerW: 0, currentA: 0 },
+                    L2: { powerW: 0, currentA: 0 },
+                    L3: { powerW: 0, currentA: 0 },
+                },
+                imbalancePercent: 0,
+                modules: [],
+                usedDinModules: 0,
+                enclosureModules: 24,
+                warnings: [],
+                references: [],
+                rulesVersion: 'PUE-7-2026',
+            },
+        };
         const fakeFetch = vi.fn(
             async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
                 okResponse(payload),
         );
         const client = createApiClient({ baseUrl: BASE_URL, fetch: fakeFetch });
 
-        await expect(client.assemblePanelAsync(PROJECT_ID)).resolves.toEqual(payload);
+        await expect(client.assemblePanelAsync(PROJECT_ID, 'IEK')).resolves.toEqual(payload);
         const [url, init] = fakeFetch.mock.calls[0] ?? [];
         expect(url).toBe(`${BASE_URL}/projects/${encodeURIComponent(PROJECT_ID)}/ai/assemble-panel`);
         expect(init?.method).toBe('POST');
+        expect(JSON.parse(String(init?.body))).toEqual({ preferredBrand: 'IEK' });
     });
 
-    it('вызывает аудит ПУЭ и проверяет список замечаний', async () => {
+    it('вызывает аудит ПУЭ и проверяет канонический отчёт', async () => {
         const payload = {
-            issues: [
+            projectId: PROJECT_ID,
+            findings: [
                 {
-                    id: 'issue-1',
+                    id: 'finding-1',
                     severity: 'warning',
+                    ruleId: 'PUE-7.1.3',
+                    section: '7.1.3',
                     message: 'Проверить УЗО',
-                    nodeId: null,
-                    edgeId: null,
-                    citation: 'ПУЭ-7 7.1.3',
+                    nodeIds: [],
+                    recommendation: 'Установить УЗО 30 мА',
                 },
             ],
-            summary: 'Аудит выполнен',
+            summary: { errors: 0, warnings: 1, info: 0 },
+            citations: [
+                { ruleId: 'PUE-7.1.3', excerpt: 'УЗО на розеточных группах', document: 'PUE-7' },
+            ],
+            rulesVersion: 'PUE-7-2026',
+            explanation: 'Аудит выполнен',
         };
         const fakeFetch = vi.fn(
             async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>

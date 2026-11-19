@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 /** UI-состояние оболочки: вкладки, панель ИИ и результаты аудита. */
+import type { PueFinding } from '@voltwirecraft/shared/graph.schema.js';
 import { create } from 'zustand';
-import type { AiAuditIssue } from '../lib/aiContracts.js';
 import { useEditorStore } from './editorStore.js';
 
 /** Идентификатор рабочего представления. */
@@ -16,8 +16,8 @@ export interface UiState {
     activeView: WorkspaceView;
     /** Признак открытой панели «ИИ-Инженер». */
     aiDrawerOpen: boolean;
-    /** Замечания последнего аудита. */
-    auditIssues: readonly AiAuditIssue[];
+    /** Находки последнего аудита ПУЭ-7. */
+    auditIssues: readonly PueFinding[];
     /** Выполняемое действие ИИ. */
     busyAction: AiAction | null;
     /** Выбрать вкладку. */
@@ -25,11 +25,11 @@ export interface UiState {
     /** Открыть/закрыть панель ИИ. */
     setAiDrawerOpen: (open: boolean) => void;
     /** Сохранить результаты аудита. */
-    setAuditIssues: (issues: readonly AiAuditIssue[]) => void;
+    setAuditIssues: (issues: readonly PueFinding[]) => void;
     /** Отметить начало/конец действия ИИ. */
     setBusyAction: (action: AiAction | null) => void;
-    /** Перейти к элементу из замечания аудита. */
-    focusIssue: (issue: AiAuditIssue) => void;
+    /** Перейти к элементу из находки аудита. */
+    focusIssue: (finding: PueFinding) => void;
 }
 
 /** Хранилище UI-состояния. */
@@ -44,15 +44,11 @@ export const useUiStore = create<UiState>((set) => ({
     setAuditIssues: (auditIssues) => set({ auditIssues }),
     setBusyAction: (busyAction) => set({ busyAction }),
 
-    focusIssue: (issue) => {
+    focusIssue: (finding) => {
         const editor = useEditorStore.getState();
-        if (issue.nodeId !== null && issue.nodeId !== undefined) {
-            editor.selectNode(issue.nodeId);
-            set({ activeView: 'singleLine' });
-            return;
-        }
-        if (issue.edgeId !== null && issue.edgeId !== undefined) {
-            editor.selectEdge(issue.edgeId);
+        const firstNodeId = finding.nodeIds[0];
+        if (firstNodeId !== undefined) {
+            editor.selectNode(firstNodeId);
             set({ activeView: 'singleLine' });
             return;
         }

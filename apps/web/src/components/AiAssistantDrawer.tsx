@@ -1,10 +1,10 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 /** Правая выдвижная панель «ИИ-Инженер» (RULES § 5.1: агент не считает физику). */
 import { UuidSchema } from '@voltwirecraft/shared/graph.schema.js';
+import type { PueFinding } from '@voltwirecraft/shared/graph.schema.js';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import { ApiClientError, apiClient } from '../lib/apiClient.js';
-import type { AiAuditIssue } from '../lib/aiContracts.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { useUiStore } from '../store/uiStore.js';
 
@@ -71,7 +71,7 @@ export function AiAssistantDrawer() {
                 throw new ApiClientError('invalid project id', 400);
             }
             const result = await apiClient.auditPueAsync(parsed.data);
-            setAuditIssues(result.issues);
+            setAuditIssues(result.findings);
             useEditorStore.getState().setStatus('ai.auditDone');
         } catch {
             useEditorStore.getState().setStatus('ai.failed');
@@ -80,8 +80,8 @@ export function AiAssistantDrawer() {
         }
     };
 
-    const handleIssueClick = (issue: AiAuditIssue): void => {
-        focusIssue(issue);
+    const handleIssueClick = (finding: PueFinding): void => {
+        focusIssue(finding);
         setAiDrawerOpen(false);
     };
 
@@ -146,9 +146,10 @@ export function AiAssistantDrawer() {
                             {t(`ai.severity.${issue.severity}` as TranslationKey)}
                         </div>
                         <div>{issue.message}</div>
-                        {issue.citation !== null && issue.citation !== undefined && (
-                            <div className="mt-1 text-[10px] opacity-70">{issue.citation}</div>
-                        )}
+                        <div className="mt-1 text-[10px] opacity-70">
+                            {issue.ruleId} · {issue.section}
+                        </div>
+                        <div className="mt-1 text-[10px] opacity-60">{issue.recommendation}</div>
                     </button>
                 ))}
             </div>

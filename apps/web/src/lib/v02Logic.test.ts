@@ -111,10 +111,11 @@ describe('uiStore.focusIssue', () => {
         useUiStore.getState().focusIssue({
             id: 'issue-1',
             severity: 'warning',
+            ruleId: 'PUE-7.1.3',
+            section: '7.1.3',
             message: 'Проверить автомат',
-            nodeId,
-            edgeId: null,
-            citation: 'ПУЭ-7 7.1.3',
+            nodeIds: [nodeId],
+            recommendation: 'Проверить номинал автомата',
         });
         expect(useUiStore.getState().activeView).toBe('singleLine');
         expect(useEditorStore.getState().selectedNodeId).toBe(nodeId);

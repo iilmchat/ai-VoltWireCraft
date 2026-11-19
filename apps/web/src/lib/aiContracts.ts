@@ -1,47 +1,66 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-/** Контракты ИИ-агента v0.2 (RULES § 5.1: агент не вычисляет физические величины). */
-import { ProjectGraphSchema } from '@voltwirecraft/shared/graph.schema.js';
+/**
+ * Контракты ИИ-панели: канонические схемы из `@voltwirecraft/shared/graph.schema`.
+ * RULES § 5.1: агент не вычисляет физические величины, только формирует предложение.
+ */
+import {
+    AutoPanelResponseSchema,
+    ProjectGraphSchema,
+    PueAuditReportSchema,
+} from '@voltwirecraft/shared/graph.schema.js';
+import type {
+    AutoPanelRequest,
+    AutoPanelResponse,
+    LineSizingRequest,
+    LineSizingResponse,
+    PueAuditReport,
+    PueCitation,
+    PueFinding,
+    PueSeverity,
+} from '@voltwirecraft/shared/graph.schema.js';
 import { z } from 'zod';
 
-/** Уровень серьёзности замечания аудита. */
-export const AuditSeveritySchema = z.enum(['error', 'warning', 'info']);
-/** Уровень серьёзности замечания. */
-export type AuditSeverity = z.infer<typeof AuditSeveritySchema>;
+// Канонические схемы и типы реэкспортируются без изменений.
+export {
+    AutoPanelResponseSchema,
+    ProjectGraphSchema,
+    PueAuditReportSchema,
+};
+export type {
+    AutoPanelRequest,
+    AutoPanelResponse,
+    LineSizingRequest,
+    LineSizingResponse,
+    PueAuditReport,
+    PueCitation,
+    PueFinding,
+    PueSeverity,
+};
 
-/** Замечание аудита ПУЭ-7. */
-export const AiAuditIssueSchema = z.object({
-    /** Идентификатор замечания. */
-    id: z.string().min(1),
-    /** Уровень серьёзности. */
-    severity: AuditSeveritySchema,
-    /** Текст замечания. */
-    message: z.string().min(1),
-    /** Идентификатор проблемного узла, если применимо. */
-    nodeId: z.string().nullable().optional(),
-    /** Идентификатор проблемной линии, если применимо. */
-    edgeId: z.string().nullable().optional(),
-    /** Ссылка на пункт норматива. */
-    citation: z.string().nullable().optional(),
+/** Вызов инструмента, зафиксированный в протоколе агента. */
+export const ToolCallSchema = z.object({
+    /** Имя инструмента. */
+    tool: z.string().min(1),
+    /** Краткое описание результата. */
+    summary: z.string().min(1),
 });
-/** Замечание аудита ПУЭ-7. */
-export type AiAuditIssue = z.infer<typeof AiAuditIssueSchema>;
+/** Вызов инструмента. */
+export type ToolCall = z.infer<typeof ToolCallSchema>;
 
-/** Ответ автосборки щита. */
-export const PanelAssemblyResultSchema = z.object({
+/**
+ * Результат `POST /projects/:id/ai/assemble-panel`.
+ * Полностью соответствует `AssemblePanelResultSchema` контроллера API.
+ * Все вложенные структуры — канонические (`ProjectGraphSchema`, `AutoPanelResponseSchema`).
+ */
+export const AssemblePanelResultSchema = z.object({
     /** Обновлённый граф проекта. */
     graph: ProjectGraphSchema,
-    /** Краткое пояснение агента. */
-    summary: z.string(),
+    /** Пояснение агента на русском языке. */
+    explanation: z.string().min(1),
+    /** Протокол вызовов инструментов. */
+    toolCalls: z.array(ToolCallSchema),
+    /** Результат детерминированной сборки щита. */
+    panel: AutoPanelResponseSchema,
 });
 /** Результат автосборки щита. */
-export type PanelAssemblyResult = z.infer<typeof PanelAssemblyResultSchema>;
-
-/** Ответ аудита ПУЭ-7. */
-export const PueAuditResultSchema = z.object({
-    /** Список замечаний. */
-    issues: z.array(AiAuditIssueSchema),
-    /** Краткое пояснение агента. */
-    summary: z.string(),
-});
-/** Результат аудита ПУЭ-7. */
-export type PueAuditResult = z.infer<typeof PueAuditResultSchema>;
+export type AssemblePanelResult = z.infer<typeof AssemblePanelResultSchema>;
