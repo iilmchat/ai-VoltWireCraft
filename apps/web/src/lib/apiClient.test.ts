@@ -230,11 +230,72 @@ describe('apiClient', () => {
         expect(url).toBe(`${BASE_URL}/projects/${encodeURIComponent(PROJECT_ID)}/ai/audit-pue`);
     });
 
+    it('импортирует CAD и возвращает канонический проект со стенами', async () => {
+        const projectWithWalls = {
+            ...validProjectDto,
+            graph: {
+                ...validGraph,
+                walls: [
+                    {
+                        id: '77777777-7777-4777-8777-777777777777',
+                        kind: 'wall',
+                        path: [{ x: 0, y: 0 }, { x: 4, y: 0 }],
+                        thickness: 0.2,
+                    },
+                ],
+            },
+        };
+        const fakeFetch = vi.fn(
+            async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+                okResponse(projectWithWalls),
+        );
+        const client = createApiClient({ baseUrl: BASE_URL, fetch: fakeFetch });
+        const file = new File(['dxf'], 'plan.dxf', { type: 'application/dxf' });
+
+        await expect(client.importCadAsync(PROJECT_ID, file)).resolves.toEqual(projectWithWalls);
+        const [url, init] = fakeFetch.mock.calls[0] ?? [];
+        expect(url).toBe(`${BASE_URL}/projects/${encodeURIComponent(PROJECT_ID)}/import-cad`);
+        expect(init?.body).toBeInstanceOf(FormData);
+    });
+
+    it('возвращает канонический ответ расчёта КЗ', async () => {
+        const payload = {
+            transformerImpedanceOhm: 0.01,
+            phaseResistanceOhm: 0.02,
+            neutralResistanceOhm: 0.02,
+            loopReactanceOhm: 0.005,
+            loopImpedanceOhm: 0.03,
+            shortCircuitCurrentA: 7666.7,
+            requiredMultiplicity: 1.3,
+            minimumMultiplicity: 3,
+            actualMultiplicity: 4.8,
+            instantaneousTripA: 80,
+            disconnectComplies: true,
+            selectivityOk: true,
+            upstreamToDownstreamRatio: 4,
+            tripTimeS: 0.1,
+            warnings: [],
+            references: ['PUE-SC-1.7-TIME-04'],
+            rulesVersion: 'PUE-7-2026',
+        };
+        const fakeFetch = vi.fn(
+            async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+                okResponse(payload),
+        );
+        const client = createApiClient({ baseUrl: BASE_URL, fetch: fakeFetch });
+
+        await expect(client.calculateShortCircuitAsync(PROJECT_ID)).resolves.toEqual(payload);
+        const [url] = fakeFetch.mock.calls[0] ?? [];
+        expect(url).toBe(`${BASE_URL}/projects/${encodeURIComponent(PROJECT_ID)}/short-circuit`);
+    });
+
     it('экспортирует клиент по умолчанию', () => {
         expect(apiClient).toBeDefined();
         expect(typeof apiClient.createProjectAsync).toBe('function');
         expect(typeof apiClient.assemblePanelAsync).toBe('function');
         expect(typeof apiClient.auditPueAsync).toBe('function');
+        expect(typeof apiClient.importCadAsync).toBe('function');
+        expect(typeof apiClient.calculateShortCircuitAsync).toBe('function');
         expect(typeof apiClient.getProjectAsync).toBe('function');
         expect(typeof apiClient.updateProjectGraphAsync).toBe('function');
         expect(typeof apiClient.uploadFloorPlanAsync).toBe('function');

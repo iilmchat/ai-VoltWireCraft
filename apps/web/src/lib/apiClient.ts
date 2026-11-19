@@ -15,14 +15,8 @@ import type {
     AssemblePanelResult,
     PueAuditReport,
 } from './aiContracts.js';
-import {
-    CadImportResultSchema,
-    ProjectShortCircuitSchema,
-} from './cadContracts.js';
-import type {
-    CadImportResult,
-    ProjectShortCircuit,
-} from './cadContracts.js';
+import { ShortCircuitResponseSchema } from './cadContracts.js';
+import type { ShortCircuitResponse } from './cadContracts.js';
 import {
     CreateProjectDtoSchema,
     FloorPlanUploadDtoSchema,
@@ -251,9 +245,9 @@ export function createApiClient(options: ApiClientOptions = {}) {
          * Импорт чертежа DXF/DWG: `POST /projects/:id/import-cad`.
          * @param id — идентификатор проекта.
          * @param file — файл чертежа.
-         * @returns нормализованные слои стен.
+         * @returns проект с обновлёнными стенами (канонический `ProjectDto`).
          */
-        async importCadAsync(id: Uuid, file: File): Promise<CadImportResult> {
+        async importCadAsync(id: Uuid, file: File): Promise<ProjectDto> {
             const projectId = UuidSchema.parse(id);
             const formData = new FormData();
             formData.append('file', file);
@@ -261,21 +255,21 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 `${baseUrl}/projects/${encodeURIComponent(projectId)}/import-cad`,
                 { method: 'POST', body: formData },
             );
-            return parseResponse(response, CadImportResultSchema);
+            return parseResponse(response, ProjectDtoSchema);
         },
 
         /**
          * Расчёт однофазного КЗ и селективности: `POST /projects/:id/short-circuit`.
          * @param id — идентификатор проекта.
-         * @returns токи КЗ, потери напряжения и статус селективности.
+         * @returns канонический ответ расчёта КЗ.
          */
-        async calculateShortCircuitAsync(id: Uuid): Promise<ProjectShortCircuit> {
+        async calculateShortCircuitAsync(id: Uuid): Promise<ShortCircuitResponse> {
             const projectId = UuidSchema.parse(id);
             return sendJsonAsync(
                 `/projects/${encodeURIComponent(projectId)}/short-circuit`,
                 'POST',
                 {},
-                ProjectShortCircuitSchema,
+                ShortCircuitResponseSchema,
             );
         },
     };

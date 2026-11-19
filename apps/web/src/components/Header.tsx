@@ -107,11 +107,7 @@ export function Header() {
                 return;
             }
             const result = await apiClient.importCadAsync(parsed.data, file);
-            const current = useEditorStore.getState().graph;
-            useEditorStore.getState().setGraph({
-                ...current,
-                walls: [...current.walls, ...result.walls],
-            });
+            useEditorStore.getState().setGraph(result.graph);
             useEditorStore.getState().setStatus('status.dxfImported');
         } catch {
             useEditorStore.getState().setStatus('cad.failed');

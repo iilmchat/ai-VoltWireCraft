@@ -415,12 +415,11 @@ export function SingleLineDiagramView(): React.JSX.Element {
                             const selected = edge.id === selectedEdgeId;
                             const labelX = target.x + NODE_WIDTH + 10;
                             const labelY = target.y + 8;
-                            const scLine = shortCircuit?.lines.find((item) => item.edgeId === edge.id);
                             const firstLine = `${edge.cableBrand ?? '—'} · ${edge.cableSpecs.crossSection}мм²`;
                             const secondLine = `${edge.cableSpecs.length.toFixed(1)}м · ${(target.node.specs.ratedPower / 1000).toFixed(2)}кВт · ${target.node.specs.ratedCurrent}А`;
-                            const thirdLine = scLine === undefined
+                            const thirdLine = shortCircuit === null
                                 ? 'Iкз: —'
-                                : `Iкз ${scLine.shortCircuitCurrentA.toFixed(0)}A · ΔU ${scLine.voltageDropPercent.toFixed(1)}% · ${scLine.selectivityOk ? 'OK' : 'ERR'}`;
+                                : `Iкз ${shortCircuit.shortCircuitCurrentA.toFixed(0)}A · k ${shortCircuit.actualMultiplicity.toFixed(1)} · ${shortCircuit.selectivityOk ? 'OK' : 'ERR'}`;
                             return (
                                 <g
                                     key={edge.id}
@@ -447,7 +446,7 @@ export function SingleLineDiagramView(): React.JSX.Element {
                                         x={labelX + 6}
                                         y={labelY + 41}
                                         fontSize={10}
-                                        fill={scLine === undefined ? '#64748b' : scLine.selectivityOk ? '#15803d' : '#b91c1c'}
+                                        fill={shortCircuit === null ? '#64748b' : shortCircuit.selectivityOk ? '#15803d' : '#b91c1c'}
                                     >
                                         {truncate(thirdLine, 30)}
                                     </text>

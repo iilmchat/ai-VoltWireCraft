@@ -208,7 +208,7 @@ export function InspectorPanel() {
                     <p className="text-xs text-slate-500">
                         {t('cable.waypoints')}: {edge.waypointsPx?.length ?? 0}
                     </p>
-                    <ShortCircuitBadge edgeId={edge.id} />
+                    <ShortCircuitBadge />
                 </div>
             )}
 
