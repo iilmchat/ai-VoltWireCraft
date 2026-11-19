@@ -98,6 +98,10 @@ function makeGraph(): ProjectGraph {
         from: BREAKER,
         to: SOCKET,
         cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu', length: 12 },
+        waypointsM: [
+            { x: 0, y: 0 },
+            { x: 12, y: 0 },
+        ],
     });
     return graph;
 }
@@ -107,6 +111,26 @@ describe('ИИ-агенты', () => {
         calculateCableLengthAsync: vi.fn(),
         calculateLineSizingAsync: vi.fn(async () => lineResponse),
         autoAssemblePanelAsync: vi.fn(async () => panelResponse),
+        checkShortCircuitAsync: vi.fn(async () => ({
+            transformerImpedanceOhm: 0.07,
+            phaseResistanceOhm: 0.14,
+            neutralResistanceOhm: 0.14,
+            loopReactanceOhm: 0.003,
+            loopImpedanceOhm: 0.35,
+            shortCircuitCurrentA: 650,
+            requiredMultiplicity: 10,
+            minimumMultiplicity: 5,
+            actualMultiplicity: 40,
+            instantaneousTripA: 160,
+            disconnectComplies: true,
+            selectivityOk: true,
+            upstreamToDownstreamRatio: 3.9,
+            tripTimeS: 0.1,
+            warnings: [],
+            references: ['PUE-SC-1.7-TIME-04'],
+            rulesVersion: '0.1',
+        })),
+        parseDxfAsync: vi.fn(),
     };
     const llm = { generateExplanationAsync: vi.fn(async () => 'Пояснение агентов') };
     const catalog = {

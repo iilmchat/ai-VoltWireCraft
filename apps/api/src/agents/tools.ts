@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   AutoPanelRequestSchema,
   LineSizingRequestSchema,
+  ShortCircuitRequestSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
   AutoPanelRequest,
@@ -13,6 +14,8 @@ import type {
   LineSizingRequest,
   LineSizingResponse,
   PueCitation,
+  ShortCircuitRequest,
+  ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
 import { NormativeService } from './normative.service.js';
@@ -53,6 +56,8 @@ export class ToolRegistry {
   public readonly autoAssemblePanelTool: AgentTool<AutoPanelRequest, AutoPanelResponse>;
   /** Поиск пунктов ПУЭ-7 (делегируется `normative_chunks`). */
   public readonly inspectPueRulesTool: AgentTool<InspectPueRulesInput, PueCitation[]>;
+  /** Проверка тока КЗ «фаза-ноль» и селективности (делегируется `calc-engine`). */
+  public readonly checkShortCircuitTool: AgentTool<ShortCircuitRequest, ShortCircuitResponse>;
 
   /**
    * @param calcClient — клиент расчётного ядра.
@@ -79,6 +84,12 @@ export class ToolRegistry {
       description: 'Возвращает цитаты пунктов ПУЭ-7 по ключевым словам.',
       inputSchema: InspectPueRulesInputSchema,
       invokeAsync: (input) => this.normative.searchAsync(input.query, input.limit),
+    };
+    this.checkShortCircuitTool = {
+      name: 'check_short_circuit_tool',
+      description: 'Проверяет ток однофазного КЗ, кратность срабатывания и селективность автоматов.',
+      inputSchema: ShortCircuitRequestSchema,
+      invokeAsync: (input) => this.calcClient.checkShortCircuitAsync(input),
     };
   }
 }

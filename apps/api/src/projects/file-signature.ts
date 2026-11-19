@@ -6,6 +6,11 @@ import type { BackgroundKind } from '@voltwirecraft/shared/graph.schema.js';
 
 /** Максимальный размер загружаемой подложки: 25 МБ. */
 export const MAX_FLOOR_PLAN_SIZE_BYTES = 25 * 1024 * 1024;
+/** Максимальный размер DXF/DWG-плана: 50 МБ (DESIGN_V030 § 3.2). */
+export const MAX_CAD_FILE_BYTES = 50 * 1024 * 1024;
+
+/** Поддерживаемые форматы векторных чертежей. */
+export type CadFileKind = 'dxf' | 'dwg';
 
 /** Минимальный контракт файла, получаемого от multer в памяти. */
 export interface UploadedFloorPlanFile {
@@ -23,6 +28,31 @@ export interface DetectedFloorPlanType {
   readonly kind: BackgroundKind;
   /** MIME-тип, соответствующий сигнатуре. */
   readonly mimeType: string;
+}
+
+/**
+ * Определяет формат CAD-файла по расширению и сигнатуре.
+ *
+ * @param file — загруженный файл.
+ * @returns `dxf` или `dwg`.
+ * @throws {BadRequestException} если формат не поддержан или файл слишком велик.
+ */
+export function detectCadFile(file: UploadedFloorPlanFile): CadFileKind {
+  if (file.buffer.length === 0) {
+    throw new BadRequestException('CAD-файл пуст');
+  }
+  if (file.buffer.length > MAX_CAD_FILE_BYTES) {
+    throw new BadRequestException('CAD-файл превышает лимит 50 МБ');
+  }
+  const extension = file.originalname.split('.').pop()?.toLowerCase();
+  const header = file.buffer.subarray(0, 8).toString('latin1');
+  if (extension === 'dxf' || header.startsWith('  0') || header.includes('AutoCAD DXF')) {
+    return 'dxf';
+  }
+  if (extension === 'dwg' || header.startsWith('AC')) {
+    return 'dwg';
+  }
+  throw new BadRequestException('Поддерживаются только DXF и DWG');
 }
 
 interface Signature {

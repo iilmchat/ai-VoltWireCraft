@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 /** REST-контроллер проектов: единый формат ответа `ApiResponse` (RULES § 1.6). */
 
-import { Body, Controller, Get, Inject, Param, Post, Put, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Put, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import multer from 'multer';
 import {
@@ -15,7 +15,7 @@ import type {
     ProjectDto,
     UpdateProjectGraphDto,
 } from '@voltwirecraft/shared/graph.schema.js';
-import type { PueAuditReport } from '@voltwirecraft/shared/graph.schema.js';
+import type { PueAuditReport, ShortCircuitResponse } from '@voltwirecraft/shared/graph.schema.js';
 import { AssemblePanelRequestSchema } from '../agents/agents.schemas.js';
 import type { AssemblePanelRequest, AssemblePanelResult } from '../agents/agents.schemas.js';
 import { PanelArchitectAgent } from '../agents/panel-architect.agent.js';
@@ -23,7 +23,7 @@ import { PueAuditorAgent } from '../agents/pue-auditor.agent.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import type { ApiResponse } from '../common/api-response.js';
 import type { ProjectCalculationDto } from './calculation.js';
-import { MAX_FLOOR_PLAN_SIZE_BYTES } from './file-signature.js';
+import { MAX_CAD_FILE_BYTES, MAX_FLOOR_PLAN_SIZE_BYTES } from './file-signature.js';
 import type { UploadedFloorPlanFile } from './file-signature.js';
 import { ProjectsService } from './projects.service.js';
 
@@ -119,6 +119,45 @@ export class ProjectsController {
   ): Promise<ApiResponse<FloorPlanUploadDto>> {
     const data = await this.service.uploadFloorPlanAsync(id, file);
     return { success: true, data, message: 'Подложка загружена' };
+  }
+
+  /**
+   * Проверяет ток однофазного КЗ и селективность через расчётное ядро.
+   *
+   * @param id — UUID проекта.
+   * @returns результат расчёта петли «фаза-ноль».
+   */
+  @Post(':id/short-circuit')
+  public async calculateShortCircuitAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+  ): Promise<ApiResponse<ShortCircuitResponse>> {
+    const data = await this.service.calculateShortCircuitAsync(id);
+    return { success: true, data, message: 'Расчёт тока КЗ выполнен' };
+  }
+
+  /**
+   * Импортирует стены из DXF-плана (до 50 МБ), разбор выполняет calc-engine.
+   *
+   * @param id — UUID проекта.
+   * @param file — файл DXF/DWG (поле `file`).
+   * @returns проект с обновлёнными стенами.
+   */
+  @Post(':id/import-cad')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multer.memoryStorage(),
+      limits: { fileSize: MAX_CAD_FILE_BYTES, files: 1 },
+    }),
+  )
+  public async importCadAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+    @UploadedFile() file: UploadedFloorPlanFile | undefined,
+  ): Promise<ApiResponse<ProjectDto>> {
+    if (file === undefined) {
+      throw new BadRequestException('Файл DXF не передан');
+    }
+    const data = await this.service.importCadAsync(id, file);
+    return { success: true, data, message: 'Стены из CAD импортированы' };
   }
 
   /**

@@ -339,3 +339,33 @@
   в браузере остаётся скачивание (RULES § 5.4). Индикатор «Офлайн (Tauri)» в шапке.
 - Новые строки UI добавлены в `ru.json` / `en.json`; тесты web расширены
   (миграция v1→v2, каталог, CAD-контракты, прилипание к стенам).
+
+### Added (бэкенд релиза v0.3.0)
+
+- `packages/shared/src/graph.schema.ts`: канонический `ProjectGraphSchema`
+  `schemaVersion: 2` с обязательными `waypointsM`, расчётными полями
+  `cableSpecs` (`calculatedCurrentA`, `voltageDropPercent`,
+  `shortCircuitCurrentA`) и `catalogDeviceId` в узлах. Добавлены
+  `ProjectGraphSchemaV1`, `VwcFileSchemaV1`, `parseVwcFile`; v1 мигрируется
+  автоматически, данные и ссылки сохраняются (KI-003).
+- Детерминированный `migrateProjectGraphV1ToV2` (и вариант с отчётом): перевод
+  `waypointsPx × scaleMetersPerPx` в метры с точностью 1 мкм, назначение
+  `panelSlot` для модулей щита и `catalogDeviceId = null`; покрыт юнит-тестами.
+- `apps/calc-engine`: `POST /v1/calc/short-circuit` — петля «фаза-ноль»,
+  минимальный ток КЗ, кратности B=5 / C=10 / D=20, время отключения и
+  селективность 1,6×; вычисления в `Decimal`, ссылки на `PUE_SHORT_CIRCUIT_V03`.
+- `apps/calc-engine`: `POST /v1/cad/parse-dxf` — разбор `LINE`/`LWPOLYLINE`
+  через `ezdxf` в стены со слоями wall/partition/door/window, нормализация
+  `$INSUNITS` (мм/см/м/дюйм) в метры, лимит 50 МБ, таймаут 30 с, предел
+  сущностей и POSIX-ограничения памяти/CPU в отдельном воркере.
+- `apps/api`: инструмент `check_short_circuit_tool`, метод
+  `CalcEngineClient.checkShortCircuitAsync`, вызов КЗ в `PueAuditorAgent`,
+  эндпоинты `POST /projects/:id/short-circuit` и `POST /projects/:id/import-cad`,
+  метод `ProjectsService.importCadAsync` с добавлением стен в граф.
+- Тесты: 22 новых `pytest` (КЗ и CAD), 6 новых Vitest (клиент, инструмент,
+  аудит, импорт CAD); `pnpm build/test/lint/typecheck` зелёные.
+
+### Fixed
+
+- KI-003 закрыт: граф v1 автоматически мигрирует в v2 без потери данных;
+  расчётные координаты трасс хранятся в метрах СИ.

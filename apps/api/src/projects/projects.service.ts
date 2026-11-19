@@ -9,12 +9,14 @@ import {
     FloorPlanUploadDtoSchema,
     ProjectDtoSchema,
     ProjectGraphSchema,
+    ShortCircuitRequestSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
     CreateProjectDto,
     FloorPlanUploadDto,
     ProjectDto,
     ProjectGraph,
+    ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
 import { DRIZZLE_DB } from '../database/drizzle.provider.js';
@@ -22,7 +24,7 @@ import type { Database } from '../database/drizzle.provider.js';
 import { floorPlans, projects } from '../database/schema.js';
 import { buildCableRequest, ProjectCalculationDtoSchema } from './calculation.js';
 import type { CalculationEdge, ProjectCalculationDto } from './calculation.js';
-import { detectFloorPlanType } from './file-signature.js';
+import { detectCadFile, detectFloorPlanType } from './file-signature.js';
 import type { UploadedFloorPlanFile } from './file-signature.js';
 import { FLOOR_PLAN_STORAGE } from './storage/floor-plan-storage.js';
 import type { FloorPlanStorage } from './storage/floor-plan-storage.js';
@@ -218,6 +220,70 @@ export class ProjectsService {
       mimeType: row.mimeType,
       sizeBytes: row.sizeBytes,
       createdAt: row.createdAt.toISOString(),
+    });
+  }
+
+  /**
+   * Проверяет петлю «фаза-ноль» для первой линии проекта в расчётном ядре.
+   *
+   * @param id — идентификатор проекта.
+   * @returns результат расчёта однофазного КЗ.
+   * @throws {BadRequestException} если в графе нет линии или автомата.
+   */
+  public async calculateShortCircuitAsync(id: string): Promise<ShortCircuitResponse> {
+    const project = await this.getByIdAsync(id);
+    const edge = project.graph.edges[0];
+    const breaker = project.graph.nodes.find(
+      (node) => ['circuit_breaker', 'rcbo'].includes(node.kind) && node.specs.ratedCurrent > 0,
+    );
+    if (edge === undefined || breaker === undefined) {
+      throw new BadRequestException('В проекте должна быть хотя бы одна линия с автоматом');
+    }
+
+    return this.calcClient.checkShortCircuitAsync(
+      ShortCircuitRequestSchema.parse({
+        transformerPowerKva: 100,
+        cableLengthM: edge.cableSpecs.length > 0 ? edge.cableSpecs.length : 10,
+        crossSectionMm2: edge.cableSpecs.crossSection,
+        breakerRatingA: breaker.specs.ratedCurrent,
+        tripCurve: 'C',
+      }),
+    );
+  }
+
+  /**
+   * Импортирует стены из DXF-плана в граф проекта через calc-engine.
+   * DWG требует внешний ODA-конвертер и пока отклоняется с явным сообщением.
+   *
+   * @param id — идентификатор проекта.
+   * @param file — загруженный DXF/DWG (до 50 МБ).
+   * @returns проект с добавленными стенами.
+   * @throws {BadRequestException} если формат не поддержан или файл слишком велик.
+   * @throws {NotFoundException} если проект не найден.
+   */
+  public async importCadAsync(id: string, file: UploadedFloorPlanFile): Promise<ProjectDto> {
+    const project = await this.getByIdAsync(id);
+    const kind = detectCadFile(file);
+    if (kind === 'dwg') {
+      throw new BadRequestException(
+        'DWG требует внешний ODA-конвертер (ODA_CONVERTER_PATH); загрузите DXF',
+      );
+    }
+
+    const parsed = await this.calcClient.parseDxfAsync({
+      bytes: file.buffer,
+      fileName: file.originalname,
+    });
+    const walls = parsed.walls.map((wall) => ({
+      id: randomUUID(),
+      kind: wall.kind,
+      path: wall.path,
+      thickness: wall.thickness,
+    }));
+
+    return this.updateGraphAsync(id, {
+      ...project.graph,
+      walls: [...project.graph.walls, ...walls],
     });
   }
 

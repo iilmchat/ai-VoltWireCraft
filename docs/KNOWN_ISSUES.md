@@ -60,8 +60,22 @@ push и pull request. Локальные интеграционные тесты
 схему и мигратор, новые линии создаются сразу с метрическими координатами.
 Пиксельные координаты остаются свойством холста.
 
-**Файлы.** `packages/shared/src/graph.schema.ts`, `apps/web/src/lib/persistence.ts`,
-`apps/web/src/store/editorStore.ts`, `docs/development/v0.3/DESIGN_V030_CAD_SHORT_CIRCUIT_DESKTOP.md`.
+**Файлы.** `packages/shared/src/graph.schema.ts` (мигратор и тесты),
+`apps/web/src/lib/persistence.ts`, `apps/web/src/store/editorStore.ts`,
+`docs/development/v0.3/DESIGN_V030_CAD_SHORT_CIRCUIT_DESKTOP.md`.
+
+---
+
+### KI-005 — DWG требует внешний ODA-конвертер 🟡 Medium · Deferred (v0.4.0)
+
+**Проблема.** Нативный парсер `ezdxf` читает только DXF. Файлы DWG принимаются
+эндпоинтом `POST /projects/:id/import-cad`, но отклоняются с явным сообщением
+до тех пор, пока не настроен конвертер `ODA_CONVERTER_PATH`.
+
+**Митигация.** Пользователь получает понятную причину и предложение
+экспортировать чертёж в DXF; контракт и лимиты уже готовы (RULES § 5.5).
+
+**Файлы.** `apps/api/src/projects/projects.service.ts`, `apps/calc-engine/app/cad_parser.py`.
 
 ---
 
@@ -91,9 +105,9 @@ push и pull request. Локальные интеграционные тесты
 | In Progress | 0 |
 | Fixed | 3 |
 | Documented | 0 |
-| Deferred | 0 |
+| Deferred | 1 |
 | Won't Fix | 0 |
 | Resolved | 1 |
-| **Всего** | **4** |
+| **Всего** | **5** |
 
 > Сводка пересчитана поиском по файлу перед правкой (RULES § 3.9).

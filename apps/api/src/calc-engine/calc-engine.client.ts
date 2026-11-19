@@ -9,16 +9,22 @@ import {
   AutoPanelResponseSchema,
   CalculateCableLengthRequestSchema,
   CalculateCableLengthResponseSchema,
+  CadParseResponseSchema,
   LineSizingRequestSchema,
   LineSizingResponseSchema,
+  ShortCircuitRequestSchema,
+  ShortCircuitResponseSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
   AutoPanelRequest,
   AutoPanelResponse,
   CalculateCableLengthRequest,
   CalculateCableLengthResponse,
+  CadParseResponse,
   LineSizingRequest,
   LineSizingResponse,
+  ShortCircuitRequest,
+  ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type { Env } from '../config/env.schema.js';
 
@@ -30,6 +36,10 @@ const CALCULATION_PATH = '/v1/calc/cable-length';
 const LINE_SIZING_PATH = '/v1/calc/line-sizing';
 /** Путь автосборки щита НКУ. */
 const AUTO_PANEL_PATH = '/v1/calc/auto-panel';
+/** Путь расчёта однофазного КЗ. */
+const SHORT_CIRCUIT_PATH = '/v1/calc/short-circuit';
+/** Путь разбора CAD-плана. */
+const CAD_PARSE_PATH = '/v1/cad/parse-dxf';
 
 /** Параметры одного вызова расчётного ядра. */
 interface CalculationCall<TPayload, TResult> {
@@ -100,6 +110,74 @@ export class CalcEngineClient {
       payload: AutoPanelRequestSchema.parse(request),
       responseSchema: AutoPanelResponseSchema,
     });
+  }
+
+  /**
+   * Рассчитывает минимальный ток однофазного КЗ и селективность в ядре.
+   *
+   * @param request — параметры петли «фаза-ноль» и автоматов.
+   * @returns провалидированный ответ ядра.
+   * @throws {BadGatewayException|GatewayTimeoutException} при ошибке вызова.
+   */
+  public async checkShortCircuitAsync(
+    request: ShortCircuitRequest,
+  ): Promise<ShortCircuitResponse> {
+    return this.postAsync({
+      path: SHORT_CIRCUIT_PATH,
+      payload: ShortCircuitRequestSchema.parse(request),
+      responseSchema: ShortCircuitResponseSchema,
+    });
+  }
+
+  /**
+   * Отправляет DXF-файл в изолированный парсер ядра.
+   *
+   * @param file — содержимое файла и имя.
+   * @returns стены в метрах СИ.
+   * @throws {BadGatewayException|GatewayTimeoutException} при ошибке вызова.
+   */
+  public async parseDxfAsync(file: {
+    readonly bytes: Buffer;
+    readonly fileName: string;
+  }): Promise<CadParseResponse> {
+    const url = new URL(CAD_PARSE_PATH, this.config.get('CALC_ENGINE_URL', { infer: true }));
+    const controller = new AbortController();
+    const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 30_000);
+    const body = new FormData();
+    body.append(
+      'file',
+      new Blob([new Uint8Array(file.bytes)], { type: 'application/dxf' }),
+      file.fileName,
+    );
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body,
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new BadGatewayException(`Calc-engine вернул HTTP ${response.status} при разборе CAD`);
+      }
+      return CadParseResponseSchema.parse(await response.json());
+    } catch (error: unknown) {
+      if (error instanceof BadGatewayException || error instanceof GatewayTimeoutException) {
+        throw error;
+      }
+      if (error instanceof ZodError) {
+        throw new BadGatewayException({
+          message: 'Calc-engine вернул некорректный ответ разбора CAD',
+          details: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+        });
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new GatewayTimeoutException('Превышен таймаут разбора CAD');
+      }
+      const detail = error instanceof Error ? error.message : 'неизвестная ошибка';
+      throw new BadGatewayException(`Не удалось разобрать CAD: ${detail}`);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   /**

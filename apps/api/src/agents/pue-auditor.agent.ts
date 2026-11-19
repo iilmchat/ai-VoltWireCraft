@@ -153,6 +153,36 @@ export class PueAuditorAgent {
       }
     }
 
+    // Проверка петли «фаза-ноль» выполняется только инструментом calc-engine.
+    const upstream = graph.nodes.find((node) => node.kind === 'panel');
+    for (const [index, edge] of graph.edges.slice(0, 3).entries()) {
+      const breaker = breakerNodes.find((node) => node.specs.ratedCurrent > 0);
+      if (breaker === undefined) {
+        continue;
+      }
+      const request = this.tools.checkShortCircuitTool.inputSchema.parse({
+        transformerPowerKva: 100,
+        cableLengthM: edge.cableSpecs.length > 0 ? edge.cableSpecs.length : 10,
+        crossSectionMm2: edge.cableSpecs.crossSection,
+        breakerRatingA: breaker.specs.ratedCurrent,
+        tripCurve: 'C',
+        ...(upstream !== undefined ? { upstreamBreakerRatingA: upstream.specs.ratedCurrent } : {}),
+      });
+      const shortCircuit = await this.tools.checkShortCircuitTool.invokeAsync(request);
+      toolCalls.push(this.tools.checkShortCircuitTool.name);
+
+      findings.push({
+        id: `F-SHORT-CIRCUIT-${index + 1}`,
+        severity: shortCircuit.disconnectComplies ? 'info' : 'error',
+        ruleId: 'PUE-SC-1.7-TIME-04',
+        section: '1.7. Защита от сверхтоков',
+        message: `I_кз^(1) = ${shortCircuit.shortCircuitCurrentA} А, кратность ${shortCircuit.actualMultiplicity}× при требуемой ${shortCircuit.requiredMultiplicity}×.`,
+        nodeIds: [breaker.id, edge.to],
+        recommendation:
+          shortCircuit.warnings[0] ?? 'Мгновенное отключение обеспечено; проверьте селективность.',
+      });
+    }
+
     const summary = {
       errors: findings.filter((finding) => finding.severity === 'error').length,
       warnings: findings.filter((finding) => finding.severity === 'warning').length,

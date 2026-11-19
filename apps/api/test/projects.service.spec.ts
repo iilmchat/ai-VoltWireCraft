@@ -131,7 +131,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
     expect(created.objectType).toBe(DTO.objectType);
     expect(created.networkSystem).toBe(DTO.networkSystem);
     expect(created.graph.id).toBe(created.id);
-    expect(created.graph.schemaVersion).toBe(1);
+    expect(created.graph.schemaVersion).toBe(2);
     expect(created.graph.floorPlan.background).toBeNull();
     expect(created.graph.rooms).toEqual([]);
     expect(created.graph.nodes).toEqual([]);
@@ -198,6 +198,10 @@ describe('ProjectsService (интеграционные тесты)', () => {
           from: randomUUID(),
           to: randomUUID(),
           cableSpecs: { crossSection: 2.5, conductorCount: 3, material: 'cu', length: 0 },
+          waypointsM: [
+            { x: 0, y: 0 },
+            { x: 1, y: 1 },
+          ],
         },
       ],
     };
