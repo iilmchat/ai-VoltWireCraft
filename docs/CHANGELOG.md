@@ -18,6 +18,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-11-20
+
 ### Added
 
 - `docs/development/v0.9/DESIGN_V090_COLLAB_3PHASE_SC_GROUNDING.md` — дизайн

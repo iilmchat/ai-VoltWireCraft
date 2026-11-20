@@ -1,6 +1,6 @@
 {
   "name": "voltwirecraft",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "description": "VoltWireCraft — монорепозиторий САПР электрических сетей 0,4 кВ и сборки щитов НКУ",
