@@ -17,6 +17,8 @@ import type {
 } from '@voltwirecraft/shared/graph.schema.js';
 import { create } from 'zustand';
 import type { TranslationKey } from '../i18n/index.js';
+import type { DemoProjectId } from '../lib/demoProjects.js';
+import { getDemoProject } from '../lib/demoProjects.js';
 import type { ScreenPoint, Viewport } from '../lib/geometry.js';
 import { effectiveScale, isValidPolygon, metersToPx, pxToMeters } from '../lib/geometry.js';
 import { snapToWalls } from '../lib/snap.js';
@@ -106,6 +108,18 @@ export interface EditorState {
     backgroundImage: HTMLImageElement | HTMLCanvasElement | null;
     /** Ключ строки статуса. */
     statusKey: TranslationKey;
+    /** Снимки графа до последних изменений (Undo). */
+    past: readonly ProjectGraph[];
+    /** Снимки графа, отменённые пользователем (Redo). */
+    future: readonly ProjectGraph[];
+    /** Отменить последнее изменение графа. */
+    undo: () => void;
+    /** Повторить последнюю отменённую правку графа. */
+    redo: () => void;
+    /** Загрузить эталонный проект золотого датасета без сети. */
+    loadDemoProject: (id: DemoProjectId) => void;
+    /** Применить предложенный ИИ граф с записью в историю Undo. */
+    applyProposedGraph: (graph: ProjectGraph) => void;
     /** Выбрать инструмент. */
     setTool: (tool: ToolId) => void;
     /** Подготовить ЭУИ к установке. */
@@ -171,6 +185,26 @@ export interface EditorState {
 /** Начальные параметры просмотра. */
 const INITIAL_VIEWPORT: Viewport = { x: 40, y: 40, scale: 1 };
 
+/** Максимальное число снимков в истории Undo/Redo. */
+const HISTORY_LIMIT = 50;
+
+/** Частичное состояние стора, возвращаемое при фиксации графа. */
+type GraphCommit = Pick<EditorState, 'graph' | 'past' | 'future'>;
+
+/**
+ * Зафиксировать новое состояние графа с записью предыдущего в стек Undo.
+ * @param state Текущее состояние редактора.
+ * @param graph Новый валидированный граф.
+ * @returns Частичное состояние с обновлённой историей.
+ */
+function commitGraph(state: EditorState, graph: ProjectGraph): GraphCommit {
+    return {
+        graph,
+        past: [...state.past, state.graph].slice(-HISTORY_LIMIT),
+        future: [],
+    };
+}
+
 /**
  * Проверить, что узел может быть источником кабельной линии.
  * @param node Узел графа.
@@ -208,6 +242,65 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     viewport: INITIAL_VIEWPORT,
     backgroundImage: null,
     statusKey: 'status.ready',
+    past: [],
+    future: [],
+
+    undo: () => set((state) => {
+        const previous = state.past[state.past.length - 1];
+        if (previous === undefined) {
+            return {};
+        }
+        return {
+            graph: previous,
+            past: state.past.slice(0, -1),
+            future: [state.graph, ...state.future].slice(0, HISTORY_LIMIT),
+            selectedNodeId: null,
+            selectedRoomId: null,
+            selectedEdgeId: null,
+            statusKey: 'status.undo',
+        };
+    }),
+
+    redo: () => set((state) => {
+        const next = state.future[0];
+        if (next === undefined) {
+            return {};
+        }
+        return {
+            graph: next,
+            past: [...state.past, state.graph].slice(-HISTORY_LIMIT),
+            future: state.future.slice(1),
+            selectedNodeId: null,
+            selectedRoomId: null,
+            selectedEdgeId: null,
+            statusKey: 'status.redo',
+        };
+    }),
+
+    loadDemoProject: (id) => {
+        const demo = getDemoProject(id);
+        const graph = demo.createGraph();
+        set((state) => ({
+            ...commitGraph(state, graph),
+            serverProjectId: null,
+            backgroundImage: null,
+            selectedNodeId: null,
+            selectedRoomId: null,
+            selectedEdgeId: null,
+            roomDraft: [],
+            scaleDraft: null,
+            cableDraft: null,
+            statusKey: 'status.demoLoaded',
+        }));
+    },
+
+    applyProposedGraph: (graph) => set((state) => ({
+        ...commitGraph(state, ProjectGraphSchema.parse(graph)),
+        selectedNodeId: null,
+        selectedRoomId: null,
+        selectedEdgeId: null,
+        statusKey: 'ai.chat.applied',
+    })),
 
     setTool: (tool) => set({ tool, statusKey: 'status.ready' }),
     setArmedDeviceKind: (armedDeviceKind) => set({ armedDeviceKind, tool: 'device' }),
@@ -230,10 +323,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     },
 
     setBackground: (background, image) => set((state) => ({
-        graph: ProjectGraphSchema.parse({
+        ...commitGraph(state, ProjectGraphSchema.parse({
             ...state.graph,
             floorPlan: { ...state.graph.floorPlan, background },
-        }),
+        })),
         backgroundImage: image,
         roomDraft: [],
         scaleDraft: null,
@@ -250,10 +343,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         }
         const scaleMetersPerPx = realLengthMm / 1000 / lengthPx;
         set((state) => ({
-            graph: ProjectGraphSchema.parse({
+            ...commitGraph(state, ProjectGraphSchema.parse({
                 ...state.graph,
                 floorPlan: { ...state.graph.floorPlan, scaleMetersPerPx },
-            }),
+            })),
             scaleDraft: null,
             statusKey: 'status.scaleSaved',
         }));
@@ -281,7 +374,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             polygon: state.roomDraft.map((point) => pxToMeters(point, scale)),
         });
         set({
-            graph: ProjectGraphSchema.parse({ ...state.graph, rooms: [...state.graph.rooms, room] }),
+            ...commitGraph(state, ProjectGraphSchema.parse({ ...state.graph, rooms: [...state.graph.rooms, room] })),
             roomDraft: [],
             selectedRoomId: room.id,
             selectedNodeId: null,
@@ -323,7 +416,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             },
         });
         set({
-            graph: ProjectGraphSchema.parse({ ...state.graph, nodes: [...state.graph.nodes, node] }),
+            ...commitGraph(state, ProjectGraphSchema.parse({ ...state.graph, nodes: [...state.graph.nodes, node] })),
             selectedNodeId: node.id,
             selectedRoomId: null,
             selectedEdgeId: null,
@@ -335,18 +428,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const state = get();
         const scale = state.graph.floorPlan.scaleMetersPerPx;
         const planPosition = pxToMeters(snapToWalls(point, state.graph.walls, scale), scale);
-        set({
-            graph: ProjectGraphSchema.parse({
-                ...state.graph,
-                nodes: state.graph.nodes.map((node) =>
+        set((current) => ({
+            ...commitGraph(current, ProjectGraphSchema.parse({
+                ...current.graph,
+                nodes: current.graph.nodes.map((node) =>
                     node.id === id ? GraphNodeSchema.parse({ ...node, planPosition }) : node,
                 ),
-            }),
-        });
+            })),
+        }));
     },
 
     updateNode: (id, patch) => set((state) => ({
-        graph: ProjectGraphSchema.parse({
+        ...commitGraph(state, ProjectGraphSchema.parse({
             ...state.graph,
             nodes: state.graph.nodes.map((node) => {
                 if (node.id !== id) {
@@ -365,20 +458,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
                     specs,
                 });
             }),
-        }),
+        })),
     })),
 
     updateRoom: (id, patch) => set((state) => ({
-        graph: ProjectGraphSchema.parse({
+        ...commitGraph(state, ProjectGraphSchema.parse({
             ...state.graph,
             rooms: state.graph.rooms.map((room) =>
                 room.id === id ? RoomZoneSchema.parse({ ...room, ...patch }) : room,
             ),
-        }),
+        })),
     })),
 
     updateEdge: (id, patch) => set((state) => ({
-        graph: ProjectGraphSchema.parse({
+        ...commitGraph(state, ProjectGraphSchema.parse({
             ...state.graph,
             edges: state.graph.edges.map((edge) => {
                 if (edge.id !== id) {
@@ -395,7 +488,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
                     ...(patch.cableBrand !== undefined ? { cableBrand: patch.cableBrand } : {}),
                 });
             }),
-        }),
+        })),
     })),
 
     startCable: (sourceNodeId) => {
@@ -463,7 +556,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             cableBrand: 'ВВГнг(А)-LS',
         });
         set({
-            graph: ProjectGraphSchema.parse({ ...state.graph, edges: [...state.graph.edges, edge] }),
+            ...commitGraph(state, ProjectGraphSchema.parse({ ...state.graph, edges: [...state.graph.edges, edge] })),
             cableDraft: null,
             selectedEdgeId: edge.id,
             selectedNodeId: null,
@@ -483,33 +576,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         if (state.selectedNodeId !== null) {
             const id = state.selectedNodeId;
             return {
-                graph: ProjectGraphSchema.parse({
+                ...commitGraph(state, ProjectGraphSchema.parse({
                     ...state.graph,
                     nodes: state.graph.nodes.filter((node) => node.id !== id),
                     edges: state.graph.edges.filter((edge) => edge.from !== id && edge.to !== id),
-                }),
+                })),
                 selectedNodeId: null,
             };
         }
         if (state.selectedRoomId !== null) {
             const id = state.selectedRoomId;
             return {
-                graph: ProjectGraphSchema.parse({
+                ...commitGraph(state, ProjectGraphSchema.parse({
                     ...state.graph,
                     rooms: state.graph.rooms.filter((room) => room.id !== id),
                     nodes: state.graph.nodes.map((node) =>
                         node.roomId === id ? { ...node, roomId: null } : node,
                     ),
-                }),
+                })),
                 selectedRoomId: null,
             };
         }
         if (state.selectedEdgeId !== null) {
             return {
-                graph: ProjectGraphSchema.parse({
+                ...commitGraph(state, ProjectGraphSchema.parse({
                     ...state.graph,
                     edges: state.graph.edges.filter((edge) => edge.id !== state.selectedEdgeId),
-                }),
+                })),
                 selectedEdgeId: null,
             };
         }
@@ -517,11 +610,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 
     setProjectName: (name) => set((state) => ({
-        graph: ProjectGraphSchema.parse({ ...state.graph, name: name.length > 0 ? name : 'Проект' }),
+        ...commitGraph(state, ProjectGraphSchema.parse({ ...state.graph, name: name.length > 0 ? name : 'Проект' })),
     })),
 
-    setGraph: (graph) => set({
-        graph: ProjectGraphSchema.parse(graph),
+    setGraph: (graph) => set((state) => ({
+        ...commitGraph(state, ProjectGraphSchema.parse(graph)),
         serverProjectId: null,
         backgroundImage: null,
         selectedNodeId: null,
@@ -531,7 +624,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         scaleDraft: null,
         cableDraft: null,
         statusKey: 'status.projectLoaded',
-    }),
+    })),
 
     setServerProjectId: (serverProjectId) => set({ serverProjectId }),
     setStatus: (statusKey) => set({ statusKey }),

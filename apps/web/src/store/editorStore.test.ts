@@ -6,6 +6,7 @@ import { useEditorStore } from './editorStore.js';
 describe('editorStore (канонический граф)', () => {
     beforeEach(() => {
         useEditorStore.getState().setGraph(createEmptyProjectGraph('Тест'));
+        useEditorStore.setState({ past: [], future: [] });
     });
 
     it('калибрует масштаб по отрезку', () => {
@@ -63,6 +64,37 @@ describe('editorStore (канонический граф)', () => {
         expect(edge?.cableSpecs.crossSection).toBe(1.5);
         expect(edge?.waypointsPx).toHaveLength(3);
         expect(edge?.waypointsM).toHaveLength(3);
+    });
+
+    it('отменяет и повторяет изменение графа', () => {
+        const store = useEditorStore.getState();
+        store.addNode('socket', { x: 10, y: 10 });
+        expect(useEditorStore.getState().graph.nodes).toHaveLength(1);
+        useEditorStore.getState().undo();
+        expect(useEditorStore.getState().graph.nodes).toHaveLength(0);
+        expect(useEditorStore.getState().past).toHaveLength(0);
+        useEditorStore.getState().redo();
+        expect(useEditorStore.getState().graph.nodes).toHaveLength(1);
+        expect(useEditorStore.getState().future).toHaveLength(0);
+    });
+
+    it('загружает демо-проект золотого датасета с записью в историю', () => {
+        useEditorStore.getState().loadDemoProject('studio-230v');
+        const loaded = useEditorStore.getState().graph;
+        expect(loaded.name).toBe('Студия 230 В');
+        expect(loaded.nodes.some((node) => node.panelSlot !== null)).toBe(true);
+        expect(loaded.stampMeta?.organizationName).toContain('ВолтВайрКрафт');
+        useEditorStore.getState().undo();
+        expect(useEditorStore.getState().graph.nodes).toHaveLength(0);
+    });
+
+    it('применяет предложенный ИИ граф через историю Undo', () => {
+        const graph = createEmptyProjectGraph('Предложение ИИ');
+        useEditorStore.getState().applyProposedGraph(graph);
+        expect(useEditorStore.getState().graph.name).toBe('Предложение ИИ');
+        expect(useEditorStore.getState().past).toHaveLength(1);
+        useEditorStore.getState().undo();
+        expect(useEditorStore.getState().graph.name).toBe('Тест');
     });
 
     it('удаляет связанные линии при удалении узла', () => {

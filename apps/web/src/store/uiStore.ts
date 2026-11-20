@@ -10,10 +10,10 @@ import { useEditorStore } from './editorStore.js';
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** Идентификатор рабочего представления. */
-export type WorkspaceView = 'plan' | 'panel' | 'singleLine' | 'bom';
+export type WorkspaceView = 'plan' | 'panel' | 'panel3d' | 'singleLine' | 'bom';
 
 /** Действие ИИ-агента. */
-export type AiAction = 'assemble' | 'audit';
+export type AiAction = 'assemble' | 'audit' | 'chat';
 
 /** Состояние оболочки приложения. */
 export interface UiState {
@@ -21,6 +21,8 @@ export interface UiState {
     activeView: WorkspaceView;
     /** Признак открытой панели «ИИ-Инженер». */
     aiDrawerOpen: boolean;
+    /** Признак открытой формы выпуска комплекта РД по ГОСТ. */
+    gostPanelOpen: boolean;
     /** Находки последнего аудита ПУЭ-7. */
     auditIssues: readonly PueFinding[];
     /** Выполняемое действие ИИ. */
@@ -37,6 +39,8 @@ export interface UiState {
     setActiveView: (view: WorkspaceView) => void;
     /** Открыть/закрыть панель ИИ. */
     setAiDrawerOpen: (open: boolean) => void;
+    /** Открыть/закрыть форму выпуска РД по ГОСТ. */
+    setGostPanelOpen: (open: boolean) => void;
     /** Сохранить результаты аудита. */
     setAuditIssues: (issues: readonly PueFinding[]) => void;
     /** Отметить начало/конец действия ИИ. */
@@ -57,6 +61,7 @@ export interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
     activeView: 'plan',
     aiDrawerOpen: false,
+    gostPanelOpen: false,
     auditIssues: [],
     busyAction: null,
     catalog: [],
@@ -66,6 +71,7 @@ export const useUiStore = create<UiState>((set, get) => ({
 
     setActiveView: (activeView) => set({ activeView }),
     setAiDrawerOpen: (aiDrawerOpen) => set({ aiDrawerOpen }),
+    setGostPanelOpen: (gostPanelOpen) => set({ gostPanelOpen }),
     setAuditIssues: (auditIssues) => set({ auditIssues }),
     setBusyAction: (busyAction) => set({ busyAction }),
 

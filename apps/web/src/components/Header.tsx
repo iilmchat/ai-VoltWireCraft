@@ -1,10 +1,12 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 import { UuidSchema } from '@voltwirecraft/shared/graph.schema.js';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useI18n } from '../i18n/index.js';
-import type { Locale } from '../i18n/index.js';
+import type { Locale, TranslationKey } from '../i18n/index.js';
 import { ApiClientError, apiClient } from '../lib/apiClient.js';
+import { DEMO_PROJECTS } from '../lib/demoProjects.js';
+import type { DemoProjectId } from '../lib/demoProjects.js';
 import {
     openProjectAsync,
     parseProject,
@@ -26,7 +28,16 @@ export function Header() {
     const serverProjectId = useEditorStore((state) => state.serverProjectId);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const cadFileRef = useRef<HTMLInputElement | null>(null);
+    const [demoMenuOpen, setDemoMenuOpen] = useState(false);
+    const canUndo = useEditorStore((state) => state.past.length > 0);
+    const canRedo = useEditorStore((state) => state.future.length > 0);
     const desktop = isDesktop();
+
+    /** Загрузить эталонный проект золотого датасета в офлайн-режиме. */
+    const handleLoadDemo = (id: DemoProjectId): void => {
+        useEditorStore.getState().loadDemoProject(id);
+        setDemoMenuOpen(false);
+    };
 
     const importErrorKeys: Record<ImportErrorCode, Parameters<typeof t>[0]> = {
         invalidJson: 'import.invalidJson',
@@ -190,6 +201,64 @@ export function Header() {
                     <option value="en">EN</option>
                 </select>
             </label>
+            <div className="relative">
+                <button
+                    type="button"
+                    aria-expanded={demoMenuOpen}
+                    onClick={() => setDemoMenuOpen((open) => !open)}
+                    className="rounded border border-indigo-600 px-3 py-2 text-sm font-medium text-indigo-300 hover:bg-indigo-950"
+                >
+                    {t('header.demoProjects')}
+                </button>
+                {demoMenuOpen && (
+                    <div
+                        role="menu"
+                        className="absolute left-0 top-full z-20 mt-1 w-80 rounded border border-slate-600 bg-slate-900 p-2 shadow-xl"
+                    >
+                        {DEMO_PROJECTS.map((demo) => (
+                            <button
+                                key={demo.id}
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleLoadDemo(demo.id)}
+                                className="mb-1 block w-full rounded px-3 py-2 text-left hover:bg-slate-800"
+                            >
+                                <span className="block text-sm font-medium text-slate-100">
+                                    {t(demo.nameKey as TranslationKey)}
+                                </span>
+                                <span className="block text-xs text-slate-400">
+                                    {t(demo.descriptionKey as TranslationKey)}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+            <button
+                type="button"
+                disabled={!canUndo}
+                title={t('header.undo')}
+                onClick={() => useEditorStore.getState().undo()}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+            >
+                {t('header.undoShort')}
+            </button>
+            <button
+                type="button"
+                disabled={!canRedo}
+                title={t('header.redo')}
+                onClick={() => useEditorStore.getState().redo()}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+            >
+                {t('header.redoShort')}
+            </button>
+            <button
+                type="button"
+                onClick={() => useUiStore.getState().setGostPanelOpen(true)}
+                className="rounded border border-teal-600 px-3 py-2 text-sm font-medium text-teal-300 hover:bg-teal-950"
+            >
+                {t('header.gostDocs')}
+            </button>
             <input
                 ref={fileRef}
                 type="file"
