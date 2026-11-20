@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
 /**
  * Типизированный клиент REST API NestJS (RULES § 1.6).
  *
@@ -9,10 +9,14 @@
 import { z } from 'zod';
 import {
     AssemblePanelResultSchema,
+    CopilotChatRequestSchema,
+    CopilotChatResponseSchema,
     PueAuditReportSchema,
 } from './aiContracts.js';
 import type {
     AssemblePanelResult,
+    CopilotChatRequest,
+    CopilotChatResponse,
     PueAuditReport,
 } from './aiContracts.js';
 import { ShortCircuitResponseSchema } from './cadContracts.js';
@@ -238,6 +242,24 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 'POST',
                 {},
                 PueAuditReportSchema,
+            );
+        },
+
+        /**
+         * Диалог с ИИ-копилотом проекта: `POST /projects/:id/ai/chat`.
+         * RULES § 5.1: агент возвращает предложение изменений графа, а не расчёты.
+         * @param id — идентификатор проекта.
+         * @param request — сообщение, история и предпочтительный бренд.
+         * @returns ответ копилота, провалидированный канонической схемой.
+         */
+        async chatAsync(id: Uuid, request: CopilotChatRequest): Promise<CopilotChatResponse> {
+            const projectId = UuidSchema.parse(id);
+            const payload = CopilotChatRequestSchema.parse(request);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/ai/chat`,
+                'POST',
+                payload,
+                CopilotChatResponseSchema,
             );
         },
 

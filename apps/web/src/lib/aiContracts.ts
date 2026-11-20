@@ -1,16 +1,24 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
 /**
  * Контракты ИИ-панели: канонические схемы из `@voltwirecraft/shared/graph.schema`.
  * RULES § 5.1: агент не вычисляет физические величины, только формирует предложение.
  */
 import {
     AutoPanelResponseSchema,
+    CopilotChatMessageSchema,
+    CopilotChatRequestSchema,
+    CopilotChatResponseSchema,
+    CopilotToolCallSchema,
     ProjectGraphSchema,
     PueAuditReportSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
     AutoPanelRequest,
     AutoPanelResponse,
+    CopilotChatMessage,
+    CopilotChatRequest,
+    CopilotChatResponse,
+    CopilotToolCall,
     LineSizingRequest,
     LineSizingResponse,
     PueAuditReport,
@@ -23,12 +31,20 @@ import { z } from 'zod';
 // Канонические схемы и типы реэкспортируются без изменений.
 export {
     AutoPanelResponseSchema,
+    CopilotChatMessageSchema,
+    CopilotChatRequestSchema,
+    CopilotChatResponseSchema,
+    CopilotToolCallSchema,
     ProjectGraphSchema,
     PueAuditReportSchema,
 };
 export type {
     AutoPanelRequest,
     AutoPanelResponse,
+    CopilotChatMessage,
+    CopilotChatRequest,
+    CopilotChatResponse,
+    CopilotToolCall,
     LineSizingRequest,
     LineSizingResponse,
     PueAuditReport,
