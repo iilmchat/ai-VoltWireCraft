@@ -15,6 +15,10 @@ from dataclasses import dataclass
 DEFAULT_CAD_MAX_FILE_SIZE_MB = 50
 # Максимальное время разбора одного файла, с.
 DEFAULT_CAD_PARSE_TIMEOUT_SEC = 30
+# Допустимые стратегии конвертации DWG → DXF.
+DWG_CONVERTER_TYPES = ("auto", "oda", "libredwg", "none")
+# Стратегия по умолчанию: ODA, если задан путь, иначе встроенный dwg2dxf.
+DEFAULT_DWG_CONVERTER_TYPE = "auto"
 
 
 @dataclass(frozen=True)
@@ -23,6 +27,8 @@ class CadSecurityConfig:
 
     max_file_size_mb: int
     parse_timeout_sec: int
+    dwg_converter_type: str = DEFAULT_DWG_CONVERTER_TYPE
+    oda_converter_path: str | None = None
 
     @property
     def max_file_size_bytes(self) -> int:
@@ -56,9 +62,18 @@ def load_cad_security_config(
         Валидированная конфигурация.
 
     Исключения:
-        ValueError: если лимит не является положительным целым числом.
+        ValueError: если лимит не положителен, тип конвертера неизвестен или
+            для `oda` не задан путь к конвертеру.
     """
     source = os.environ if environ is None else environ
+    converter_type = source.get("DWG_CONVERTER_TYPE", DEFAULT_DWG_CONVERTER_TYPE).strip().lower()
+    if converter_type not in DWG_CONVERTER_TYPES:
+        raise ValueError(
+            f"DWG_CONVERTER_TYPE должно быть одним из: {', '.join(DWG_CONVERTER_TYPES)}"
+        )
+    oda_path = source.get("ODA_CONVERTER_PATH", "").strip()
+    if converter_type == "oda" and not oda_path:
+        raise ValueError("При DWG_CONVERTER_TYPE=oda необходимо задать ODA_CONVERTER_PATH")
     return CadSecurityConfig(
         max_file_size_mb=_read_positive_int(
             source, "CAD_MAX_FILE_SIZE_MB", DEFAULT_CAD_MAX_FILE_SIZE_MB
@@ -66,6 +81,8 @@ def load_cad_security_config(
         parse_timeout_sec=_read_positive_int(
             source, "CAD_PARSE_TIMEOUT_SEC", DEFAULT_CAD_PARSE_TIMEOUT_SEC
         ),
+        dwg_converter_type=converter_type,
+        oda_converter_path=oda_path if oda_path else None,
     )
 
 

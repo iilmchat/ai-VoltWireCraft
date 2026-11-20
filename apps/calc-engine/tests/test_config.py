@@ -34,6 +34,27 @@ def test_invalid_limits_are_rejected(raw: str) -> None:
         load_cad_security_config({"CAD_MAX_FILE_SIZE_MB": raw})
 
 
+def test_dwg_converter_settings() -> None:
+    config = load_cad_security_config({})
+    assert config.dwg_converter_type == "auto"
+    assert config.oda_converter_path is None
+
+    configured = load_cad_security_config(
+        {"DWG_CONVERTER_TYPE": "oda", "ODA_CONVERTER_PATH": "/opt/oda/ODAFileConverter"}
+    )
+    assert configured.dwg_converter_type == "oda"
+    assert configured.oda_converter_path == "/opt/oda/ODAFileConverter"
+
+
+@pytest.mark.parametrize("environ", [
+    {"DWG_CONVERTER_TYPE": "unknown"},
+    {"DWG_CONVERTER_TYPE": "oda"},
+])
+def test_invalid_dwg_converter_settings(environ: dict[str, str]) -> None:
+    with pytest.raises(ValueError):
+        load_cad_security_config(environ)
+
+
 def test_file_size_validation() -> None:
     config = load_cad_security_config({"CAD_MAX_FILE_SIZE_MB": "1"})
 
