@@ -1,6 +1,6 @@
-import { Global, Injectable, Module } from '@nestjs/common';
+import { Global, Inject, Injectable, Module } from '@nestjs/common';
 import type { OnApplicationShutdown } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import type { Env } from '../config/env.schema.js';
 
@@ -13,7 +13,7 @@ export class RedisService extends Redis implements OnApplicationShutdown {
   /**
    * @param config — валидированная конфигурация приложения.
    */
-  public constructor(config: ConfigService<Env, true>) {
+  public constructor(@Inject(ConfigService) config: ConfigService<Env, true>) {
     super(config.get('REDIS_URL', { infer: true }), {
       lazyConnect: true,
       enableOfflineQueue: false,

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 import type { Env } from '../config/env.schema.js';
@@ -35,7 +35,7 @@ export class HealthService {
   public constructor(
     @Inject(PG_POOL) private readonly pg: Pool,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
-    private readonly config: ConfigService<Env, true>,
+    @Inject(ConfigService) private readonly config: ConfigService<Env, true>,
   ) {}
 
   /**

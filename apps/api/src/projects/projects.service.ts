@@ -234,7 +234,7 @@ export class ProjectsService {
     const project = await this.getByIdAsync(id);
     const edge = project.graph.edges[0];
     const breaker = project.graph.nodes.find(
-      (node) => ['circuit_breaker', 'rcbo'].includes(node.kind) && node.specs.ratedCurrent > 0,
+      (node) => ['circuit_breaker', 'rcbo', 'panel'].includes(node.kind) && node.specs.ratedCurrent > 0,
     );
     if (edge === undefined || breaker === undefined) {
       throw new BadRequestException('В проекте должна быть хотя бы одна линия с автоматом');

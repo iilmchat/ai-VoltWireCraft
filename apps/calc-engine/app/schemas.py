@@ -126,6 +126,8 @@ class AutoPanelNode(_ContractModel):
     panel_slot: int | None = None
     specs: NodeSpecsInput
     room_id: str | None = None
+    # Ссылка на позицию каталога из ProjectGraphSchema v2.
+    catalog_device_id: str | None = None
 
 
 class AutoPanelRoom(_ContractModel):
@@ -179,9 +181,10 @@ class PhaseLoad(_ContractModel):
 class PhaseLoads(_ContractModel):
     """Нагрузки трёх фаз ввода."""
 
-    l1: PhaseLoad
-    l2: PhaseLoad
-    l3: PhaseLoad
+    # Контракт shared использует заглавные имена фаз L1/L2/L3.
+    l1: PhaseLoad = Field(validation_alias="L1", serialization_alias="L1")
+    l2: PhaseLoad = Field(validation_alias="L2", serialization_alias="L2")
+    l3: PhaseLoad = Field(validation_alias="L3", serialization_alias="L3")
 
 
 class PanelModule(_ContractModel):

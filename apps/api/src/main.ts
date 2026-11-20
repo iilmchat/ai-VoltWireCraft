@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
@@ -10,13 +9,7 @@ import type { Env } from './config/env.schema.js';
 async function bootstrapAsync(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // Входные данные проверяются ZodValidationPipe на каждом маршруте (RULES § 1.12).
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();
 
