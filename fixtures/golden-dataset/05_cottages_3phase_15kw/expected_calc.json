@@ -24,7 +24,8 @@
         "roomType": "utility",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 13.674,
@@ -32,6 +33,7 @@
         "permissibleCurrentA": 23.0,
         "voltageDropPercent": 0.418,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.418,
         "breakerRatingA": 16,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -84,7 +86,8 @@
         "roomType": "wet",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 4.558,
@@ -92,6 +95,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.273,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.273,
         "breakerRatingA": 6,
         "rcdCurrentMa": 10,
         "rcdRequired": true,
@@ -146,7 +150,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 3.798,
@@ -154,6 +159,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.303,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.303,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -206,7 +212,8 @@
         "roomType": "utility",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 2.279,
@@ -214,6 +221,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.284,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.284,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -266,7 +274,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 0.76,
@@ -274,6 +283,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.045,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.045,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -317,6 +327,7 @@
   },
   "totals": {
     "groups": 5,
-    "powerW": 16500
+    "powerW": 16500,
+    "feederLines": 0
   }
 }

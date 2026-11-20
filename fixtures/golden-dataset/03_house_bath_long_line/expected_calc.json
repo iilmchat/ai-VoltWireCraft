@@ -24,7 +24,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 0.456,
@@ -32,6 +33,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.023,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.023,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -84,7 +86,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 1.519,
@@ -92,6 +95,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.091,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.091,
         "breakerRatingA": 6,
         "rcdCurrentMa": 30,
         "rcdRequired": true,
@@ -146,7 +150,8 @@
         "roomType": "wet",
         "installation": "air",
         "tripCurve": "B",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 9.116,
@@ -154,6 +159,7 @@
         "permissibleCurrentA": 19.0,
         "voltageDropPercent": 3.638,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 3.638,
         "breakerRatingA": 10,
         "rcdCurrentMa": 10,
         "rcdRequired": true,
@@ -208,7 +214,8 @@
         "roomType": "wet",
         "installation": "air",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 9.116,
@@ -216,6 +223,7 @@
         "permissibleCurrentA": 19.0,
         "voltageDropPercent": 3.638,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 3.638,
         "breakerRatingA": 10,
         "rcdCurrentMa": 10,
         "rcdRequired": true,
@@ -261,6 +269,7 @@
   },
   "totals": {
     "groups": 4,
-    "powerW": 13300
+    "powerW": 13300,
+    "feederLines": 0
   }
 }

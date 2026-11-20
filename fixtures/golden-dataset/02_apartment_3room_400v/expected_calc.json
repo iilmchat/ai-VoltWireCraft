@@ -24,7 +24,8 @@
         "roomType": "kitchen",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 10.939,
@@ -32,6 +33,7 @@
         "permissibleCurrentA": 23.0,
         "voltageDropPercent": 0.502,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.502,
         "breakerRatingA": 16,
         "rcdCurrentMa": 30,
         "rcdRequired": true,
@@ -86,7 +88,8 @@
         "roomType": "kitchen",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 5.318,
@@ -94,6 +97,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.318,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.318,
         "breakerRatingA": 6,
         "rcdCurrentMa": 30,
         "rcdRequired": true,
@@ -148,7 +152,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 3.039,
@@ -156,6 +161,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.152,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.152,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -208,7 +214,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 3.039,
@@ -216,6 +223,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.152,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.152,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -268,7 +276,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 0.608,
@@ -276,6 +285,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.036,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.036,
         "breakerRatingA": 6,
         "rcdCurrentMa": 0,
         "rcdRequired": false,
@@ -328,7 +338,8 @@
         "roomType": "living",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 2.279,
@@ -336,6 +347,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.136,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.136,
         "breakerRatingA": 6,
         "rcdCurrentMa": 30,
         "rcdRequired": true,
@@ -390,7 +402,8 @@
         "roomType": "kitchen",
         "installation": "conduit",
         "tripCurve": "C",
-        "transformerKva": 100
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 0
       },
       "lineSizing": {
         "designCurrentA": 0.456,
@@ -398,6 +411,7 @@
         "permissibleCurrentA": 17.0,
         "voltageDropPercent": 0.018,
         "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 0.018,
         "breakerRatingA": 6,
         "rcdCurrentMa": 30,
         "rcdRequired": true,
@@ -443,6 +457,7 @@
   },
   "totals": {
     "groups": 7,
-    "powerW": 16900
+    "powerW": 16900,
+    "feederLines": 0
   }
 }

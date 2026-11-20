@@ -248,7 +248,8 @@
           "ratedPower": 0,
           "ratedCurrent": 100,
           "crossSection": 16,
-          "mountingHeight": 1.5
+          "mountingHeight": 1.5,
+          "breakingCapacityKa": 10
         },
         "catalogDeviceId": null
       },
