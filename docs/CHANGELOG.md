@@ -18,6 +18,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-20
+
 ### Added
 
 - `docs/development/v0.6/DESIGN_V060_MULTIPANEL_AND_TCC.md` — дизайн релиза
