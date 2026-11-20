@@ -18,6 +18,25 @@
 
 ## [Unreleased]
 
+### Added
+
+- Автообновление Tauri: `tauri-plugin-updater` (Rust + `@tauri-apps/plugin-updater`),
+  разрешение `updater:default`, `createUpdaterArtifacts` и секция
+  `plugins.updater` с endpoint GitHub Releases и публичным ключом-заглушкой.
+  Приватный ключ в репозиторий не попадает (RULES § 6.2).
+- `.github/workflows/release-desktop.yml`: секреты `TAURI_SIGNING_PRIVATE_KEY`
+  и `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` передаются в шаг сборки; по тегу `v*`
+  подписанные артефакты и `latest.json` прикрепляются к GitHub Release, при
+  отсутствии секретов сборка остаётся доступной как workflow-артефакт.
+- `GETTING_STARTED.md` § 8 — инструкция Владельца продукта по генерации пары
+  ключей `pnpm --filter web tauri signer generate -w ~/.tauri/voltwirecraft.key`
+  и добавлению приватного ключа в GitHub Repository Secrets.
+- `docs/development/v0.7/DESIGN_V070_UPDATER_AND_BRAND_THEMING.md` — дизайн
+  релиза v0.7.0 по 8 обязательным секциям RULES § 2.14: подписанное
+  автообновление Tauri, системы тем Light/Dark/System на токенах Material 3
+  из брендбука `ai-brand` v1.1, локальные шрифты и логотипы, адаптация
+  холстов Konva.js/Three.js и графика ВТХ, план на 7–8 дней.
+
 ## [0.6.0] — 2026-11-20
 
 ### Added
