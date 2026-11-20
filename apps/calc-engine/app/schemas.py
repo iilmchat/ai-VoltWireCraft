@@ -378,3 +378,69 @@ class LightingCalcResponse(_ContractModel):
     warnings: list[str]
     references: list[str]
     rules_version: str
+
+
+# --- Контракты релиза v0.9.0 (3-фазное КЗ, заземление, молниезащита) ---
+
+
+class ThreePhaseShortCircuitRequest(_ContractModel):
+    """Запрос расчёта симметричного и ударного тока трёхфазного КЗ."""
+
+    voltage_v: VoltageV
+    resistance_ohm: float = Field(ge=0)
+    reactance_ohm: float = Field(ge=0)
+    time_constant_s: float = Field(default=0.01, gt=0)
+    breaking_capacity_ka: float = Field(gt=0)
+
+
+class ThreePhaseShortCircuitResponse(_ContractModel):
+    """Результат расчёта трёхфазного КЗ."""
+
+    short_circuit_current_a: float = Field(gt=0)
+    peak_short_circuit_a: float = Field(gt=0)
+    impact_factor: float = Field(gt=0, le=2)
+    loop_impedance_ohm: float = Field(gt=0)
+    breaking_capacity_ok: bool
+    warnings: list[str]
+    references: list[str]
+    rules_version: str
+
+
+SoilType = Literal["clay", "loam", "chernozem", "sand", "gravel", "rock"]
+
+
+class GroundingLightningRequest(_ContractModel):
+    """Запрос расчёта контура заземления и стержневой молниезащиты."""
+
+    soil_type: SoilType | None = None
+    soil_resistivity_ohm_m: float | None = Field(default=None, gt=0)
+    soil_moisture: Literal["wet", "dry"] = "wet"
+    burial_depth_m: float = Field(gt=0)
+    vertical_electrodes_count: int = Field(gt=0)
+    vertical_electrode_length_m: float = Field(gt=0)
+    vertical_electrode_diameter_m: float = Field(gt=0)
+    horizontal_strip_length_m: float = Field(default=0, ge=0)
+    horizontal_strip_width_m: float = Field(default=0.04, gt=0)
+    required_resistance_ohm: float = Field(default=4, gt=0)
+    building_height_m: float = Field(gt=0)
+    lightning_rod_height_m: float = Field(default=0, ge=0)
+    protection_height_m: float = Field(default=0, ge=0)
+
+
+class GroundingLightningResponse(_ContractModel):
+    """Результат расчёта заземления и молниезащиты."""
+
+    design_resistivity_ohm_m: float = Field(gt=0)
+    seasonal_factor: float = Field(gt=0)
+    vertical_electrode_resistance_ohm: float = Field(gt=0)
+    horizontal_strip_resistance_ohm: float = Field(ge=0)
+    utilization_factor: float = Field(gt=0, le=1)
+    grounding_resistance_ohm: float = Field(gt=0)
+    required_resistance_ohm: float = Field(gt=0)
+    grounding_compliant: bool
+    protection_radius_m: float = Field(ge=0)
+    protection_zone_type: Literal["A", "B"]
+    lightning_compliant: bool
+    warnings: list[str]
+    references: list[str]
+    rules_version: str

@@ -13,7 +13,12 @@
 
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 
-from .schemas import ShortCircuitRequest, ShortCircuitResponse
+from .schemas import (
+    ShortCircuitRequest,
+    ShortCircuitResponse,
+    ThreePhaseShortCircuitRequest,
+    ThreePhaseShortCircuitResponse,
+)
 
 _CONTEXT_PRECISION = 40
 _QUANTUM = Decimal("0.001")
@@ -137,4 +142,57 @@ def calculate_short_circuit(request: ShortCircuitRequest) -> ShortCircuitRespons
         )
 
 
-__all__ = ["calculate_short_circuit"]
+def calculate_three_phase_short_circuit(
+    request: ThreePhaseShortCircuitRequest,
+) -> ThreePhaseShortCircuitResponse:
+    """Рассчитывает симметричный и ударный ток трёхфазного КЗ.
+
+    Iкз^(3) = Uл / (√3 · √(R²+X²))
+    iуд = kуд · √2 · Iкз^(3), kуд = 1 + exp(−0,01 / T_a) ≤ 2
+
+    :param request — напряжение, сопротивления петли и I_cn вводного автомата.
+    :returns: детерминированный протокол расчёта.
+    """
+    with localcontext() as context:
+        context.prec = _CONTEXT_PRECISION
+
+        resistance = _to_decimal(request.resistance_ohm)
+        reactance = _to_decimal(request.reactance_ohm)
+        impedance = (resistance * resistance + reactance * reactance).sqrt()
+        if impedance <= 0:
+            raise ValueError("Сопротивление петли КЗ должно быть положительным")
+
+        voltage = _to_decimal(request.voltage_v)
+        current = voltage / (Decimal(3).sqrt() * impedance)
+        time_constant = _to_decimal(request.time_constant_s)
+        impact = Decimal(1) + (-(Decimal("0.01") / time_constant)).exp()
+        if impact > Decimal(2):
+            impact = Decimal(2)
+        peak = impact * Decimal(2).sqrt() * current
+
+        capacity = _to_decimal(request.breaking_capacity_ka) * Decimal(1000)
+        capacity_ok = capacity >= current
+        warnings: list[str] = []
+        if not capacity_ok:
+            warnings.append(
+                f"I_cn {_round(capacity)} А меньше Iкз^(3) {_round(current)} А — "
+                "вводной аппарат не обеспечивает отключающую способность"
+            )
+
+        return ThreePhaseShortCircuitResponse(
+            short_circuit_current_a=_round(current),
+            peak_short_circuit_a=_round(peak),
+            impact_factor=_round(impact),
+            loop_impedance_ohm=_round(impedance),
+            breaking_capacity_ok=capacity_ok,
+            warnings=warnings,
+            references=[
+                "PUE-SC-3P-U",
+                "PUE-SC-IMPACT-K",
+                "PUE-SC-BREAKING-CAPACITY",
+            ],
+            rules_version=_RULES_VERSION,
+        )
+
+
+__all__ = ["calculate_short_circuit", "calculate_three_phase_short_circuit"]

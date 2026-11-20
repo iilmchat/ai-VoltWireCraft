@@ -14,6 +14,7 @@ from . import __version__
 from .auto_panel import auto_assemble_panel
 from .cad_parser import parse_dwg_bytes, parse_dxf_bytes
 from .calculator import calculate_cable_length
+from .grounding_lightning import calculate_grounding_lightning
 from .lighting import calculate_lighting
 from .line_sizing import calculate_line_sizing
 from .schemas import (
@@ -22,6 +23,8 @@ from .schemas import (
     CalculateCableLengthRequest,
     CalculateCableLengthResponse,
     CadParseResponse,
+    GroundingLightningRequest,
+    GroundingLightningResponse,
     HealthResponse,
     LightingCalcRequest,
     LightingCalcResponse,
@@ -31,8 +34,10 @@ from .schemas import (
     SelectivityTccResponse,
     ShortCircuitRequest,
     ShortCircuitResponse,
+    ThreePhaseShortCircuitRequest,
+    ThreePhaseShortCircuitResponse,
 )
-from .short_circuit import calculate_short_circuit
+from .short_circuit import calculate_short_circuit, calculate_three_phase_short_circuit
 from .tcc_selectivity import calculate_tcc_selectivity
 
 app = FastAPI(
@@ -87,6 +92,22 @@ def calculate_short_circuit_endpoint(request: ShortCircuitRequest) -> ShortCircu
 def calculate_selectivity_tcc_endpoint(request: SelectivityTccRequest) -> SelectivityTccResponse:
     """Рассчитывает ВТХ B/C/D, предел селективности и каскадное ΔU."""
     return calculate_tcc_selectivity(request)
+
+
+@app.post("/v1/calc/three-phase-sc", response_model=ThreePhaseShortCircuitResponse)
+def calculate_three_phase_sc_endpoint(
+    request: ThreePhaseShortCircuitRequest,
+) -> ThreePhaseShortCircuitResponse:
+    """Рассчитывает трёхфазный ток КЗ, ударный ток и проверяет I_cn."""
+    return calculate_three_phase_short_circuit(request)
+
+
+@app.post("/v1/calc/grounding-lightning", response_model=GroundingLightningResponse)
+def calculate_grounding_lightning_endpoint(
+    request: GroundingLightningRequest,
+) -> GroundingLightningResponse:
+    """Рассчитывает контур заземления и зону стержневой молниезащиты."""
+    return calculate_grounding_lightning(request)
 
 
 @app.post("/v1/calc/lighting", response_model=LightingCalcResponse)
