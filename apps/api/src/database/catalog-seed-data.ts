@@ -73,4 +73,15 @@ export const CATALOG_SEED_ROWS: readonly CatalogSeedRow[] = [
   { brand: 'IEK', series: 'Shield', sku: 'IEK-SH-24', name: 'Корпус щита IEK на 24 модуля', deviceType: 'panel', priceRub: '3490.00', specsJson: { modules: 24, ipRating: 'IP30', mounting: 'настенный' } },
   { brand: 'EKF', series: 'Shield', sku: 'EKF-SH-36', name: 'Корпус щита EKF на 36 модулей', deviceType: 'panel', priceRub: '5190.00', specsJson: { modules: 36, ipRating: 'IP31', mounting: 'настенный' } },
   { brand: 'КЭАЗ', series: 'Shield', sku: 'KEAZ-SH-54', name: 'Корпус щита КЭАЗ на 54 модуля', deviceType: 'panel', priceRub: '7490.00', specsJson: { modules: 54, ipRating: 'IP31', mounting: 'настенный' } },
+  // Трёх- и четырёхполюсные вводные автоматы (KI-007).
+  { brand: 'IEK', series: 'VA47-29', sku: 'IEK-VA47-29-3P-C40', name: 'Автоматический выключатель IEK VA47-29 3P C40', deviceType: 'circuit_breaker', poles: '3P', ratedCurrentA: 40, tripCurve: 'C', breakingCapacityKa: '6', widthModules: 3, priceRub: '2190.00', specsJson: { ratedVoltageV: 400, mounting: 'DIN-рейка' } },
+  { brand: 'IEK', series: 'VA47-29', sku: 'IEK-VA47-29-4P-C63', name: 'Автоматический выключатель IEK VA47-29 4P C63', deviceType: 'circuit_breaker', poles: '4P', ratedCurrentA: 63, tripCurve: 'C', breakingCapacityKa: '6', widthModules: 4, priceRub: '2890.00', specsJson: { ratedVoltageV: 400, mounting: 'DIN-рейка' } },
+  { brand: 'КЭАЗ', series: 'OptiMax', sku: 'KEAZ-OM-3P-C63', name: 'Автоматический выключатель КЭАЗ OptiMax 3P C63', deviceType: 'circuit_breaker', poles: '3P', ratedCurrentA: 63, tripCurve: 'C', breakingCapacityKa: '10', widthModules: 3, priceRub: '3290.00', specsJson: { ratedVoltageV: 400, mounting: 'DIN-рейка' } },
+  { brand: 'EKF', series: 'MN61', sku: 'EKF-MN61-4P-C63', name: 'Автоматический выключатель EKF MN61 4P C63', deviceType: 'circuit_breaker', poles: '4P', ratedCurrentA: 63, tripCurve: 'C', breakingCapacityKa: '6', widthModules: 4, priceRub: '2590.00', specsJson: { ratedVoltageV: 400, mounting: 'DIN-рейка' } },
+  // Селективные УЗО 4P типа S на вводе.
+  { brand: 'IEK', series: 'RCD', sku: 'IEK-RCD-4P-100-S', name: 'УЗО IEK 4P 63А 100 мА тип S', deviceType: 'rcd', poles: '4P', ratedCurrentA: 63, leakageCurrentMa: 100, widthModules: 4, priceRub: '4990.00', specsJson: { ratedVoltageV: 400, type: 'S' } },
+  { brand: 'IEK', series: 'RCD', sku: 'IEK-RCD-4P-300-S', name: 'УЗО IEK 4P 63А 300 мА тип S', deviceType: 'rcd', poles: '4P', ratedCurrentA: 63, leakageCurrentMa: 300, widthModules: 4, priceRub: '4890.00', specsJson: { ratedVoltageV: 400, type: 'S' } },
+  { brand: 'КЭАЗ', series: 'RCD', sku: 'KEAZ-RCD-4P-300-S', name: 'УЗО КЭАЗ 4P 63А 300 мА тип S', deviceType: 'rcd', poles: '4P', ratedCurrentA: 63, leakageCurrentMa: 300, widthModules: 4, priceRub: '6190.00', specsJson: { ratedVoltageV: 400, type: 'S' } },
+  // Трёхфазное реле напряжения.
+  { brand: 'IEK', series: 'RN', sku: 'IEK-RN-3P-400', name: 'Реле напряжения IEK RN-3P 400 В', deviceType: 'relay_voltage', poles: '3P', widthModules: 3, priceRub: '3890.00', specsJson: { nominalVoltageV: 400, thresholdLowV: 320, thresholdHighV: 450, mounting: 'DIN-рейка' } },
 ];

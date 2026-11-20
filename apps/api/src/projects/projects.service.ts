@@ -263,12 +263,8 @@ export class ProjectsService {
    */
   public async importCadAsync(id: string, file: UploadedFloorPlanFile): Promise<ProjectDto> {
     const project = await this.getByIdAsync(id);
-    const kind = detectCadFile(file);
-    if (kind === 'dwg') {
-      throw new BadRequestException(
-        'DWG требует внешний ODA-конвертер (ODA_CONVERTER_PATH); загрузите DXF',
-      );
-    }
+    // DXF и DWG принимаются: конвертацию DWG → DXF выполняет calc-engine (KI-005).
+    detectCadFile(file);
 
     const parsed = await this.calcClient.parseDxfAsync({
       bytes: file.buffer,

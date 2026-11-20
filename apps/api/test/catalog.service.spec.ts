@@ -61,7 +61,7 @@ describe('CatalogService (интеграционные тесты)', () => {
   it('возвращает первую страницу и общее число позиций', async () => {
     const result = await service.listAsync(CatalogQuerySchema.parse({}));
 
-    expect(result.total).toBe(40);
+    expect(result.total).toBe(48);
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(20);
     expect(result.items).toHaveLength(20);
@@ -72,7 +72,7 @@ describe('CatalogService (интеграционные тесты)', () => {
       CatalogQuerySchema.parse({ brand: 'IEK', deviceType: 'circuit_breaker' }),
     );
 
-    expect(result.total).toBe(16);
+    expect(result.total).toBe(18);
     expect(result.items.every((item) => item.brand === 'IEK')).toBe(true);
     expect(result.items.every((item) => item.deviceType === 'circuit_breaker')).toBe(true);
   });

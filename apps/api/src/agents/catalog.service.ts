@@ -21,6 +21,20 @@ export interface CatalogSelection {
   readonly ratedCurrentA: number | null;
   /** Ширина в 18-мм модулях. */
   readonly widthModules: number | null;
+  /** Число полюсов (`1P` … `4P`). */
+  readonly poles: string | null;
+  /** Уставка дифференциального тока, мА. */
+  readonly leakageCurrentMa: number | null;
+}
+
+/** Дополнительные фильтры подбора оборудования. */
+export interface CatalogLookupOptions {
+  /** Требуемое число полюсов, например `3P` или `4P`. */
+  readonly poles?: string;
+  /** Требуемая уставка УЗО, мА. */
+  readonly leakageMa?: number;
+  /** Требуется ли селективное исполнение типа `S`. */
+  readonly sType?: boolean;
 }
 
 /**
@@ -40,12 +54,14 @@ export class CatalogService {
    * @param deviceType — тип устройства (`circuit_breaker`, `rcd`, `rcbo`, `panel`).
    * @param brand — предпочтительный бренд.
    * @param minCurrentA — минимальный номинальный ток.
+   * @param options — фильтры по числу полюсов и уставке УЗО.
    * @returns позиция каталога или `null`.
    */
   public async findByTypeAsync(
     deviceType: string,
     brand: string | undefined,
     minCurrentA: number | undefined,
+    options: CatalogLookupOptions = {},
   ): Promise<CatalogSelection | null> {
     const rows = await this.db
       .select({
@@ -55,6 +71,9 @@ export class CatalogService {
         deviceType: catalogDevices.deviceType,
         ratedCurrentA: catalogDevices.ratedCurrentA,
         widthModules: catalogDevices.widthModules,
+        poles: catalogDevices.poles,
+        leakageCurrentMa: catalogDevices.leakageCurrentMa,
+        specsJson: catalogDevices.specsJson,
       })
       .from(catalogDevices)
       .where(
@@ -66,10 +85,23 @@ export class CatalogService {
         ),
       )
       .orderBy(asc(catalogDevices.ratedCurrentA))
-      .limit(20);
+      .limit(50);
 
-    const preferred = brand === undefined ? undefined : rows.find((row) => row.brand === brand);
-    const selected = preferred ?? rows[0];
+    const filtered = rows.filter((row) => {
+      if (options.poles !== undefined && row.poles !== options.poles) {
+        return false;
+      }
+      if (options.leakageMa !== undefined && row.leakageCurrentMa !== options.leakageMa) {
+        return false;
+      }
+      if (options.sType === true && row.specsJson['tripType'] !== 'S') {
+        return false;
+      }
+      return true;
+    });
+
+    const preferred = brand === undefined ? undefined : filtered.find((row) => row.brand === brand);
+    const selected = preferred ?? filtered[0];
     if (selected === undefined) {
       return null;
     }

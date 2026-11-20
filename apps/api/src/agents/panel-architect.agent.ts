@@ -49,10 +49,24 @@ export class PanelArchitectAgent {
     graph: ProjectGraph,
     request: AssemblePanelRequest,
   ): Promise<AssemblePanelResult> {
+    // Топология ввода берётся из графа: input_source.specs или meta (KI-007).
+    const source = graph.nodes.find((node) => node.kind === 'input_source');
+    const topology = graph.meta?.supplyTopology;
+    const threePhase =
+      topology === '3P_400V' ||
+      source?.specs.phase === '3P' ||
+      source?.specs.voltageV === 400 ||
+      (graph.meta?.panelPoles !== undefined && graph.meta.panelPoles >= 3) ||
+      (source === undefined &&
+        ['tn-s', 'tn-c-s', 'tn-c', 'it'].includes(graph.meta?.networkSystem ?? '') &&
+        topology === undefined);
+    const panelPoles = graph.meta?.panelPoles ?? (threePhase ? 4 : 2);
     const autoPanelRequest: AutoPanelRequest = {
       nodes: graph.nodes,
       rooms: graph.rooms,
-      supply: { voltageV: 230, phases: 1 },
+      supply: threePhase
+        ? { voltageV: 400, phases: 3, supplyTopology: '3P_400V', panelPoles }
+        : { voltageV: 230, phases: 1, supplyTopology: '1P_230V' },
       ...(request.preferredBrand !== undefined ? { preferredBrand: request.preferredBrand } : {}),
     };
     const panel = await this.tools.autoAssemblePanelTool.invokeAsync(autoPanelRequest);
@@ -65,21 +79,37 @@ export class PanelArchitectAgent {
           ? 'rcd'
           : module.kind === 'panel'
             ? 'panel'
-            : group !== undefined && group.rcdCurrentMa > 0
-              ? 'rcbo'
-              : 'circuit_breaker';
+            : module.kind === 'relay_voltage'
+              ? 'relay_voltage'
+              : group !== undefined && group.rcdCurrentMa > 0
+                ? 'rcbo'
+                : 'circuit_breaker';
 
-      const minCurrentA = group?.breakerRatingA;
+      const minCurrentA = group?.breakerRatingA ?? (threePhase ? 63 : undefined);
+      const isIncoming = group === undefined && threePhase;
+      const lookupOptions = isIncoming
+        ? nodeKind === 'rcd'
+          ? { poles: '4P', leakageMa: 100, sType: true }
+          : nodeKind === 'circuit_breaker'
+            ? { poles: panelPoles === 3 ? '3P' : '4P' }
+            : nodeKind === 'relay_voltage'
+              ? { poles: '3P' }
+              : {}
+        : {};
       const selection = await this.catalog.findByTypeAsync(
         nodeKind,
         request.preferredBrand,
         minCurrentA,
+        lookupOptions,
       );
       const specs: NodeSpecs = {
         ratedPower: group?.totalPowerW ?? 0,
         ratedCurrent: group?.breakerRatingA ?? 16,
         crossSection: group?.crossSectionMm2 ?? 2.5,
         mountingHeight: 0,
+        ...(threePhase && isIncoming
+          ? ({ phase: '3P', voltageV: 400 } as const)
+          : ({} as const)),
       };
       newNodes.push({
         id: randomUUID(),

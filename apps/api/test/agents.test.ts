@@ -190,6 +190,35 @@ describe('ИИ-агенты', () => {
         expect(llm.generateExplanationAsync).toHaveBeenCalledTimes(1);
     });
 
+    it('PanelArchitect передаёт 3P 400 В в calc-engine и подбирает 4P артикулы', async () => {
+        const graph = makeGraph();
+        graph.meta = {
+            networkSystem: 'tn-s',
+            supplyTopology: '3P_400V',
+            panelPoles: 4,
+        };
+        graph.nodes.push({
+            id: '44444444-4444-4444-8444-444444444444',
+            kind: 'input_source',
+            label: 'Ввод 400 В',
+            planPosition: null,
+            panelSlot: 1,
+            specs: { ratedPower: 0, ratedCurrent: 63, crossSection: 16, mountingHeight: 0, phase: '3P', voltageV: 400 },
+        });
+
+        const result = await architect.assembleAsync(graph, { preferredBrand: 'IEK' });
+
+        expect(calc.autoAssemblePanelAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                supply: expect.objectContaining({ voltageV: 400, phases: 3, supplyTopology: '3P_400V' }),
+            }),
+        );
+        expect(result.panel.imbalancePercent).toBeLessThanOrEqual(15);
+        expect(catalog.findByTypeAsync).toHaveBeenCalledWith(
+            'rcd', 'IEK', expect.any(Number), expect.objectContaining({ poles: '4P', sType: true }),
+        );
+    });
+
     it('PueAuditor находит нарушения и цитирует справочник', async () => {
         const report = await auditor.auditAsync(PROJECT_ID, makeGraph());
 

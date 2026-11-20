@@ -44,9 +44,9 @@ function makeGraph(): ProjectGraph {
 }
 
 describe('catalog seed', () => {
-  it('содержит 40 уникальных позиций с заполненными ценами', () => {
-    expect(CATALOG_SEED_ROWS).toHaveLength(40);
-    expect(new Set(CATALOG_SEED_ROWS.map((row) => row.sku)).size).toBe(40);
+  it('содержит 48 уникальных позиций с заполненными ценами', () => {
+    expect(CATALOG_SEED_ROWS).toHaveLength(48);
+    expect(new Set(CATALOG_SEED_ROWS.map((row) => row.sku)).size).toBe(48);
     expect(CATALOG_SEED_ROWS.every((row) => row.priceRub.length > 0)).toBe(true);
   });
 

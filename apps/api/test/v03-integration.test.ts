@@ -3,7 +3,6 @@
 
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
-import { BadRequestException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -231,21 +230,27 @@ describe('ProjectsService.importCadAsync', () => {
         expect(update).toHaveBeenCalledTimes(1);
     });
 
-    it('отвергает DWG без ODA-конвертера', async () => {
+    it('передаёт DWG в calc-engine для конвертации (KI-005)', async () => {
+        const graph = makeGraph();
+        const calcClient = { parseDxfAsync: vi.fn(async () => cadResponse) };
         const service = new ProjectsService(
             {} as Database,
             {} as FloorPlanStorage,
-            {} as CalcEngineClient,
+            calcClient as unknown as CalcEngineClient,
         );
-        vi.spyOn(service, 'getByIdAsync').mockResolvedValue(projectDto(makeGraph()));
+        vi.spyOn(service, 'getByIdAsync').mockResolvedValue(projectDto(graph));
+        vi.spyOn(service, 'updateGraphAsync').mockImplementation(async (_id, nextGraph) => projectDto(nextGraph));
 
-        await expect(
-            service.importCadAsync(PROJECT_ID, {
-                buffer: Buffer.from('AC1015'),
-                originalname: 'plan.dwg',
-                size: 6,
-            }),
-        ).rejects.toBeInstanceOf(BadRequestException);
+        const result = await service.importCadAsync(PROJECT_ID, {
+            buffer: Buffer.from('AC1015'),
+            originalname: 'plan.dwg',
+            size: 6,
+        });
+
+        expect(calcClient.parseDxfAsync).toHaveBeenCalledWith(
+            expect.objectContaining({ fileName: 'plan.dwg' }),
+        );
+        expect(result.graph.walls).toHaveLength(1);
     });
 });
 
