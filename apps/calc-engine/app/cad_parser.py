@@ -8,6 +8,8 @@
 """
 
 import os
+import shutil
+import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from pathlib import Path
@@ -140,6 +142,88 @@ def parse_dxf_file(path: str | Path, units_override: str | None = None) -> CadPa
     )
 
 
+def find_dwg_converter() -> tuple[str, str] | None:
+    """Находит внешний конвертер DWG по приоритету ODA → dwg2dxf.
+
+    :returns: пара `(тип конвертера, путь)` или `None`.
+    """
+    strategy = CAD_SECURITY_CONFIG.dwg_converter_type
+    if strategy == "none":
+        return None
+    oda = CAD_SECURITY_CONFIG.oda_converter_path or os.environ.get(
+        "ODA_CONVERTER_PATH", ""
+    ).strip()
+    if oda and Path(oda).exists() and strategy in ("auto", "oda"):
+        return "oda", oda
+    if strategy == "oda":
+        return None
+    dwg2dxf = shutil.which("dwg2dxf")
+    if dwg2dxf is not None:
+        return "dwg2dxf", dwg2dxf
+    return None
+
+
+def convert_dwg_to_dxf(data: bytes, workdir: Path) -> Path:
+    """Конвертирует DWG в DXF в изолированной временной директории.
+
+    Используется `subprocess.run` со списком аргументов, без `shell=True`
+    и с таймаутом из конфигурации (RULES § 5.5). Все временные файлы
+    удаляются вызывающей стороной через `TemporaryDirectory`.
+
+    :param data — байты загруженного DWG.
+    :param workdir — временная директория.
+    :returns: путь к полученному DXF.
+    :raises FileNotFoundError: если конвертер не найден.
+    :raises TimeoutError: если конвертация превысила лимит времени.
+    :raises ValueError: если конвертер завершился с ошибкой.
+    """
+    validate_cad_file_size(len(data))
+    converter = find_dwg_converter()
+    if converter is None:
+        raise FileNotFoundError(
+            "Конвертер DWG не найден: задайте ODA_CONVERTER_PATH или установите dwg2dxf"
+        )
+
+    kind, executable = converter
+    source = workdir / "plan.dwg"
+    output = workdir / "plan.dxf"
+    source.write_bytes(data)
+
+    if kind == "oda":
+        arguments = [executable, str(source), str(workdir), "AC1027", "DXF", "0", "1"]
+    else:
+        arguments = [executable, "-o", str(output), str(source)]
+
+    try:
+        result = subprocess.run(
+            arguments,
+            shell=False,
+            cwd=workdir,
+            capture_output=True,
+            timeout=PARSE_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise TimeoutError("Превышен таймаут конвертации DWG") from error
+
+    if result.returncode != 0 or not output.is_file():
+        detail = result.stderr.decode("utf-8", errors="replace").strip()[:300]
+        raise ValueError(f"Конвертация DWG завершилась неудачно: {detail or 'нет DXF на выходе'}")
+    return output
+
+
+def parse_dwg_bytes(data: bytes, units_override: str | None = None) -> CadParseResponse:
+    """Конвертирует DWG в DXF и разбирает стены существующим парсером.
+
+    :param data — байты DWG.
+    :param units_override — принудительные единицы.
+    :returns: стены в метрах СИ.
+    """
+    with tempfile.TemporaryDirectory(prefix="vwc-dwg-") as directory:
+        dxf_path = convert_dwg_to_dxf(data, Path(directory))
+        return parse_dxf_file(dxf_path, units_override)
+
+
 def parse_dxf_bytes(data: bytes, units_override: str | None = None) -> CadParseResponse:
     """Разбирает содержимое DXF из памяти с таймаутом 30 с.
 
@@ -167,6 +251,9 @@ __all__ = [
     "MAX_CAD_FILE_BYTES",
     "PARSE_TIMEOUT_S",
     "apply_posix_limits",
+    "convert_dwg_to_dxf",
+    "find_dwg_converter",
+    "parse_dwg_bytes",
     "parse_dxf_bytes",
     "parse_dxf_file",
 ]

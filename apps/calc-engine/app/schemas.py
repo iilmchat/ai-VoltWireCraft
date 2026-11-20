@@ -114,6 +114,8 @@ class NodeSpecsInput(_ContractModel):
     rated_current: float = Field(gt=0)
     cross_section: float = Field(gt=0)
     mounting_height: float = Field(ge=0)
+    phase: Literal["1P", "3P"] | None = None
+    voltage_v: VoltageV | None = None
 
 
 class AutoPanelNode(_ContractModel):
@@ -144,6 +146,8 @@ class AutoPanelSupply(_ContractModel):
 
     voltage_v: VoltageV = 230
     phases: Phases = 1
+    supply_topology: Literal["1P_230V", "3P_400V"] | None = None
+    panel_poles: Literal[2, 3, 4] | None = None
 
 
 class AutoPanelRequest(_ContractModel):

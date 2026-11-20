@@ -12,7 +12,10 @@ from app.schemas import LineSizingRequest, ShortCircuitRequest
 from app.short_circuit import calculate_short_circuit
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures" / "golden-dataset"
-CASES = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
+CASES = sorted(
+    path for path in FIXTURES.iterdir()
+    if path.is_dir() and (path / "project.vwc").is_file()
+)
 
 
 @pytest.mark.parametrize("case_dir", CASES, ids=lambda path: path.name)
@@ -66,9 +69,9 @@ def test_golden_case(case_dir: Path) -> None:
         assert fault.model_dump(by_alias=True, mode="json") == record["shortCircuit"]
 
 
-def test_golden_dataset_has_three_cases() -> None:
-    """Датасет содержит ровно три эталонных комплекта."""
-    assert len(CASES) == 3
+def test_golden_dataset_has_six_cases() -> None:
+    """Датасет содержит ровно шесть эталонных комплектов."""
+    assert len(CASES) == 6
     for case_dir in CASES:
         assert (case_dir / "plan.dxf").is_file()
         assert (case_dir / "project.vwc").is_file()

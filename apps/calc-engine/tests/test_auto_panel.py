@@ -1,6 +1,7 @@
 # © 2026 RuChating (iilmchat) · VoltWireCraft v0.2.0
 """Тесты детерминированной автосборки щита НКУ."""
 
+import json
 import math
 
 import pytest
@@ -71,11 +72,12 @@ class TestAutoPanel:
         """Розетки и свет группируются по помещениям, мощный прибор — отдельно."""
         result = auto_assemble_panel(_request())
 
-        assert len(result.groups) == 3
-        powerful = next(group for group in result.groups if group.name == "Бойлер")
-        assert powerful.total_power_w == 3000
-        assert len(powerful.consumer_ids) == 1
-        assert powerful.rcd_current_ma == 10
+        # Мощный прибор разбит на три пофазные линии (3P 400 В).
+        assert len(result.groups) == 5
+        powerful = [group for group in result.groups if group.name.startswith("Бойлер")]
+        assert len(powerful) == 3
+        assert all(group.total_power_w == 1000 for group in powerful)
+        assert all(group.rcd_current_ma == 10 for group in powerful)
 
         kitchen = next(group for group in result.groups if group.name.startswith("Розетки"))
         assert len(kitchen.consumer_ids) == 2
@@ -91,7 +93,7 @@ class TestAutoPanel:
         result = auto_assemble_panel(_request())
 
         assert {group.phase for group in result.groups} == {"L1", "L2", "L3"}
-        assert result.imbalance_percent == pytest.approx(93.33, abs=0.01)
+        assert result.imbalance_percent == pytest.approx(50.0, abs=0.01)
         assert any("Перекос фаз" in warning for warning in result.warnings)
         assert "PUE-3PHASE-IMBALANCE-15" in result.references
 
@@ -102,8 +104,8 @@ class TestAutoPanel:
         assert [module.panel_slot for module in result.modules] == list(
             range(1, len(result.modules) + 1)
         )
-        assert result.used_din_modules == 11
-        assert result.enclosure_modules == math.ceil(11 * 1.2) == 14
+        assert result.used_din_modules == 28
+        assert result.enclosure_modules == math.ceil(28 * 1.2) == 34
         assert all(group.panel_slot is not None for group in result.groups)
 
     def test_empty_graph_produces_incoming_modules(self) -> None:
@@ -128,6 +130,30 @@ class TestAutoPanel:
 
         assert response.status_code == 200
         body = response.json()
-        assert len(body["groups"]) == 3
+        assert len(body["groups"]) == 5
         assert body["enclosureModules"] >= body["usedDinModules"]
         assert body["rulesVersion"] == "0.1"
+
+
+def test_three_phase_golden_case_imbalance_below_limit() -> None:
+    """Кейс 02: перекос фаз после автосборки строго ≤ 15 % (KI-007)."""
+    from pathlib import Path
+
+    fixture = Path(__file__).resolve().parents[3] / "fixtures" / "golden-dataset"
+    graph = json.loads(
+        (fixture / "02_apartment_3room_400v" / "project.vwc").read_text(encoding="utf-8")
+    )["graph"]
+
+    result = auto_assemble_panel(
+        AutoPanelRequest.model_validate(
+            {
+                "nodes": graph["nodes"],
+                "rooms": graph["rooms"],
+                "supply": {"voltageV": 400, "phases": 3, "supplyTopology": "3P_400V"},
+            }
+        )
+    )
+
+    assert result.imbalance_percent <= 15
+    assert any(module.kind == "relay_voltage" for module in result.modules)
+    assert any("4P" in module.label for module in result.modules)

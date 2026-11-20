@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
 from .auto_panel import auto_assemble_panel
-from .cad_parser import parse_dxf_bytes
+from .cad_parser import parse_dwg_bytes, parse_dxf_bytes
 from .calculator import calculate_cable_length
 from .line_sizing import calculate_line_sizing
 from .schemas import (
@@ -82,16 +82,19 @@ async def parse_dxf_endpoint(
     file: UploadFile = File(...),
     units: str | None = Form(default=None),
 ) -> CadParseResponse:
-    """Разбирает DXF-план в стены с координатами в метрах СИ."""
+    """Разбирает DXF- или DWG-план в стены с координатами в метрах СИ."""
     data = await file.read()
+    is_dwg = (file.filename or "").lower().endswith(".dwg") or data[:2] == b"AC"
     try:
-        return parse_dxf_bytes(data, units)
+        return parse_dwg_bytes(data, units) if is_dwg else parse_dxf_bytes(data, units)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except TimeoutError as error:
         raise HTTPException(status_code=504, detail=str(error)) from error
     except Exception as error:
-        raise HTTPException(status_code=422, detail="Не удалось разобрать DXF-файл") from error
+        raise HTTPException(status_code=422, detail="Не удалось разобрать CAD-файл") from error
 
 
 # Обратная совместимость с ранним каркасом: прежний путь остаётся рабочим.
