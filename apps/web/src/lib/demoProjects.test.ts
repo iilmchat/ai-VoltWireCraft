@@ -1,15 +1,28 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
 import { ProjectGraphSchema } from '@voltwirecraft/shared/graph.schema.js';
 import { describe, expect, it } from 'vitest';
-import { DEMO_PROJECTS, getDemoProject } from './demoProjects.js';
+import { DEMO_PROJECTS, getDemoByGraphId, getDemoProject } from './demoProjects.js';
 
 describe('золотой датасет (демо-проекты)', () => {
-    it('содержит три эталонных кейса', () => {
+    it('содержит шесть эталонных кейсов', () => {
         expect(DEMO_PROJECTS.map((project) => project.id)).toEqual([
             'studio-230v',
             'apartment-3room-400v',
             'house-bath-80m',
+            'commercial-office-400v',
+            'cottages-3phase-15kw',
+            'apartment-2room-gas',
         ]);
+    });
+
+    it('каждый шаблон несёт корректные параметры для карточки выбора', () => {
+        for (const demo of DEMO_PROJECTS) {
+            expect(['230', '400']).toContain(demo.supply);
+            expect(demo.powerKw).toBeGreaterThan(0);
+            expect(demo.groups).toBeGreaterThan(0);
+            expect(demo.nameKey).toMatch(/^demo\./);
+            expect(demo.descriptionKey).toMatch(/^demo\./);
+        }
     });
 
     it('каждый кейс даёт валидный канонический граф', () => {
@@ -35,5 +48,11 @@ describe('золотой датасет (демо-проекты)', () => {
             firstNode.specs.ratedCurrent = 99;
         }
         expect(second.nodes[0]?.specs.ratedCurrent).not.toBe(99);
+    });
+
+    it('находит шаблон по идентификатору графа для бейджа фазности', () => {
+        const demo = getDemoProject('cottages-3phase-15kw');
+        expect(getDemoByGraphId(demo.createGraph().id)?.id).toBe('cottages-3phase-15kw');
+        expect(getDemoByGraphId('00000000-0000-4000-8000-000000000000')).toBeUndefined();
     });
 });

@@ -1,13 +1,13 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
 /** Корневой компонент: оболочка редактора с вкладками проекций графа. */
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import type { ComponentType } from 'react';
 import { AiAssistantDrawer } from './components/AiAssistantDrawer.js';
 import { BillOfMaterialsTable } from './components/BillOfMaterialsTable.js';
 import { FloorPlanEditor } from './components/FloorPlanEditor.js';
 import { GostDocsPanel } from './components/GostDocsPanel.js';
 import { Header } from './components/Header.js';
 import { InspectorPanel } from './components/InspectorPanel.js';
-import { Panel3DView } from './components/Panel3DView.js';
 import { PanelLayoutEditor } from './components/PanelLayoutEditor.js';
 import { Palette } from './components/Palette.js';
 import { SingleLineDiagramView } from './components/SingleLineDiagramView.js';
@@ -19,6 +19,37 @@ import type { WorkspaceView } from './store/uiStore.js';
 
 /** Перечень вкладок рабочей области. */
 const VIEWS: readonly WorkspaceView[] = ['plan', 'panel', 'panel3d', 'singleLine', 'bom'];
+
+/**
+ * Отложенная загрузка 3D-проекции: Three.js не попадает в основной чанк (DESIGN_V050 § 2.3).
+ * Динамический импорт объявлен один раз и переиспользуется React и предзагрузкой.
+ */
+/** Модуль отложенной загрузки: именованный экспорт приводится к default для React.lazy. */
+type LazyPanel3DModule = { default: ComponentType };
+
+const loadPanel3DViewAsync = (): Promise<LazyPanel3DModule> =>
+    import('./components/Panel3DView.js').then((module) => ({ default: module.Panel3DView }));
+const Panel3DView = lazy(loadPanel3DViewAsync);
+
+/**
+ * Скелетон на время загрузки чанка Three.js.
+ * @returns React-элемент скелетона вкладки.
+ */
+function Panel3DSkeleton() {
+    const { t } = useI18n();
+    return (
+        <section
+            className="flex h-full min-h-[420px] w-full flex-col items-center justify-center gap-4 bg-slate-950 p-8"
+            aria-busy="true"
+            aria-label={t('panel3d.loading')}
+        >
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-sky-400" />
+            <div className="h-3 w-56 animate-pulse rounded bg-slate-800" />
+            <div className="h-3 w-40 animate-pulse rounded bg-slate-800/70" />
+            <p className="text-sm text-slate-400">{t('panel3d.loading')}</p>
+        </section>
+    );
+}
 
 /**
  * Корневой компонент приложения: подключает локализацию и оболочку.
@@ -88,6 +119,8 @@ function AppShell() {
                         key={view}
                         type="button"
                         onClick={() => setActiveView(view)}
+                        onMouseEnter={view === 'panel3d' ? () => void loadPanel3DViewAsync() : undefined}
+                        onFocus={view === 'panel3d' ? () => void loadPanel3DViewAsync() : undefined}
                         className={`border-b-2 px-4 py-2 text-sm ${
                             activeView === view
                                 ? 'border-sky-400 font-medium text-sky-300'
@@ -103,7 +136,11 @@ function AppShell() {
                 <main className="min-w-0 flex-1 overflow-auto">
                     {activeView === 'plan' && <FloorPlanEditor />}
                     {activeView === 'panel' && <PanelLayoutEditor />}
-                    {activeView === 'panel3d' && <Panel3DView />}
+                    {activeView === 'panel3d' && (
+                        <Suspense fallback={<Panel3DSkeleton />}>
+                            <Panel3DView />
+                        </Suspense>
+                    )}
                     {activeView === 'singleLine' && <SingleLineDiagramView />}
                     {activeView === 'bom' && <BillOfMaterialsTable />}
                 </main>

@@ -1,6 +1,6 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
 /**
- * Золотой датасет: три эталонных проекта, доступных без сети (RULES § 5.4).
+ * Золотой датасет: шесть эталонных проектов, доступных без сети (RULES § 5.4).
  * Каждый кейс строится как канонический `ProjectGraph` — общий источник истины
  * для плана, щита, схемы, спецификации, 3D-вида и комплекта РД (RULES § 5.2).
  */
@@ -21,7 +21,16 @@ import type {
 import type { TranslationKey } from '../i18n/index.js';
 
 /** Идентификатор эталонного проекта золотого датасета. */
-export type DemoProjectId = 'studio-230v' | 'apartment-3room-400v' | 'house-bath-80m';
+export type DemoProjectId =
+    | 'studio-230v'
+    | 'apartment-3room-400v'
+    | 'house-bath-80m'
+    | 'commercial-office-400v'
+    | 'cottages-3phase-15kw'
+    | 'apartment-2room-gas';
+
+/** Фазность ввода шаблона. */
+export type DemoSupply = '230' | '400';
 
 /** Описание эталонного проекта. */
 export interface DemoProjectDefinition {
@@ -31,6 +40,12 @@ export interface DemoProjectDefinition {
     nameKey: TranslationKey;
     /** Ключ краткого описания в i18n. */
     descriptionKey: TranslationKey;
+    /** Фазность ввода: 230 В (1P) или 400 В (3P). */
+    supply: DemoSupply;
+    /** Расчётная установленная мощность, кВт. */
+    powerKw: number;
+    /** Число групповых линий в щите. */
+    groups: number;
     /** Создать свежий граф (каждый вызов возвращает независимый объект). */
     createGraph: () => ProjectGraph;
 }
@@ -315,25 +330,198 @@ const HOUSE_PARTS: DemoGraphParts = {
     ],
 };
 
+/** Коммерческий офис 400 В: трёхфазный ввод, мастер-выключатель и шесть групповых линий. */
+const OFFICE_PARTS: DemoGraphParts = {
+    name: 'Офис 400 В',
+    prefix: '40000000-0000',
+    scale: 0.01,
+    rooms: [
+        { key: 'openSpace', name: 'Open space', type: 'living', polygon: [[0, 0], [12, 0], [12, 7], [0, 7]] },
+        { key: 'meeting', name: 'Переговорная', type: 'living', polygon: [[12, 0], [16, 0], [16, 4], [12, 4]] },
+        { key: 'kitchen', name: 'Кухня', type: 'kitchen', polygon: [[12, 4], [16, 4], [16, 7], [12, 7]] },
+        { key: 'utility', name: 'Серверная', type: 'utility', polygon: [[0, 7], [4, 7], [4, 10], [0, 10]] },
+    ],
+    walls: [
+        [[0, 0], [16, 0], [16, 10], [0, 10], [0, 0]],
+        [[12, 0], [12, 7]],
+    ],
+    nodes: [
+        { key: 'input', kind: 'input_source', label: 'Ввод 400 В', slot: 1, position: null, current: 100 },
+        { key: 'master', kind: 'circuit_breaker', label: 'QF0 Мастер 3P', slot: 2, position: null, current: 100 },
+        { key: 'panel', kind: 'panel', label: 'Щит НКУ', slot: 3, position: [0.3, 5], current: 100 },
+        { key: 'q1', kind: 'circuit_breaker', label: 'QF1 Освещение', slot: 4, position: null, current: 16 },
+        { key: 'q2', kind: 'circuit_breaker', label: 'QF2 Розетки open space', slot: 5, position: null, current: 32 },
+        { key: 'q3', kind: 'circuit_breaker', label: 'QF3 Переговорная', slot: 6, position: null, current: 16 },
+        { key: 'q4', kind: 'rcd', label: 'УЗО кухни', slot: 7, position: null, current: 25 },
+        { key: 'q5', kind: 'circuit_breaker', label: 'QF5 Серверная', slot: 8, position: null, current: 32 },
+        { key: 'q6', kind: 'circuit_breaker', label: 'QF6 Кондиционеры', slot: 9, position: null, current: 25 },
+        { key: 'l1', kind: 'light_fixture', label: 'Свет open space', slot: null, position: [6, 3], power: 900, current: 16, room: 'openSpace' },
+        { key: 'l2', kind: 'light_fixture', label: 'Свет переговорной', slot: null, position: [14, 2], power: 200, current: 10, room: 'meeting' },
+        { key: 's1', kind: 'socket', label: 'Розетки рабочие', slot: null, position: [8, 5], power: 4000, current: 32, room: 'openSpace' },
+        { key: 's2', kind: 'socket', label: 'Розетка кухни', slot: null, position: [14, 5], power: 2000, current: 25, room: 'kitchen' },
+        { key: 'server', kind: 'appliance', label: 'Серверный шкаф', slot: null, position: [2, 8], power: 5000, current: 32, crossSection: 6, room: 'utility' },
+        { key: 'hvac', kind: 'appliance', label: 'Кондиционеры', slot: null, position: [10, 1], power: 4500, current: 25, crossSection: 4, room: 'openSpace' },
+    ],
+    edges: [
+        { from: 'input', to: 'panel', crossSection: 25 },
+        { from: 'panel', to: 'master', crossSection: 25 },
+        { from: 'master', to: 'q1' },
+        { from: 'master', to: 'q2' },
+        { from: 'master', to: 'q3' },
+        { from: 'master', to: 'q4' },
+        { from: 'master', to: 'q5', crossSection: 6 },
+        { from: 'master', to: 'q6', crossSection: 4 },
+        { from: 'q1', to: 'l1' },
+        { from: 'q1', to: 'l2' },
+        { from: 'q2', to: 's1' },
+        { from: 'q3', to: 's2' },
+        { from: 'q4', to: 's2' },
+        { from: 'q5', to: 'server', crossSection: 6 },
+        { from: 'q6', to: 'hvac', crossSection: 4 },
+    ],
+};
+
+/** Два коттеджа с общей трёхфазной линией 15 кВт. */
+const COTTAGES_PARTS: DemoGraphParts = {
+    name: 'Коттеджи 3ф 15 кВт',
+    prefix: '50000000-0000',
+    scale: 0.01,
+    rooms: [
+        { key: 'houseA', name: 'Коттедж А', type: 'living', polygon: [[0, 0], [9, 0], [9, 7], [0, 7]] },
+        { key: 'houseB', name: 'Коттедж Б', type: 'living', polygon: [[18, 0], [27, 0], [27, 7], [18, 7]] },
+        { key: 'workshop', name: 'Мастерская', type: 'utility', polygon: [[18, 7], [24, 7], [24, 11], [18, 11]] },
+    ],
+    walls: [
+        [[0, 0], [9, 0], [9, 7], [0, 7], [0, 0]],
+        [[18, 0], [27, 0], [27, 7], [18, 7], [18, 0]],
+    ],
+    nodes: [
+        { key: 'input', kind: 'input_source', label: 'ВРУ 3ф 400 В', slot: 1, position: null, current: 125 },
+        { key: 'panel', kind: 'panel', label: 'ВРУЩ общий', slot: 2, position: [0.3, 4], current: 125 },
+        { key: 'q0', kind: 'circuit_breaker', label: 'QF0 Вводный 3P', slot: 3, position: null, current: 125 },
+        { key: 'qA', kind: 'circuit_breaker', label: 'QF1 Коттедж А', slot: 4, position: null, current: 63 },
+        { key: 'qB', kind: 'circuit_breaker', label: 'QF2 Коттедж Б', slot: 5, position: null, current: 63 },
+        { key: 'qW', kind: 'rcbo', label: 'QD3 Мастерская', slot: 6, position: null, current: 40 },
+        { key: 'lA', kind: 'light_fixture', label: 'Свет коттеджа А', slot: null, position: [4, 3], power: 400, current: 16, room: 'houseA' },
+        { key: 'sA', kind: 'socket', label: 'Розетки коттеджа А', slot: null, position: [7, 5], power: 4000, current: 32, room: 'houseA' },
+        { key: 'lB', kind: 'light_fixture', label: 'Свет коттеджа Б', slot: null, position: [22, 3], power: 400, current: 16, room: 'houseB' },
+        { key: 'sB', kind: 'socket', label: 'Розетки коттеджа Б', slot: null, position: [25, 5], power: 4000, current: 32, room: 'houseB' },
+        { key: 'tool', kind: 'appliance', label: 'Сварочный аппарат', slot: null, position: [21, 9], power: 5500, current: 32, crossSection: 6, room: 'workshop' },
+        { key: 'pump', kind: 'appliance', label: 'Насосная станция', slot: null, position: [19, 8], power: 1500, current: 16, room: 'workshop' },
+    ],
+    edges: [
+        { from: 'input', to: 'panel', crossSection: 35 },
+        { from: 'panel', to: 'q0', crossSection: 35 },
+        { from: 'q0', to: 'qA', crossSection: 16 },
+        { from: 'q0', to: 'qB', crossSection: 16 },
+        { from: 'q0', to: 'qW', crossSection: 10 },
+        { from: 'qA', to: 'lA' },
+        { from: 'qA', to: 'sA' },
+        { from: 'qB', to: 'lB' },
+        { from: 'qB', to: 'sB' },
+        { from: 'qW', to: 'tool', crossSection: 6, waypoints: [[19, 12], [21, 9]] },
+        { from: 'qW', to: 'pump', crossSection: 2.5 },
+    ],
+};
+
+/** Двухкомнатная квартира с газовой колонкой: однофазный ввод 230 В. */
+const GAS_APARTMENT_PARTS: DemoGraphParts = {
+    name: '2-к квартира (газ)',
+    prefix: '60000000-0000',
+    scale: 0.01,
+    rooms: [
+        { key: 'living', name: 'Гостиная', type: 'living', polygon: [[0, 0], [5, 0], [5, 4], [0, 4]] },
+        { key: 'bedroom', name: 'Спальня', type: 'living', polygon: [[0, 4], [4, 4], [4, 8], [0, 8]] },
+        { key: 'kitchen', name: 'Кухня с газовой колонкой', type: 'kitchen', polygon: [[5, 0], [8, 0], [8, 4], [5, 4]] },
+        { key: 'bath', name: 'Ванная', type: 'wet', polygon: [[4, 4], [6, 4], [6, 6], [4, 6]] },
+    ],
+    walls: [
+        [[0, 0], [8, 0], [8, 8], [0, 8], [0, 0]],
+        [[5, 0], [5, 4]],
+        [[0, 4], [6, 4]],
+    ],
+    nodes: [
+        { key: 'input', kind: 'input_source', label: 'Ввод 230 В', slot: 1, position: null, current: 40 },
+        { key: 'panel', kind: 'panel', label: 'Щит НКУ', slot: 2, position: [0.3, 3], current: 40 },
+        { key: 'q1', kind: 'circuit_breaker', label: 'QF1 Освещение', slot: 3, position: null, current: 10 },
+        { key: 'q2', kind: 'circuit_breaker', label: 'QF2 Розетки', slot: 4, position: null, current: 16 },
+        { key: 'q3', kind: 'rcd', label: 'УЗО кухни и ванной', slot: 5, position: null, current: 25 },
+        { key: 'l1', kind: 'light_fixture', label: 'Свет гостиной', slot: null, position: [2, 2], power: 100, current: 6, room: 'living' },
+        { key: 'l2', kind: 'light_fixture', label: 'Свет спальни', slot: null, position: [2, 6], power: 80, current: 6, room: 'bedroom' },
+        { key: 's1', kind: 'socket', label: 'Розетка гостиной', slot: null, position: [3, 3], power: 600, current: 16, room: 'living' },
+        { key: 's2', kind: 'socket', label: 'Розетка кухни', slot: null, position: [7, 2], power: 1000, current: 16, room: 'kitchen' },
+        { key: 'boiler', kind: 'appliance', label: 'Газовая колонка (поджог)', slot: null, position: [7.5, 3], power: 200, current: 6, room: 'kitchen' },
+        { key: 'washer', kind: 'appliance', label: 'Стиральная машина', slot: null, position: [5, 5], power: 2200, current: 16, room: 'bath' },
+    ],
+    edges: [
+        { from: 'input', to: 'panel', crossSection: 10 },
+        { from: 'panel', to: 'q1' },
+        { from: 'panel', to: 'q2' },
+        { from: 'panel', to: 'q3' },
+        { from: 'q1', to: 'l1', crossSection: 1.5 },
+        { from: 'q1', to: 'l2', crossSection: 1.5 },
+        { from: 'q2', to: 's1' },
+        { from: 'q3', to: 's2' },
+        { from: 'q3', to: 'boiler', crossSection: 1.5 },
+        { from: 'q3', to: 'washer' },
+    ],
+};
+
 /** Кейсы золотого датасета в порядке отображения в меню. */
 export const DEMO_PROJECTS: readonly DemoProjectDefinition[] = [
     {
         id: 'studio-230v',
         nameKey: 'demo.studio.name',
         descriptionKey: 'demo.studio.description',
+        supply: '230',
+        powerKw: 5,
+        groups: 3,
         createGraph: () => buildGraph(STUDIO_PARTS),
     },
     {
         id: 'apartment-3room-400v',
         nameKey: 'demo.apartment400.name',
         descriptionKey: 'demo.apartment400.description',
+        supply: '400',
+        powerKw: 6.3,
+        groups: 3,
         createGraph: () => buildGraph(APARTMENT_PARTS),
     },
     {
         id: 'house-bath-80m',
         nameKey: 'demo.houseBath.name',
         descriptionKey: 'demo.houseBath.description',
+        supply: '400',
+        powerKw: 9.7,
+        groups: 3,
         createGraph: () => buildGraph(HOUSE_PARTS),
+    },
+    {
+        id: 'commercial-office-400v',
+        nameKey: 'demo.office.name',
+        descriptionKey: 'demo.office.description',
+        supply: '400',
+        powerKw: 15,
+        groups: 6,
+        createGraph: () => buildGraph(OFFICE_PARTS),
+    },
+    {
+        id: 'cottages-3phase-15kw',
+        nameKey: 'demo.cottages.name',
+        descriptionKey: 'demo.cottages.description',
+        supply: '400',
+        powerKw: 15,
+        groups: 5,
+        createGraph: () => buildGraph(COTTAGES_PARTS),
+    },
+    {
+        id: 'apartment-2room-gas',
+        nameKey: 'demo.gas.name',
+        descriptionKey: 'demo.gas.description',
+        supply: '230',
+        powerKw: 4.5,
+        groups: 3,
+        createGraph: () => buildGraph(GAS_APARTMENT_PARTS),
     },
 ];
 
@@ -349,4 +537,27 @@ export function getDemoProject(id: DemoProjectId): DemoProjectDefinition {
         throw new Error(`Неизвестный демо-проект: ${id}`);
     }
     return found;
+}
+
+/**
+ * Найти шаблон по детерминированному идентификатору графа.
+ * @param graphId Идентификатор текущего `ProjectGraph`.
+ * @returns Шаблон или `undefined`, если граф загружен из файла/сервера.
+ */
+export function getDemoByGraphId(graphId: string): DemoProjectDefinition | undefined {
+    return demoByGraphId().get(graphId);
+}
+
+/** Кэш соответствия идентификатора графа шаблону (создаётся один раз). */
+let cachedDemoByGraphId: ReadonlyMap<string, DemoProjectDefinition> | null = null;
+
+/**
+ * Получить кэш соответствия «идентификатор графа → шаблон».
+ * @returns Кэш, вычисленный при первом обращении.
+ */
+function demoByGraphId(): ReadonlyMap<string, DemoProjectDefinition> {
+    if (cachedDemoByGraphId === null) {
+        cachedDemoByGraphId = new Map(DEMO_PROJECTS.map((project) => [project.createGraph().id, project]));
+    }
+    return cachedDemoByGraphId;
 }
