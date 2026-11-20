@@ -101,16 +101,20 @@ API передаёт `.dwg` в ядро без отклонения. Покры�
 
 ---
 
-### KI-006 — Образ `minio/minio:latest` недоступен в части registry 🟡 Medium · Documented (2026-11-20)
+### KI-006 — Образ `minio/minio:latest` недоступен в части registry 🟡 Medium · Fixed (2026-11-20)
 
 **Проблема.** При запуске полного стека в Docker часть registry возвращает ошибку
 получения образа `minio/minio:latest`, из-за чего контейнер объектного
 хранилища не стартует и блокирует подъём зависимых сервисов.
 
-**Митигация.** По умолчанию используется `STORAGE_DRIVER=local`: подложки
-сохраняются на локальном диске, сервис MinIO не является обязательным.
-Для работы с S3 нужно явно указать доступный образ или частный registry
-и переключить `STORAGE_DRIVER=s3`.
+**Решение.** Сервис `minio` вынесен в опциональный Docker Compose profile `s3`.
+Базовая команда `docker compose up -d` поднимает только пять обязательных
+сервисов (`postgres`, `redis`, `calc-engine`, `api`, `web`) с
+`STORAGE_DRIVER=local`; образ MinIO больше не нужен для старта. Для S3 нужно
+явно запустить `docker compose --profile s3 up -d` и переключить
+`STORAGE_DRIVER=s3`. Проверено: `docker compose config --services` возвращает
+пять сервисов по умолчанию и шесть с профилем `s3`, базовый стек поднимается
+без ошибок.
 
 **Файлы.** `docker-compose.yml`, `.env.example`,
 `apps/api/src/projects/storage/floor-plan-storage.ts`.
@@ -141,12 +145,12 @@ API передаёт `.dwg` в ядро без отклонения. Покры�
 |---|---|
 | Open | 0 |
 | In Progress | 0 |
-| Fixed | 5 |
-| Documented | 1 |
+| Fixed | 6 |
+| Documented | 0 |
 | Deferred | 0 |
 | Won't Fix | 0 |
 | Resolved | 1 |
 | **Всего** | **7** |
 
-> Сводка пересчитана поиском по файлу перед релизом `v0.5.0` (RULES § 3.9):
-> 7 заголовков `### KI-` и 7 статусных строк; Fixed 5 + Documented 1 + Resolved 1 = 7.
+> Сводка пересчитана поиском по файлу после закрытия `KI-006` (RULES § 3.9):
+> 7 заголовков `### KI-` и 7 статусных строк; Fixed 6 + Resolved 1 = 7.

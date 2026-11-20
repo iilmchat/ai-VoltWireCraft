@@ -62,10 +62,24 @@
   `04_commercial_office_400v`, `05_cottages_3phase_15kw`,
   `06_apartment_2room_gas`. Генератор добавляет `input_source` и `meta`,
   регрессионные тесты `pytest`/Vitest параметризованы на все шесть комплектов.
+- KI-006 закрыт: сервис `minio` вынесен в Docker Compose profile `s3`. Базовая
+  команда `docker compose up -d` поднимает пять обязательных сервисов без
+  обращения к проблемному образу; S3 включается `--profile s3`.
+- `apps/calc-engine/Dockerfile` собирает LibreDWG из исходников и включает
+  `dwg2dxf`/`dxf2dwg`, поэтому конвертация DWG работает из коробки без ODA.
+  Добавлены `DWG_CONVERTER_TYPE` (`auto|oda|libredwg|none`) и
+  `ODA_CONVERTER_PATH` в `config.py`, compose и `.env.example`.
+- `scripts/e2e-smoke.mjs` прогоняет все шесть кейсов золотого датасета,
+  проверяет трёхфазный баланс ≤ 15 % для `02` и `05` и отдельно тестирует
+  конвертацию `dwg/plan.dwg` через расчётное ядро. Успешный прогон — 312 проверок.
+- `docs/development/GETTING_STARTED.md` обновлён: профили Compose, переменные
+  конвертера DWG, многокейсовый smoke и DWG-тест.
 
 ### Fixed
 
 - KI-005 и KI-007 переведены в статус `Fixed` (2026-11-20); реестр пересчитан.
+- KI-006 переведён в статус `Fixed`: `docker compose config --services` по
+  умолчанию возвращает пять сервисов, с `--profile s3` — шесть.
 
 ## [0.4.0] — 2026-11-20
 
