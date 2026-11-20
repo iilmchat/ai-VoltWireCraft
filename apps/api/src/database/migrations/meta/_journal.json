@@ -15,6 +15,13 @@
       "when": 1795094351242,
       "tag": "0001_talented_emma_frost",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795179680338,
+      "tag": "0002_living_sunfire",
+      "breakpoints": true
     }
   ]
 }

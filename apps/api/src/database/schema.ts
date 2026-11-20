@@ -22,6 +22,30 @@ export const OBJECT_TYPES = ['house', 'apartment', 'commercial'] as const;
 export const NETWORK_SYSTEMS = ['tn-s', 'tn-c-s', 'tn-c', 'tt', 'it'] as const;
 /** Формат загруженной подложки — зеркало `BackgroundKindSchema`. */
 export const FLOOR_PLAN_KINDS = ['pdf', 'png', 'jpg'] as const;
+/** Глобальная роль пользователя системы. */
+export const GLOBAL_ROLES = ['user', 'admin'] as const;
+/** Роль участника проекта (командный доступ). */
+export const PROJECT_ROLES = ['owner', 'engineer', 'client'] as const;
+/** Вклад графа, к которому относится комментарий. */
+export const VIEW_TABS = ['plan', 'panel', 'diagram', 'bom'] as const;
+/** Статус комментария заказчика. */
+export const COMMENT_STATUSES = ['open', 'resolved'] as const;
+
+/** Пользователь системы (регистрация v0.9). */
+export const users = pgTable('users', {
+  /** Идентификатор пользователя (UUID). */
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Уникальный email, используется как логин. */
+  email: text('email').notNull().unique(),
+  /** Хэш пароля (bcrypt/argon2); открытый пароль не хранится. */
+  passwordHash: text('password_hash').notNull(),
+  /** Имя и фамилия пользователя. */
+  fullName: text('full_name').notNull(),
+  /** Глобальная роль. */
+  globalRole: text('global_role', { enum: GLOBAL_ROLES }).notNull().default('user'),
+  /** Время регистрации. */
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 /**
  * Проект: метаданные и граф целиком в колонке `graph_json`.
@@ -38,6 +62,8 @@ export const projects = pgTable('projects', {
   networkSystem: text('network_system', { enum: NETWORK_SYSTEMS }).notNull(),
   /** Граф проекта, валидируется `ProjectGraphSchema` на границе. */
   graphJson: jsonb('graph_json').$type<ProjectGraph>().notNull(),
+  /** Владелец проекта; `null` для старых анонимных проектов. */
+  ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
   /** Время создания. */
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   /** Время последнего обновления. */
@@ -63,6 +89,55 @@ export const floorPlans = pgTable('floor_plans', {
   /** Размер файла в байтах. */
   sizeBytes: integer('size_bytes').notNull(),
   /** Время загрузки. */
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Участник проекта с ролью (owner / engineer / client). */
+export const projectMembers = pgTable(
+  'project_members',
+  {
+    /** Идентификатор записи. */
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Проект; удаление проекта удаляет записи (RULES § 4.10). */
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    /** Пользователь; удаление пользователя удаляет записи. */
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Роль в проекте. */
+    role: text('role', { enum: PROJECT_ROLES }).notNull(),
+    /** Время приглашения. */
+    invitedAt: timestamp('invited_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    /** Один пользователь — одна роль на проект. */
+    uniqueIndex('project_members_project_user_key').on(table.projectId, table.userId),
+  ],
+);
+
+/** Комментарий заказчика к узлу/вкладке проекта. */
+export const projectComments = pgTable('project_comments', {
+  /** Идентификатор комментария. */
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Проект-владелец; удаление проекта удаляет комментарии. */
+  projectId: uuid('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  /** Автор комментария. */
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Узел графа, к которому относится комментарий; `null` — весь проект. */
+  targetNodeId: uuid('target_node_id'),
+  /** Вклад, на которой оставлен комментарий. */
+  viewTab: text('view_tab', { enum: VIEW_TABS }).notNull(),
+  /** Текст комментария. */
+  body: text('body').notNull(),
+  /** Статус обработки. */
+  status: text('status', { enum: COMMENT_STATUSES }).notNull().default('open'),
+  /** Время создания. */
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -165,4 +240,12 @@ export const normativeChunks = pgTable(
 );
 
 /** Объекты схемы для передачи Drizzle. */
-export const schema = { projects, floorPlans, catalogDevices, normativeChunks };
+export const schema = {
+  users,
+  projects,
+  floorPlans,
+  projectMembers,
+  projectComments,
+  catalogDevices,
+  normativeChunks,
+};

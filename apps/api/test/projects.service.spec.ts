@@ -113,7 +113,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
     await client.close();
   });
 
-  it('сгенерированные миграции создают таблицы projects и floor_plans', async () => {
+  it('сгенерированные миграции создают таблицы проектов, пользователей и ролей', async () => {
     const result = await client.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
     );
@@ -122,6 +122,9 @@ describe('ProjectsService (интеграционные тесты)', () => {
     expect(names).toContain('projects');
     expect(names).toContain('floor_plans');
     expect(names).toContain('catalog_devices');
+    expect(names).toContain('users');
+    expect(names).toContain('project_members');
+    expect(names).toContain('project_comments');
   });
 
   it('создаёт проект с пустым валидным графом', async () => {

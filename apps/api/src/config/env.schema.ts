@@ -15,6 +15,9 @@ export const EnvSchema = z.object({
     .url()
     .refine((value) => /^https?:\/\//.test(value), 'Ожидается http:// или https://'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  /** Секрет подписи JWT: в проде ≥ 32 символов, локально — безопасный dev-дефолт. */
+  JWT_SECRET: z.string().min(1).default('voltwirecraft-local-dev-secret-change-me-please'),
+  JWT_EXPIRES_IN: z.string().regex(/^\d+[smhd]$/, 'Например: 7d, 12h, 30m').default('7d'),
   // LLM-роутер: OpenAI-совместимый cloud API или локальный LM Studio / Ollama.
   LLM_BASE_URL: z
     .url()
@@ -47,6 +50,14 @@ export const EnvSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false'),
 }).superRefine((env, context) => {
+  if (env.NODE_ENV === 'production' && env.JWT_SECRET.length < 32) {
+    context.addIssue({
+      code: 'custom',
+      input: env.JWT_SECRET,
+      path: ['JWT_SECRET'],
+      message: 'В продакшне JWT_SECRET должен содержать не менее 32 символов',
+    });
+  }
   if (env.STORAGE_DRIVER !== 's3') {
     return;
   }

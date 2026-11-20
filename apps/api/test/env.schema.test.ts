@@ -18,6 +18,8 @@ describe('validateEnv', () => {
     expect(env.LLM_MODEL).toBe('gpt-4o-mini');
     expect(env.EMBEDDING_MODEL).toBe('text-embedding-3-small');
     expect(env.LLM_API_KEY).toBeUndefined();
+    expect(env.JWT_SECRET.length).toBeGreaterThanOrEqual(32);
+    expect(env.JWT_EXPIRES_IN).toBe('7d');
   });
 
   it('принимает локальный OpenAI-совместимый провайдер', () => {
@@ -30,6 +32,15 @@ describe('validateEnv', () => {
 
     expect(env.LLM_BASE_URL).toBe('http://127.0.0.1:1234/v1');
     expect(env.LLM_MODEL).toBe('qwen2.5-coder');
+  });
+
+  it('требует длинный JWT_SECRET в продакшне', () => {
+    expect(() =>
+      validateEnv({ ...baseEnv, NODE_ENV: 'production', JWT_SECRET: 'short' }),
+    ).toThrow(/JWT_SECRET/);
+    expect(() =>
+      validateEnv({ ...baseEnv, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(32) }),
+    ).not.toThrow();
   });
 
   it('прерывает запуск при некорректной строке подключения', () => {
