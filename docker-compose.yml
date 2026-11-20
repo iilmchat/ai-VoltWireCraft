@@ -78,7 +78,65 @@ services:
       retries: 5
       start_period: 5s
 
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: voltwirecraft/api:0.3.0
+    container_name: vwc-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-voltwirecraft}:${POSTGRES_PASSWORD:-replace-with-local-dev-password}@postgres:5432/${POSTGRES_DB:-voltwirecraft}
+      REDIS_URL: redis://redis:6379/0
+      CALC_ENGINE_URL: http://calc-engine:8000
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_DIR: /app/apps/api/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      calc-engine:
+        condition: service_healthy
+    ports:
+      - '${API_PORT:-3000}:3000'
+    volumes:
+      - api-storage:/app/apps/api/storage
+    # Миграции и сиды применяются до старта HTTP-сервера (идемпотентно).
+    command: >
+      sh -c "node dist/database/migrate.js &&
+             node dist/database/seed-catalog.js &&
+             node dist/database/seed-normatives.js &&
+             node dist/main.js"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - 'fetch("http://127.0.0.1:3000/health").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: voltwirecraft/web:0.3.0
+    container_name: vwc-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-5173}:80'
+
 volumes:
   postgres-data:
   redis-data:
   minio-data:
+  api-storage:

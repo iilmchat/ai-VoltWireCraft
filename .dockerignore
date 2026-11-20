@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/.env
+**/__pycache__
+**/.pytest_cache
+apps/web/src-tauri/target
+apps/web/src-tauri/gen
