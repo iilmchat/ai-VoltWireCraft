@@ -1,12 +1,13 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.7.0
 import { UuidSchema } from '@voltwirecraft/shared/graph.schema.js';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { Locale, TranslationKey } from '../i18n/index.js';
 import { ApiClientError, apiClient } from '../lib/apiClient.js';
 import { DEMO_PROJECTS, getDemoByGraphId } from '../lib/demoProjects.js';
 import type { DemoProjectDefinition, DemoProjectId } from '../lib/demoProjects.js';
+import type { ThemeMode } from '../store/uiStore.js';
 import {
     openProjectAsync,
     parseProject,
@@ -14,6 +15,9 @@ import {
 } from '../lib/persistence.js';
 import type { ImportErrorCode } from '../lib/persistence.js';
 import { isDesktop } from '../lib/tauriAdapter.js';
+import { APP_VERSION, checkForAppUpdateAsync } from '../lib/updater.js';
+import type { AvailableUpdate } from '../lib/updater.js';
+import { UpdateBanner } from './UpdateBanner.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { useUiStore } from '../store/uiStore.js';
@@ -34,7 +38,53 @@ export function Header() {
     const canUndo = useEditorStore((state) => state.past.length > 0);
     const canRedo = useEditorStore((state) => state.future.length > 0);
     const activeDemo = getDemoByGraphId(graph.id);
+    const themeMode = useUiStore((state) => state.themeMode);
+    const setThemeMode = useUiStore((state) => state.setThemeMode);
     const desktop = isDesktop();
+
+    /** Циклическое переключение темы: светлая → тёмная → системная. */
+    const handleToggleTheme = (): void => {
+        const next: ThemeMode = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light';
+        setThemeMode(next);
+    };
+    const [update, setUpdate] = useState<AvailableUpdate | null>(null);
+    const [checkingUpdate, setCheckingUpdate] = useState(false);
+    const [updateNotice, setUpdateNotice] = useState<'latest' | 'failed' | null>(null);
+
+    // Фоновая проверка обновлений в Tauri: тихая при отсутствии сети (RULES § 5.4).
+    useEffect(() => {
+        if (!desktop) {
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            void checkForAppUpdateAsync(true)
+                .then((result) => {
+                    if (result.available) {
+                        setUpdate(result);
+                    }
+                })
+                .catch(() => undefined);
+        }, 3000);
+        return () => window.clearTimeout(timer);
+    }, [desktop]);
+
+    /** Ручная проверка обновлений по кнопке в шапке. */
+    const handleCheckUpdates = async (): Promise<void> => {
+        setCheckingUpdate(true);
+        setUpdateNotice(null);
+        try {
+            const result = await checkForAppUpdateAsync(false);
+            if (result.available) {
+                setUpdate(result);
+            } else {
+                setUpdateNotice('latest');
+            }
+        } catch {
+            setUpdateNotice('failed');
+        } finally {
+            setCheckingUpdate(false);
+        }
+    };
 
     /** Загрузить эталонный проект золотого датасета в офлайн-режиме. */
     const handleLoadDemo = (id: DemoProjectId): void => {
@@ -195,7 +245,24 @@ export function Header() {
     return (
         <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-700 bg-slate-900 px-4 py-3">
             <div className="mr-auto flex items-baseline gap-3">
-                <h1 className="text-lg font-bold text-sky-300">{t('app.title')}</h1>
+                <h1 className="flex items-center gap-2 text-lg font-bold text-sky-300">
+                    <span
+                        aria-hidden="true"
+                        className="inline-block h-7 w-7 shrink-0"
+                        style={{
+                            backgroundColor: 'currentColor',
+                            maskImage: "url('/brand/logo-icon.svg')",
+                            WebkitMaskImage: "url('/brand/logo-icon.svg')",
+                            maskSize: 'contain',
+                            WebkitMaskSize: 'contain',
+                            maskRepeat: 'no-repeat',
+                            WebkitMaskRepeat: 'no-repeat',
+                            maskPosition: 'center',
+                            WebkitMaskPosition: 'center',
+                        }}
+                    />
+                    {t('app.title')}
+                </h1>
                 <span className="hidden text-xs text-slate-500 md:inline">{t('app.subtitle')}</span>
                 <input
                     type="text"
@@ -226,6 +293,15 @@ export function Header() {
                     <option value="en">EN</option>
                 </select>
             </label>
+            <button
+                type="button"
+                onClick={handleToggleTheme}
+                title={t('theme.switch')}
+                aria-label={`${t('theme.switch')}: ${t(`theme.${themeMode}` as TranslationKey)}`}
+                className="rounded border border-slate-600 px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+            >
+                {themeMode === 'light' ? '☀' : themeMode === 'dark' ? '☾' : '◐'}
+            </button>
             <button
                 type="button"
                 aria-expanded={demoMenuOpen}
@@ -297,6 +373,36 @@ export function Header() {
             <span className={`rounded px-2 py-1 text-xs ${desktop ? 'bg-amber-900/50 text-amber-300' : 'bg-slate-800 text-slate-400'}`}>
                 {desktop ? t('header.offline') : t('header.online')}
             </span>
+            <span
+                title={t('update.version')}
+                className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-400"
+            >
+                v{APP_VERSION}
+            </span>
+            {desktop && (
+                <button
+                    type="button"
+                    disabled={checkingUpdate}
+                    title={t('update.check')}
+                    aria-label={t('update.check')}
+                    onClick={() => void handleCheckUpdates()}
+                    className="rounded border border-sky-600 px-2 py-1.5 text-sm text-sky-300 hover:bg-sky-950 disabled:opacity-50"
+                >
+                    {checkingUpdate ? '…' : '↻'}
+                </button>
+            )}
+            {updateNotice !== null && (
+                <span
+                    role="status"
+                    className={`rounded px-2 py-1 text-xs ${
+                        updateNotice === 'failed'
+                            ? 'bg-rose-950/60 text-rose-300'
+                            : 'bg-emerald-950/60 text-emerald-300'
+                    }`}
+                >
+                    {t(updateNotice === 'failed' ? 'update.failed' : 'update.latest')}
+                </span>
+            )}
             {desktop && (
                 <>
                     <button
@@ -366,6 +472,8 @@ export function Header() {
             >
                 {t('ai.open')}
             </button>
+
+            <UpdateBanner update={update} onDismiss={() => setUpdate(null)} />
 
             {demoMenuOpen && (
                 <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4">

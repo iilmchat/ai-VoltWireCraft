@@ -1,5 +1,5 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import type { GraphNode, RoomZone, RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.7.0
+import type { GraphNode, RoomZone } from '@voltwirecraft/shared/graph.schema.js';
 import { Circle, Image as KonvaImage, Layer, Line, Stage, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useEffect, useRef, useState } from 'react';
@@ -16,6 +16,7 @@ import {
     zoomAtPoint,
 } from '../lib/geometry.js';
 import type { ScreenPoint } from '../lib/geometry.js';
+import { getCanvasPalette, useResolvedTheme } from '../lib/theme.js';
 import { useEditorStore } from '../store/editorStore.js';
 import type { UiDeviceKind } from '../store/editorStore.js';
 import { CableRouteTool } from './tools/CableRouteTool.js';
@@ -23,15 +24,6 @@ import { UI_DEVICE_KINDS } from './tools/DevicePlacementTool.js';
 import { DeviceNode } from './DeviceNode.js';
 import { RoomZoneTool } from './tools/RoomZoneTool.js';
 import { ScaleCalibratorTool } from './tools/ScaleCalibratorTool.js';
-
-/** Цвета заливки типов помещений. */
-const ROOM_COLORS: Record<RoomZoneType, string> = {
-    living: '#38bdf8',
-    wet: '#22d3ee',
-    kitchen: '#fbbf24',
-    outdoor: '#4ade80',
-    utility: '#a78bfa',
-};
 
 /**
  * Проверить, что строка — поддерживаемый тип ЭУИ палитры.
@@ -61,6 +53,8 @@ function isEditingTarget(target: EventTarget | null): boolean {
  */
 export function FloorPlanEditor() {
     const { t } = useI18n();
+    // Палитра холста следует выбранной теме (Konva не понимает CSS-переменные).
+    const palette = getCanvasPalette(useResolvedTheme());
     const containerRef = useRef<HTMLDivElement | null>(null);
     const panRef = useRef<{ x: number; y: number } | null>(null);
     const drawingRef = useRef(false);
@@ -299,7 +293,10 @@ export function FloorPlanEditor() {
         : graph.nodes.find((node) => node.id === cableDraft.sourceNodeId);
 
     return (
-        <div className="relative h-full w-full overflow-hidden bg-slate-950">
+        <div
+            className="relative h-full w-full overflow-hidden"
+            style={{ backgroundColor: palette.background }}
+        >
             <div
                 ref={containerRef}
                 data-editor-container
@@ -335,7 +332,7 @@ export function FloorPlanEditor() {
                                 <Line
                                     key={wall.id}
                                     points={flattenPoints(points)}
-                                    stroke={wall.kind === 'doorway' ? '#22c55e' : wall.kind === 'window' ? '#38bdf8' : '#e2e8f0'}
+                                    stroke={wall.kind === 'doorway' ? palette.doorway : wall.kind === 'window' ? palette.window : palette.outlineVariant}
                                     strokeWidth={wall.kind === 'wall' ? 4 : 2}
                                     dash={wall.kind === 'partition' ? [8, 4] : undefined}
                                 />
@@ -353,9 +350,9 @@ export function FloorPlanEditor() {
                                         key={`${room.id}-fill`}
                                         points={flattenPoints(points)}
                                         closed
-                                        fill={ROOM_COLORS[room.type]}
+                                        fill={palette.rooms[room.type]}
                                         opacity={selectedRoomId === room.id ? 0.4 : 0.22}
-                                        stroke={ROOM_COLORS[room.type]}
+                                        stroke={palette.rooms[room.type]}
                                         strokeWidth={2}
                                         onClick={() => useEditorStore.getState().selectRoom(room.id)}
                                     />
@@ -367,7 +364,7 @@ export function FloorPlanEditor() {
                                         align="center"
                                         text={`${room.name} · ${t(`room.${room.type}` as TranslationKey)}`}
                                         fontSize={14}
-                                        fill="#f8fafc"
+                                        fill={palette.onSurface}
                                         listening={false}
                                     />
                                 </>
@@ -392,7 +389,7 @@ export function FloorPlanEditor() {
                                 <Line
                                     key={edge.id}
                                     points={flattenPoints(pointsPx)}
-                                    stroke={selectedEdgeId === edge.id ? '#f472b6' : '#38bdf8'}
+                                    stroke={selectedEdgeId === edge.id ? palette.highlight : palette.cable}
                                     strokeWidth={selectedEdgeId === edge.id ? 4 : 2}
                                     onClick={() => useEditorStore.getState().selectEdge(edge.id)}
                                 />
@@ -424,12 +421,12 @@ export function FloorPlanEditor() {
                             <>
                                 <Line
                                     points={flattenPoints(roomDraftPoints)}
-                                    stroke="#38bdf8"
+                                    stroke={palette.cable}
                                     strokeWidth={2}
                                     dash={[8, 5]}
                                 />
                                 {roomDraft.map((point, index) => (
-                                    <Circle key={index} x={point.x} y={point.y} radius={5} fill="#38bdf8" />
+                                    <Circle key={index} x={point.x} y={point.y} radius={5} fill={palette.cable} />
                                 ))}
                             </>
                         )}
@@ -437,12 +434,12 @@ export function FloorPlanEditor() {
                             <>
                                 <Line
                                     points={[scaleDraft.start.x, scaleDraft.start.y, scaleDraft.end.x, scaleDraft.end.y]}
-                                    stroke="#fbbf24"
+                                    stroke={palette.scale}
                                     strokeWidth={3}
                                     dash={[8, 4]}
                                 />
-                                <Circle x={scaleDraft.start.x} y={scaleDraft.start.y} radius={6} fill="#fbbf24" />
-                                <Circle x={scaleDraft.end.x} y={scaleDraft.end.y} radius={6} fill="#fbbf24" />
+                                <Circle x={scaleDraft.start.x} y={scaleDraft.start.y} radius={6} fill={palette.scale} />
+                                <Circle x={scaleDraft.end.x} y={scaleDraft.end.y} radius={6} fill={palette.scale} />
                                 <Text
                                     x={(scaleDraft.start.x + scaleDraft.end.x) / 2 - 60}
                                     y={(scaleDraft.start.y + scaleDraft.end.y) / 2 - 24}
@@ -450,7 +447,7 @@ export function FloorPlanEditor() {
                                     align="center"
                                     text={`${scaleDraftLength.toFixed(0)} ${t('common.px')}`}
                                     fontSize={14}
-                                    fill="#fbbf24"
+                                    fill={palette.scale}
                                 />
                             </>
                         )}
@@ -461,20 +458,20 @@ export function FloorPlanEditor() {
                                         x={metersToPx(cableSourceNode.planPosition, scale).x}
                                         y={metersToPx(cableSourceNode.planPosition, scale).y}
                                         radius={14}
-                                        stroke="#f472b6"
+                                        stroke={palette.highlight}
                                         strokeWidth={3}
                                     />
                                 )}
                                 {cablePointsPx.length > 1 && (
                                     <Line
                                         points={flattenPoints(cablePointsPx)}
-                                        stroke="#f472b6"
+                                        stroke={palette.highlight}
                                         strokeWidth={3}
                                         dash={[8, 4]}
                                     />
                                 )}
                                 {cablePointsPx.map((point, index) => (
-                                    <Circle key={index} x={point.x} y={point.y} radius={5} fill="#f472b6" />
+                                    <Circle key={index} x={point.x} y={point.y} radius={5} fill={palette.highlight} />
                                 ))}
                             </>
                         )}
@@ -482,7 +479,10 @@ export function FloorPlanEditor() {
                 </Stage>
             </div>
 
-            <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-slate-900/80 px-3 py-1 text-xs text-slate-300">
+            <div
+                className="pointer-events-none absolute bottom-3 left-3 rounded px-3 py-1 text-xs"
+                style={{ backgroundColor: palette.surfaceContainer, color: palette.onSurfaceVariant }}
+            >
                 {t(`hint.${tool}` as TranslationKey)} · {Math.round(viewport.scale * 100)}%
                 {armedDeviceKind !== null && tool === 'device' && ` · ${t(`device.${armedDeviceKind}` as TranslationKey)}`}
             </div>

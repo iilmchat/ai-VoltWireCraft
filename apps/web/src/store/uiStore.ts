@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.7.0
 /** UI-состояние оболочки: вкладки, панель ИИ, результаты аудита и кэш каталога. */
 import type { PueFinding } from '@voltwirecraft/shared/graph.schema.js';
 import { create } from 'zustand';
@@ -15,6 +15,35 @@ export type WorkspaceView = 'plan' | 'panel' | 'panel3d' | 'singleLine' | 'bom';
 /** Действие ИИ-агента. */
 export type AiAction = 'assemble' | 'audit' | 'chat';
 
+/** Режим темы интерфейса. */
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+/** Ключ localStorage для сохранённой темы. */
+export const THEME_STORAGE_KEY = 'voltwirecraft.theme';
+
+/** Прочитать сохранённую тему; при отсутствии — системная. */
+function readStoredTheme(): ThemeMode {
+    if (typeof window === 'undefined') {
+        return 'system';
+    }
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+}
+
+/**
+ * Применить тему к документу.
+ * @param mode Режим темы.
+ */
+export function applyThemeMode(mode: ThemeMode): void {
+    if (typeof document === 'undefined') {
+        return;
+    }
+    document.documentElement.dataset['theme'] = mode;
+}
+
+/** Стартовая тема из localStorage. */
+const initialThemeMode = readStoredTheme();
+
 /** Состояние оболочки приложения. */
 export interface UiState {
     /** Активная вкладка рабочей области. */
@@ -25,6 +54,8 @@ export interface UiState {
     gostPanelOpen: boolean;
     /** Идентификатор активного щита в сессии UI (не часть графа, RULES § 5.2). */
     activePanelId: string | null;
+    /** Режим темы Material 3 из брендбука IIRuChating. */
+    themeMode: ThemeMode;
     /** Находки последнего аудита ПУЭ-7. */
     auditIssues: readonly PueFinding[];
     /** Выполняемое действие ИИ. */
@@ -45,6 +76,8 @@ export interface UiState {
     setGostPanelOpen: (open: boolean) => void;
     /** Выбрать активный щит (только состояние сессии, граф не меняется). */
     setActivePanelId: (id: string | null) => void;
+    /** Сменить тему и сохранить выбор в localStorage. */
+    setThemeMode: (mode: ThemeMode) => void;
     /** Сохранить результаты аудита. */
     setAuditIssues: (issues: readonly PueFinding[]) => void;
     /** Отметить начало/конец действия ИИ. */
@@ -67,6 +100,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     aiDrawerOpen: false,
     gostPanelOpen: false,
     activePanelId: null,
+    themeMode: initialThemeMode,
     auditIssues: [],
     busyAction: null,
     catalog: [],
@@ -78,6 +112,13 @@ export const useUiStore = create<UiState>((set, get) => ({
     setAiDrawerOpen: (aiDrawerOpen) => set({ aiDrawerOpen }),
     setGostPanelOpen: (gostPanelOpen) => set({ gostPanelOpen }),
     setActivePanelId: (activePanelId) => set({ activePanelId }),
+    setThemeMode: (themeMode) => {
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+        }
+        applyThemeMode(themeMode);
+        set({ themeMode });
+    },
     setAuditIssues: (auditIssues) => set({ auditIssues }),
     setBusyAction: (busyAction) => set({ busyAction }),
 
@@ -121,3 +162,6 @@ export const useUiStore = create<UiState>((set, get) => ({
         set({ activeView: 'bom' });
     },
 }));
+
+// Тема применяется сразу при загрузке хранилища (до первого рендера).
+applyThemeMode(initialThemeMode);

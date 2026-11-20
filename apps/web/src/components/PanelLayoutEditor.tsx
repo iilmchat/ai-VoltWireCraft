@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.7.0
 import type { GraphNode } from '@voltwirecraft/shared/graph.schema.js';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
@@ -15,6 +15,7 @@ import {
     phaseForSlot,
     ratingLabel,
 } from '../lib/panelModules.js';
+import { getCanvasPalette, useResolvedTheme } from '../lib/theme.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { useUiStore } from '../store/uiStore.js';
 
@@ -93,6 +94,8 @@ function layoutModules(nodes: readonly SlottedNode[]): { modules: PlacedModule[]
  */
 export function PanelLayoutEditor() {
     const { t } = useI18n();
+    // Цвета корпуса и реек берутся из ролей Material 3 выбранной темы.
+    const palette = getCanvasPalette(useResolvedTheme());
     const graph = useEditorStore((state) => state.graph);
     const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
     const selectNode = useEditorStore((state) => state.selectNode);
@@ -125,22 +128,28 @@ export function PanelLayoutEditor() {
     const railRight = svgWidth - MODULES_LEFT;
 
     return (
-        <section className="flex h-full w-full flex-col overflow-auto bg-slate-950 p-4">
-            <h2 className="mb-1 shrink-0 text-sm font-semibold uppercase tracking-wide text-slate-300">
+        <section
+            className="flex h-full w-full flex-col overflow-auto p-4"
+            style={{ backgroundColor: palette.background, color: palette.onSurface }}
+        >
+            <h2 className="mb-1 shrink-0 text-sm font-semibold uppercase tracking-wide">
                 {t('panel.title' as TranslationKey)}
             </h2>
-            <p className="mb-1 shrink-0 text-xs text-slate-500">
+            <p className="mb-1 shrink-0 text-xs" style={{ color: palette.onSurfaceVariant }}>
                 {t('panel.hint' as TranslationKey)}
             </p>
             {activePanel !== undefined && (
-                <p className="mb-4 shrink-0 text-xs text-sky-300/80" role="status">
+                <p className="mb-4 shrink-0 text-xs" style={{ color: palette.tertiary }} role="status">
                     {t('panel.activePanel' as TranslationKey)}: {activePanel.label} ·{' '}
                     {t('panel.feeders' as TranslationKey)}: {incoming.length} / {outgoing.length}
                 </p>
             )}
 
             {modules.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center rounded border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center text-sm text-slate-400">
+                <div
+                    className="flex flex-1 items-center justify-center rounded border border-dashed p-8 text-center text-sm"
+                    style={{ borderColor: palette.outlineVariant, backgroundColor: palette.surfaceContainer, color: palette.onSurfaceVariant }}
+                >
                     {t('panel.empty' as TranslationKey)}
                 </div>
             ) : (
@@ -148,7 +157,8 @@ export function PanelLayoutEditor() {
                     viewBox={`0 0 ${svgWidth} ${svgHeight}`}
                     width={svgWidth}
                     height={svgHeight}
-                    className="shrink-0 self-start rounded bg-slate-900"
+                    className="shrink-0 self-start rounded"
+                    style={{ backgroundColor: palette.surface }}
                     role="img"
                     aria-label={t('panel.title' as TranslationKey)}
                 >
@@ -159,8 +169,8 @@ export function PanelLayoutEditor() {
                         width={svgWidth - 2 * ENCLOSURE_INSET}
                         height={svgHeight - 2 * ENCLOSURE_INSET}
                         rx={4}
-                        fill="#0f172a"
-                        stroke="#475569"
+                        fill={palette.surfaceContainer}
+                        stroke={palette.outline}
                         strokeWidth={2}
                     />
 
@@ -171,9 +181,9 @@ export function PanelLayoutEditor() {
                         return (
                             <g key={`rail-${railIndex}`}>
                                 <line x1={railLeft} y1={railTop} x2={railRight} y2={railTop}
-                                    stroke="#64748b" strokeWidth={2} />
+                                    stroke={palette.outline} strokeWidth={2} />
                                 <line x1={railLeft} y1={railBottom} x2={railRight} y2={railBottom}
-                                    stroke="#64748b" strokeWidth={2} />
+                                    stroke={palette.outline} strokeWidth={2} />
                                 {Array.from({ length: RAIL_MODULES + 1 }, (_, tick) => (
                                     <line
                                         key={tick}
@@ -181,11 +191,11 @@ export function PanelLayoutEditor() {
                                         y1={railTop}
                                         x2={MODULES_LEFT + tick * DIN_MODULE_WIDTH_MM}
                                         y2={railTop + 6}
-                                        stroke="#475569"
+                                        stroke={palette.outlineVariant}
                                         strokeWidth={1}
                                     />
                                 ))}
-                                <text x={railLeft} y={railTop - 8} fontSize={10} fill="#94a3b8">
+                                <text x={railLeft} y={railTop - 8} fontSize={10} fill={palette.onSurfaceVariant}>
                                     {`${t('panel.rail' as TranslationKey)} ${railIndex + 1} · ${RAIL_MODULES * DIN_MODULE_WIDTH_MM}${t('common.mm' as TranslationKey)}`}
                                 </text>
                             </g>
@@ -197,7 +207,7 @@ export function PanelLayoutEditor() {
                         const phase = phaseForSlot(node.panelSlot);
                         const phaseFill = phaseColor(phase);
                         const selected = selectedNodeId === node.id;
-                        const stroke = selected ? '#38bdf8' : '#94a3b8';
+                        const stroke = selected ? palette.primary : palette.outline;
                         return (
                             <g
                                 key={node.id}
@@ -216,19 +226,19 @@ export function PanelLayoutEditor() {
                                     strokeWidth={selected ? 3 : 1}
                                     rx={2}
                                 />
-                                <text x={x + 3} y={y + 14} fontSize={10} fontWeight="bold" fill="#f8fafc">
+                                <text x={x + 3} y={y + 14} fontSize={10} fontWeight="bold" fill={palette.onSurface}>
                                     {node.label}
                                 </text>
-                                <text x={x + 3} y={y + 28} fontSize={9} fill="#e2e8f0">
+                                <text x={x + 3} y={y + 28} fontSize={9} fill={palette.onSurface}>
                                     {ratingLabel(node)}
                                 </text>
-                                <text x={x + 3} y={y + 41} fontSize={9} fill="#cbd5e1">
+                                <text x={x + 3} y={y + 41} fontSize={9} fill={palette.onSurfaceVariant}>
                                     {`${moduleWidthModules(node)}М`}
                                 </text>
                                 <text x={x + 3} y={y + 54} fontSize={9} fill={phaseFill}>
                                     {t(`phase.${phase}` as TranslationKey)}
                                 </text>
-                                <text x={x + 3} y={y + 67} fontSize={8} fill="#94a3b8">
+                                <text x={x + 3} y={y + 67} fontSize={8} fill={palette.onSurfaceVariant}>
                                     {`${t('panel.slot' as TranslationKey)} ${node.panelSlot}`}
                                 </text>
                             </g>
@@ -253,7 +263,7 @@ export function PanelLayoutEditor() {
                                         strokeWidth={1}
                                         rx={2}
                                     />
-                                    <text x={x + 18} y={y + 10} fontSize={10} fill="#e2e8f0">
+                                    <text x={x + 18} y={y + 10} fontSize={10} fill={palette.onSurface}>
                                         {t(`phase.${phase}` as TranslationKey)}
                                     </text>
                                 </g>

@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.7.0
 /**
  * Диалог время-токовых характеристик (ВТХ) и селективности аппаратов защиты.
  *
@@ -14,6 +14,7 @@ import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import { apiClient } from '../lib/apiClient.js';
 import { buildTccRequest, computeTccPreview, tccCurvePoints, tripTime } from '../lib/tcc.js';
+import { getCanvasPalette, useResolvedTheme } from '../lib/theme.js';
 import type { TccDeviceView } from '../lib/tcc.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
@@ -36,12 +37,6 @@ const MARGIN = { left: 68, right: 24, top: 24, bottom: 52 } as const;
 /** Пределы оси времени, с. */
 const TIME_MIN = 0.01;
 const TIME_MAX = 3600;
-/** Цвет кривой вышестоящего аппарата. */
-const UP_COLOR = '#38bdf8';
-/** Цвет кривой нижестоящего аппарата. */
-const DOWN_COLOR = '#fb923c';
-/** Цвет маркера предела селективности. */
-const LIMIT_COLOR = '#34d399';
 /** Значения сетки по времени, с. */
 const TIME_GRID: readonly number[] = [0.01, 0.1, 1, 10, 100, 1000, 3600];
 
@@ -114,6 +109,11 @@ function legendName(device: TccDeviceView): string {
  */
 export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCurveChartProps) {
     const { t } = useI18n();
+    // Цвета графика привязаны к ролям Material 3 активной темы.
+    const palette = getCanvasPalette(useResolvedTheme());
+    const upColor = palette.cable;
+    const downColor = palette.scale;
+    const limitColor = palette.success;
     const graph = useEditorStore((state) => state.graph);
     const serverProjectId = useEditorStore((state) => state.serverProjectId);
     const calculatedIsc = useCalculationStore((state) => state.shortCircuit?.shortCircuitCurrentA);
@@ -293,22 +293,30 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
         points.map((point) => `${currentToX(point.i).toFixed(2)},${timeToY(point.t).toFixed(2)}`).join(' ');
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-            <div className="flex max-h-full w-full max-w-4xl flex-col gap-3 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: palette.background }}
+        >
+            <div
+                className="flex max-h-full w-full max-w-4xl flex-col gap-3 overflow-y-auto rounded-lg border p-5 shadow-2xl"
+                style={{ borderColor: palette.outlineVariant, backgroundColor: palette.surface, color: palette.onSurface }}
+            >
                 <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-base font-semibold text-slate-100">{t('tcc.title')}</h2>
+                    <h2 className="text-base font-semibold">{t('tcc.title')}</h2>
                     <div className="flex gap-2">
                         <button
                             type="button"
                             onClick={() => setRefreshKey((value) => value + 1)}
-                            className="rounded border border-slate-600 px-3 py-1 text-xs text-slate-200 hover:bg-slate-700"
+                            className="rounded border px-3 py-1 text-xs hover:bg-surface-container"
+                            style={{ borderColor: palette.outline, color: palette.onSurface }}
                         >
                             {t('tcc.refresh')}
                         </button>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded border border-slate-600 px-3 py-1 text-xs text-slate-200 hover:bg-slate-700"
+                            className="rounded border px-3 py-1 text-xs hover:bg-surface-container"
+                            style={{ borderColor: palette.outline, color: palette.onSurface }}
                         >
                             {t('tcc.close')}
                         </button>
@@ -316,20 +324,20 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                 </div>
 
                 {preview && (
-                    <div className="rounded border border-amber-600 bg-amber-950/60 px-3 py-2 text-xs text-amber-200">
+                    <div className="rounded border border-tertiary bg-tertiary-container px-3 py-2 text-xs text-on-tertiary-container">
                         <div className="font-semibold">{t('tcc.preview')}</div>
                         <div>{t('tcc.approx')}</div>
                     </div>
                 )}
 
                 {error && (
-                    <div className="rounded border border-rose-600 bg-rose-950/60 px-3 py-2 text-xs text-rose-200">
+                    <div className="rounded border border-error bg-error-container px-3 py-2 text-xs text-on-error-container">
                         {t('tcc.error')}
                     </div>
                 )}
 
                 {loading ? (
-                    <div className="py-16 text-center text-sm text-slate-400">{t('tcc.loading')}</div>
+                    <div className="py-16 text-center text-sm" style={{ color: palette.onSurfaceVariant }}>{t('tcc.loading')}</div>
                 ) : response !== null && curves !== null && downstream !== undefined && upstream !== undefined ? (
                     <>
                         <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -339,7 +347,7 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                             <span className={`rounded px-2 py-1 ${response.breakingCapacityOk ? 'bg-emerald-700 text-emerald-100' : 'bg-rose-700 text-rose-100'}`}>
                                 {t(icnKey)}
                             </span>
-                            <span className="text-slate-400">
+                            <span style={{ color: palette.onSurfaceVariant }}>
                                 {t('tcc.is')}: {selectivityLimit.toFixed(3)} A · {t('tcc.isc')}: {limits.isc.toFixed(1)} A
                             </span>
                         </div>
@@ -348,7 +356,8 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                             <svg
                                 ref={svgRef}
                                 viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-                                className="h-auto w-full touch-none rounded bg-slate-950"
+                                className="h-auto w-full touch-none rounded"
+                                style={{ backgroundColor: palette.surface }}
                                 role="img"
                                 aria-label={t('tcc.title')}
                                 onMouseMove={handleMouseMove}
@@ -363,7 +372,7 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                     width={plotWidth}
                                     height={plotHeight}
                                     fill="none"
-                                    stroke="#475569"
+                                    stroke={palette.outline}
                                 />
 
                                 {xGrid.map((value) => (
@@ -373,12 +382,12 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                             x2={currentToX(value)}
                                             y1={MARGIN.top}
                                             y2={MARGIN.top + plotHeight}
-                                            stroke="#1e293b"
+                                            stroke={palette.outlineVariant}
                                         />
                                         <text
                                             x={currentToX(value)}
                                             y={MARGIN.top + plotHeight + 18}
-                                            fill="#94a3b8"
+                                            fill={palette.onSurfaceVariant}
                                             fontSize="11"
                                             textAnchor="middle"
                                         >
@@ -394,12 +403,12 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                             x2={MARGIN.left + plotWidth}
                                             y1={timeToY(value)}
                                             y2={timeToY(value)}
-                                            stroke="#1e293b"
+                                            stroke={palette.outlineVariant}
                                         />
                                         <text
                                             x={MARGIN.left - 8}
                                             y={timeToY(value) + 4}
-                                            fill="#94a3b8"
+                                            fill={palette.onSurfaceVariant}
                                             fontSize="11"
                                             textAnchor="end"
                                         >
@@ -411,7 +420,7 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                 <text
                                     x={MARGIN.left + plotWidth / 2}
                                     y={VIEW_HEIGHT - 8}
-                                    fill="#cbd5e1"
+                                    fill={palette.onSurface}
                                     fontSize="12"
                                     textAnchor="middle"
                                 >
@@ -420,7 +429,7 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                 <text
                                     x={16}
                                     y={MARGIN.top + plotHeight / 2}
-                                    fill="#cbd5e1"
+                                    fill={palette.onSurface}
                                     fontSize="12"
                                     textAnchor="middle"
                                     transform={`rotate(-90 16 ${MARGIN.top + plotHeight / 2})`}
@@ -435,14 +444,14 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                             x2={currentToX(limits.isc)}
                                             y1={MARGIN.top}
                                             y2={MARGIN.top + plotHeight}
-                                            stroke="#f43f5e"
+                                            stroke={palette.error}
                                             strokeWidth="1.5"
                                             strokeDasharray="5 4"
                                         />
                                         <text
                                             x={currentToX(limits.isc) + 4}
                                             y={MARGIN.top + 12}
-                                            fill="#fda4af"
+                                            fill={palette.error}
                                             fontSize="11"
                                         >
                                             {t('tcc.isc')} {limits.isc.toFixed(0)} A
@@ -457,13 +466,13 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                             x2={currentToX(selectivityLimit)}
                                             y1={MARGIN.top}
                                             y2={MARGIN.top + plotHeight}
-                                            stroke={LIMIT_COLOR}
+                                            stroke={limitColor}
                                             strokeWidth="1.5"
                                         />
                                         <text
                                             x={currentToX(selectivityLimit) + 4}
                                             y={MARGIN.top + 28}
-                                            fill={LIMIT_COLOR}
+                                            fill={limitColor}
                                             fontSize="11"
                                         >
                                             {t('tcc.is')} {selectivityLimit.toFixed(1)} A
@@ -474,13 +483,13 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                 <polyline
                                     points={polyline(curves.up)}
                                     fill="none"
-                                    stroke={UP_COLOR}
+                                    stroke={upColor}
                                     strokeWidth="2.5"
                                 />
                                 <polyline
                                     points={polyline(curves.down)}
                                     fill="none"
-                                    stroke={DOWN_COLOR}
+                                    stroke={downColor}
                                     strokeWidth="2.5"
                                 />
 
@@ -491,48 +500,53 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                                             x2={tooltip.svgX}
                                             y1={MARGIN.top}
                                             y2={MARGIN.top + plotHeight}
-                                            stroke="#e2e8f0"
+                                            stroke={palette.onSurface}
                                             strokeWidth="1"
                                             strokeDasharray="2 3"
                                         />
-                                        <circle cx={tooltip.svgX} cy={timeToY(tooltip.timeUpS)} r="3.5" fill={UP_COLOR} />
-                                        <circle cx={tooltip.svgX} cy={timeToY(tooltip.timeDownS)} r="3.5" fill={DOWN_COLOR} />
+                                        <circle cx={tooltip.svgX} cy={timeToY(tooltip.timeUpS)} r="3.5" fill={upColor} />
+                                        <circle cx={tooltip.svgX} cy={timeToY(tooltip.timeDownS)} r="3.5" fill={downColor} />
                                     </g>
                                 )}
                             </svg>
 
                             {tooltip !== null && (
                                 <div
-                                    className="pointer-events-none absolute top-2 rounded border border-slate-600 bg-slate-800/95 px-2 py-1 text-[10px] text-slate-100 shadow"
-                                    style={{ left: `${Math.min(80, Math.max(0, (tooltip.svgX / VIEW_WIDTH) * 100))}%` }}
+                                    className="pointer-events-none absolute top-2 rounded border px-2 py-1 text-[10px] shadow"
+                                    style={{
+                                        left: `${Math.min(80, Math.max(0, (tooltip.svgX / VIEW_WIDTH) * 100))}%`,
+                                        borderColor: palette.outline,
+                                        backgroundColor: palette.surfaceContainer,
+                                        color: palette.onSurface,
+                                    }}
                                 >
                                     <div>{t('tcc.axisCurrent')}: {tooltip.currentA.toFixed(1)} A</div>
-                                    <div style={{ color: UP_COLOR }}>
+                                    <div style={{ color: upColor }}>
                                         {t('tcc.device.up')}: {formatTime(tooltip.timeUpS)}
                                     </div>
-                                    <div style={{ color: DOWN_COLOR }}>
+                                    <div style={{ color: downColor }}>
                                         {t('tcc.device.down')}: {formatTime(tooltip.timeDownS)}
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex flex-wrap gap-4 text-xs text-slate-300">
-                            <span className="font-semibold text-slate-400">{t('tcc.legend')}</span>
+                        <div className="flex flex-wrap gap-4 text-xs" style={{ color: palette.onSurface }}>
+                            <span className="font-semibold" style={{ color: palette.onSurfaceVariant }}>{t('tcc.legend')}</span>
                             <span className="flex items-center gap-2">
-                                <span className="inline-block h-0.5 w-6" style={{ backgroundColor: UP_COLOR }} />
+                                <span className="inline-block h-0.5 w-6" style={{ backgroundColor: upColor }} />
                                 {t('tcc.device.up')} · {legendName(upstream)} · {upstream.tripCurve}
                             </span>
                             <span className="flex items-center gap-2">
-                                <span className="inline-block h-0.5 w-6" style={{ backgroundColor: DOWN_COLOR }} />
+                                <span className="inline-block h-0.5 w-6" style={{ backgroundColor: downColor }} />
                                 {t('tcc.device.down')} · {legendName(downstream)} · {downstream.tripCurve}
                             </span>
                         </div>
 
-                        <p className="text-xs text-slate-500">{t('tcc.hint')}</p>
+                        <p className="text-xs" style={{ color: palette.onSurfaceVariant }}>{t('tcc.hint')}</p>
 
                         {response.warnings.length > 0 && (
-                            <ul className="list-disc pl-5 text-[11px] text-amber-200/80">
+                            <ul className="list-disc pl-5 text-[11px] text-error">
                                 {response.warnings.map((warning) => (
                                     <li key={warning}>{warning}</li>
                                 ))}
@@ -540,7 +554,7 @@ export function TccCurveChart({ deviceId, shortCircuitCurrentA, onClose }: TccCu
                         )}
                     </>
                 ) : (
-                    <div className="py-16 text-center text-sm text-slate-400">{t('tcc.error')}</div>
+                    <div className="py-16 text-center text-sm" style={{ color: palette.onSurfaceVariant }}>{t('tcc.error')}</div>
                 )}
             </div>
         </div>
