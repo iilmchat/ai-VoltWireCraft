@@ -348,3 +348,33 @@ class SelectivityTccResponse(_ContractModel):
     warnings: list[str]
     references: list[str]
     rules_version: str
+
+
+# --- Контракты релиза v0.8.0 (светотехника) ---
+
+
+class LightingCalcRequest(_ContractModel):
+    """Запрос расчёта освещённости по СП 52.13330."""
+
+    polygon_m: list[PointPx] | None = None
+    area_m2: float | None = Field(default=None, gt=0)
+    ceiling_height_m: float = Field(gt=0)
+    zone_type: RoomType | None = None
+    luminaire_flux_lm: float = Field(gt=0)
+    luminaire_power_w: float = Field(gt=0)
+    safety_factor: float = Field(default=1.15, gt=0)
+
+
+class LightingCalcResponse(_ContractModel):
+    """Результат расчёта освещённости и числа светильников."""
+
+    area_m2: float = Field(gt=0)
+    required_lux: float = Field(gt=0)
+    room_index: float = Field(gt=0)
+    utilization_factor: float = Field(gt=0, le=1)
+    recommended_luminaires_count: int = Field(gt=0)
+    total_power_w: float = Field(gt=0)
+    actual_lux: float = Field(gt=0)
+    warnings: list[str]
+    references: list[str]
+    rules_version: str

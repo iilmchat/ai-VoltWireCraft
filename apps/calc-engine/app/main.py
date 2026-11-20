@@ -14,6 +14,7 @@ from . import __version__
 from .auto_panel import auto_assemble_panel
 from .cad_parser import parse_dwg_bytes, parse_dxf_bytes
 from .calculator import calculate_cable_length
+from .lighting import calculate_lighting
 from .line_sizing import calculate_line_sizing
 from .schemas import (
     AutoPanelRequest,
@@ -22,6 +23,8 @@ from .schemas import (
     CalculateCableLengthResponse,
     CadParseResponse,
     HealthResponse,
+    LightingCalcRequest,
+    LightingCalcResponse,
     LineSizingRequest,
     LineSizingResponse,
     SelectivityTccRequest,
@@ -84,6 +87,12 @@ def calculate_short_circuit_endpoint(request: ShortCircuitRequest) -> ShortCircu
 def calculate_selectivity_tcc_endpoint(request: SelectivityTccRequest) -> SelectivityTccResponse:
     """Рассчитывает ВТХ B/C/D, предел селективности и каскадное ΔU."""
     return calculate_tcc_selectivity(request)
+
+
+@app.post("/v1/calc/lighting", response_model=LightingCalcResponse)
+def calculate_lighting_endpoint(request: LightingCalcRequest) -> LightingCalcResponse:
+    """Рассчитывает освещённость и число светильников по СП 52.13330."""
+    return calculate_lighting(request)
 
 
 @app.post("/v1/cad/parse-dxf", response_model=CadParseResponse)
