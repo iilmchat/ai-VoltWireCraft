@@ -47,6 +47,33 @@
 - В инспекторе вводного автомата 3P/4P — расчёт $I_{кз}^{(3)}$ и ударного
   тока $i_{уд}$ с проверкой отключающей способности `Icn`.
 
+### Added (бэкенд v0.9.0)
+
+- `packages/shared`: контракты `ThreePhaseShortCircuitRequest/Response`
+  (Iкз³, ударный ток, kуд, I_cn) и `GroundingLightningRequest/Response`
+  (грунт, ρ, сезонный коэффициент, R_ЗУ, радиус зоны А/Б), а также DTO
+  авторизации и командной работы (`RegisterDto`, `LoginDto`, `AuthResponse`,
+  `ProjectMemberDto`, `ProjectCommentDto`, `CreateCommentDto`).
+- `apps/calc-engine`: расчёт трёхфазного КЗ и ударного тока в `short_circuit.py`
+  и `POST /v1/calc/three-phase-sc`; новый модуль `grounding_lightning.py` и
+  `POST /v1/calc/grounding-lightning` — сопротивление вертикальных/горизонтальных
+  заземлителей, коэффициент использования, сезонный коэффициент, R_ЗУ ≤ 4 Ом
+  и зона стержневой молниезащиты. Всё в `Decimal`, покрыто юнит-тестами.
+- `apps/api`: `AuthModule` — JWT на `node:crypto` (HMAC-SHA256) и солевой
+  `scrypt` без внешних зависимостей; эндпоинты `/auth/register`, `/auth/login`,
+  `/auth/me`; `JwtAuthGuard`, `CurrentUser`, `GraphEditGuard`. Роль `client`
+  может комментировать и согласовывать, но получает `403` при попытке
+  перезаписать граф через `PUT /projects/:id/graph`.
+- Эндпоинты `GET /projects`, `POST /projects/:id/members`,
+  `GET/POST /projects/:id/comments`, `PATCH /projects/:id/comments/:commentId`
+  и прокси `POST /projects/:id/calc/three-phase-sc`,
+  `POST /projects/:id/calc/grounding-lightning`.
+- Инструменты `check_three_phase_sc_tool` и `check_grounding_tool`:
+  `PueAuditorAgent` добавляет находки `F-THREE-PHASE-SC` и `F-GROUNDING`
+  только по результатам расчётного ядра (RULES § 5.1).
+- Тесты: 22 новых `pytest` и 8 новых Vitest (включая PGlite-интеграцию RBAC
+  и запрет редактирования графа роли `client`).
+
 ## [0.8.0] — 2026-11-20
 
 ### Added
