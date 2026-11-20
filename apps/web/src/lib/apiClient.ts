@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 /**
  * Типизированный клиент REST API NestJS (RULES § 1.6).
  *
@@ -25,12 +25,18 @@ import {
     CreateProjectDtoSchema,
     FloorPlanUploadDtoSchema,
     ProjectDtoSchema,
+    SelectivityTccResponseSchema,
+    TccSelectivityRequestSchema,
+    TccSelectivityResponseSchema,
     UpdateProjectGraphDtoSchema,
     UuidSchema,
     type CreateProjectDto,
     type FloorPlanUploadDto,
     type ProjectDto,
     type ProjectGraph,
+    type SelectivityTccResponse,
+    type TccSelectivityRequest,
+    type TccSelectivityResponse,
     type Uuid,
 } from '@voltwirecraft/shared/graph.schema.js';
 
@@ -114,6 +120,38 @@ async function parseResponse<T>(response: Response, schema: z.ZodType<T>): Promi
     } catch {
         throw new ApiClientError('Некорректные данные ответа API', 502);
     }
+}
+
+/**
+ * Привести ответ сервера ВТХ второй семьи контрактов к первому контракту UI.
+ *
+ * Сервер может вернуть как `TccSelectivityResponse`, так и более ранний
+ * `SelectivityTccResponse` (со статусом и готовыми кривыми). Клиент
+ * нормализует оба варианта к единой форме, которую ожидает график.
+ *
+ * @param response Провалидированный ответ одной из двух схем.
+ * @returns Ответ канонической первой семьи `TccSelectivityResponse`.
+ */
+function normalizeTccResponse(
+    response: TccSelectivityResponse | SelectivityTccResponse,
+): TccSelectivityResponse {
+    if (!('status' in response)) {
+        return response;
+    }
+    const serverStatus = response.status;
+    return {
+        selectivityLimitA: response.selectivityLimitA,
+        pairs: response.pairs.map((pair) => ({
+            deviceId: pair.downstreamId,
+            parentId: pair.upstreamId,
+            ok: serverStatus === 'full' || (serverStatus === 'partial' && pair.selective),
+            selectivityLimitA: pair.selectivityLimitA,
+        })),
+        breakingCapacityOk: response.breakingCapacityOk,
+        totalVoltageDropPercent: response.totalVoltageDropPercent,
+        warnings: response.warnings,
+        references: response.references,
+    };
 }
 
 /**
@@ -293,6 +331,34 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 {},
                 ShortCircuitResponseSchema,
             );
+        },
+
+        /**
+         * Расчёт время-токовых характеристик и селективности:
+         * `POST /projects/:id/selectivity-tcc`.
+         *
+         * RULES § 5.1: физика рассчитывается детерминированным ядром сервера,
+         * клиент только передаёт канонический запрос и проверяет ответ схемой.
+         * Поддерживаются оба варианта ответа сервера; второй нормализуется
+         * к каноническому `TccSelectivityResponse`.
+         *
+         * @param id — идентификатор проекта.
+         * @param request — канонический запрос ВТХ.
+         * @returns нормализованный ответ расчёта ВТХ и селективности.
+         */
+        async selectivityTccAsync(
+            id: Uuid,
+            request: TccSelectivityRequest,
+        ): Promise<TccSelectivityResponse> {
+            const projectId = UuidSchema.parse(id);
+            const payload = TccSelectivityRequestSchema.parse(request);
+            const response = await sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/selectivity-tcc`,
+                'POST',
+                payload,
+                z.union([TccSelectivityResponseSchema, SelectivityTccResponseSchema]),
+            );
+            return normalizeTccResponse(response);
         },
     };
 }
