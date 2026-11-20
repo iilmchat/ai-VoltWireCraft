@@ -14,6 +14,7 @@ import {
     type ProjectGraph,
     type ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
+import { CatalogService } from '../src/agents/catalog.service.js';
 import { LlmClient } from '../src/agents/llm.client.js';
 import { NormativeService } from '../src/agents/normative.service.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
@@ -188,6 +189,7 @@ describe('PueAuditorAgent: проверка КЗ через инструмент
                 PueAuditorAgent,
                 { provide: CalcEngineClient, useValue: calc },
                 { provide: NormativeService, useValue: { searchAsync: vi.fn(async () => []) } },
+                { provide: CatalogService, useValue: { findByTypeAsync: vi.fn(async () => null) } },
                 { provide: LlmClient, useValue: { generateExplanationAsync: vi.fn(async () => 'Объяснение') } },
             ],
         }).compile();

@@ -15,8 +15,15 @@ import type {
     ProjectDto,
     UpdateProjectGraphDto,
 } from '@voltwirecraft/shared/graph.schema.js';
-import type { PueAuditReport, ShortCircuitResponse } from '@voltwirecraft/shared/graph.schema.js';
+import { CopilotChatRequestSchema } from '@voltwirecraft/shared/graph.schema.js';
+import type {
+  CopilotChatRequest,
+  CopilotChatResponse,
+  PueAuditReport,
+  ShortCircuitResponse,
+} from '@voltwirecraft/shared/graph.schema.js';
 import { AssemblePanelRequestSchema } from '../agents/agents.schemas.js';
+import { CopilotChatAgent } from '../agents/copilot-chat.agent.js';
 import type { AssemblePanelRequest, AssemblePanelResult } from '../agents/agents.schemas.js';
 import { PanelArchitectAgent } from '../agents/panel-architect.agent.js';
 import { PueAuditorAgent } from '../agents/pue-auditor.agent.js';
@@ -34,11 +41,13 @@ export class ProjectsController {
    * @param service — сервис проектов.
    * @param panelArchitect — агент сборки щита.
    * @param pueAuditor — агент аудита ПУЭ-7.
+   * @param copilot — агент интерактивного чата.
    */
   public constructor(
     @Inject(ProjectsService) private readonly service: ProjectsService,
     @Inject(PanelArchitectAgent) private readonly panelArchitect: PanelArchitectAgent,
     @Inject(PueAuditorAgent) private readonly pueAuditor: PueAuditorAgent,
+    @Inject(CopilotChatAgent) private readonly copilot: CopilotChatAgent,
   ) {}
 
   /**
@@ -158,6 +167,24 @@ export class ProjectsController {
     }
     const data = await this.service.importCadAsync(id, file);
     return { success: true, data, message: 'Стены из CAD импортированы' };
+  }
+
+  /**
+   * Обрабатывает сообщение ИИ-копилота и возвращает патч графа без записи в БД.
+   * Применение предложения выполняется через `PUT /projects/:id/graph`.
+   *
+   * @param id — UUID проекта.
+   * @param dto — сообщение, история и предпочтительный бренд.
+   * @returns ответ копилота с предлагаемым графом.
+   */
+  @Post(':id/ai/chat')
+  public async chatAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+    @Body(new ZodValidationPipe(CopilotChatRequestSchema)) dto: CopilotChatRequest,
+  ): Promise<ApiResponse<CopilotChatResponse>> {
+    const project = await this.service.getByIdAsync(id);
+    const data = await this.copilot.chatAsync(project.graph, dto);
+    return { success: true, data, message: 'Предложение копилота подготовлено' };
   }
 
   /**

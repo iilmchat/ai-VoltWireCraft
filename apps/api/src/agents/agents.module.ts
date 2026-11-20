@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 import { CalcEngineModule } from '../calc-engine/calc-engine.module.js';
 import { drizzleProvider } from '../database/drizzle.provider.js';
 import { CatalogService } from './catalog.service.js';
+import { CopilotChatAgent } from './copilot-chat.agent.js';
 import { LlmClient } from './llm.client.js';
 import { NormativeService } from './normative.service.js';
 import { PanelArchitectAgent } from './panel-architect.agent.js';
@@ -23,7 +24,8 @@ import { ToolRegistry } from './tools.js';
     ToolRegistry,
     PanelArchitectAgent,
     PueAuditorAgent,
+    CopilotChatAgent,
   ],
-  exports: [PanelArchitectAgent, PueAuditorAgent, ToolRegistry],
+  exports: [PanelArchitectAgent, PueAuditorAgent, CopilotChatAgent, ToolRegistry],
 })
 export class AgentsModule {}
