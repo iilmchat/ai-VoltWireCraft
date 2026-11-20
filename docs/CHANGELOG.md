@@ -52,6 +52,30 @@
   с описанием рабочего пространства, сценария, светотехники, интеграций
   и обновлений.
 
+### Added (бэкенд v0.8.0)
+
+- `packages/shared`: светотехнические контракты `LightingCalcRequest/Response`
+  (площадь по полигону или напрямую, норма, индекс помещения, η, число
+  светильников, фактическая освещённость) и контракты MCP-интеграций
+  `IntegrationStatus`, `StockCheckResponse`, `ExportToErpRequest/Response`.
+- `apps/calc-engine`: модуль `lighting.py` и эндпоинт `POST /v1/calc/lighting` —
+  площадь по формуле шнурования, индекс помещения, интерполяция η из таблицы
+  СП 52.13330, $N = \lceil E_н S K_з / (\eta \Phi_{св}) \rceil$ и фактическая
+  освещённость. Все расчёты в `Decimal`, покрыто юнит-тестами.
+- `apps/api/src/integrations/`: `ErpMcpService` (HTTP-вызовы MCP-серверов с
+  таймаутом и Zod-валидацией), `IntegrationService` (остатки, заказ, смета,
+  сборка спецификации из графа), `IntegrationsController` и
+  `IntegrationsModule`. Операции записи принимают `confirmationToken` — без
+  HITL-подтверждения запрос не отправляется (RULES § 6.1).
+- Инструменты `ToolRegistry`: `calculate_room_lighting_tool`,
+  `moysklad_check_bom_stock_tool`, `moysklad_create_order_tool` и
+  `bitrix24_send_estimate_tool` (последние два — `requiresApproval`).
+- Эндпоинты: `GET /integrations/status`, `POST /projects/:id/lighting/calculate`,
+  `POST /projects/:id/integrations/moysklad/check-stock`,
+  `.../moysklad/create-order` и `.../bitrix24/send-estimate`.
+- Переменная `MCP_HTTP_TIMEOUT_MS` в конфигурации API; тесты Vitest с моками
+  MCP проверяют передачу токена подтверждения и вызовы расчётного ядра.
+
 ## [0.7.0] — 2026-11-20
 
 ### Added

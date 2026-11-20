@@ -6,15 +6,20 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import {
   AutoPanelRequestSchema,
+  LightingCalcRequestSchema,
   LineSizingRequestSchema,
   ProjectGraphSchema,
   SelectivityTccRequestSchema,
   ShortCircuitRequestSchema,
+  StockCheckItemSchema,
+  UuidSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
   AutoPanelRequest,
   AutoPanelResponse,
   GraphNode,
+  LightingCalcRequest,
+  LightingCalcResponse,
   LineSizingRequest,
   LineSizingResponse,
   PueCitation,
@@ -23,8 +28,11 @@ import type {
   SelectivityTccResponse,
   ShortCircuitRequest,
   ShortCircuitResponse,
+  StockCheckResponse,
+  ExportToErpResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
+import { IntegrationService } from '../integrations/integration.service.js';
 import { CatalogService } from './catalog.service.js';
 import { NormativeService } from './normative.service.js';
 
@@ -87,6 +95,40 @@ export const RebrandPanelInputSchema = z.object({
 /** Вход смены бренда. */
 export type RebrandPanelInput = z.infer<typeof RebrandPanelInputSchema>;
 
+/** Вход инструмента проверки остатков спецификации. */
+export const CheckBomStockInputSchema = z.object({
+  /** Позиции спецификации. */
+  items: z.array(StockCheckItemSchema).min(1),
+});
+/** Вход проверки остатков. */
+export type CheckBomStockInput = z.infer<typeof CheckBomStockInputSchema>;
+
+/** Вход инструмента создания заказа (требует HITL-подтверждения). */
+export const CreateOrderInputSchema = z.object({
+  /** Идентификатор проекта. */
+  projectId: UuidSchema,
+  /** Позиции заказа. */
+  items: z.array(StockCheckItemSchema).min(1),
+  /** Токен подтверждения пользователя. */
+  confirmationToken: z.string().min(1),
+});
+/** Вход создания заказа. */
+export type CreateOrderInput = z.infer<typeof CreateOrderInputSchema>;
+
+/** Вход инструмента отправки сметы в Битрикс24 (HITL). */
+export const SendEstimateInputSchema = z.object({
+  /** Идентификатор проекта. */
+  projectId: UuidSchema,
+  /** Позиции сметы. */
+  items: z.array(StockCheckItemSchema).min(1),
+  /** Идентификатор сделки. */
+  dealId: z.string().min(1),
+  /** Токен подтверждения пользователя. */
+  confirmationToken: z.string().min(1),
+});
+/** Вход отправки сметы. */
+export type SendEstimateInput = z.infer<typeof SendEstimateInputSchema>;
+
 /** Результат инструмента, изменяющего граф. */
 export interface GraphMutationResult {
   /** Предлагаемый граф. */
@@ -125,16 +167,26 @@ export class ToolRegistry {
   public readonly splitApplianceLineTool: AgentTool<SplitApplianceLineInput, GraphMutationResult>;
   /** Смена бренда модулей щита с подбором артикулов и пересчётом. */
   public readonly rebrandPanelTool: AgentTool<RebrandPanelInput, GraphMutationResult>;
+  /** Расчёт освещённости комнаты в calc-engine. */
+  public readonly calculateRoomLightingTool: AgentTool<LightingCalcRequest, LightingCalcResponse>;
+  /** Проверка остатков спецификации в МойСклад. */
+  public readonly moyskladCheckBomStockTool: AgentTool<CheckBomStockInput, StockCheckResponse>;
+  /** Создание заказа в МойСклад (HITL). */
+  public readonly moyskladCreateOrderTool: AgentTool<CreateOrderInput, ExportToErpResponse>;
+  /** Отправка сметы в Битрикс24 (HITL). */
+  public readonly bitrix24SendEstimateTool: AgentTool<SendEstimateInput, ExportToErpResponse>;
 
   /**
    * @param calcClient — клиент расчётного ядра.
    * @param normative — сервис поиска нормативов.
    * @param catalog — каталог модульного оборудования.
+   * @param integrations — сервис MCP-интеграций.
    */
   public constructor(
     @Inject(CalcEngineClient) private readonly calcClient: CalcEngineClient,
     @Inject(NormativeService) private readonly normative: NormativeService,
     @Inject(CatalogService) private readonly catalog: CatalogService,
+    @Inject(IntegrationService) private readonly integrations: IntegrationService,
   ) {
     this.calculateLineTool = {
       name: 'calculate_line_tool',
@@ -183,6 +235,43 @@ export class ToolRegistry {
       description: 'Меняет бренд модулей щита, подбирая артикулы каталога и пересчитывая щит.',
       inputSchema: RebrandPanelInputSchema,
       invokeAsync: (input) => this.rebrandPanelAsync(input),
+    };
+    this.calculateRoomLightingTool = {
+      name: 'calculate_room_lighting_tool',
+      description: 'Рассчитывает освещённость помещения по СП 52.13330 в calc-engine.',
+      inputSchema: LightingCalcRequestSchema,
+      invokeAsync: (input) => this.calcClient.calculateLightingAsync(input),
+    };
+    this.moyskladCheckBomStockTool = {
+      name: 'moysklad_check_bom_stock_tool',
+      description: 'Проверяет остатки позиций спецификации в МойСклад через MCP.',
+      inputSchema: CheckBomStockInputSchema,
+      invokeAsync: (input) => this.integrations.checkStockAsync(input.items),
+    };
+    this.moyskladCreateOrderTool = {
+      name: 'moysklad_create_order_tool',
+      description: 'Создаёт заказ в МойСклад; требуется HITL-подтверждение пользователя.',
+      inputSchema: CreateOrderInputSchema,
+      invokeAsync: (input) =>
+        this.integrations.createOrderAsync({
+          projectId: input.projectId,
+          target: 'moysklad',
+          items: input.items,
+          confirmationToken: input.confirmationToken,
+        }),
+    };
+    this.bitrix24SendEstimateTool = {
+      name: 'bitrix24_send_estimate_tool',
+      description: 'Отправляет смету в сделку Битрикс24; требуется HITL-подтверждение.',
+      inputSchema: SendEstimateInputSchema,
+      invokeAsync: (input) =>
+        this.integrations.sendEstimateAsync({
+          projectId: input.projectId,
+          target: 'bitrix24',
+          items: input.items,
+          dealId: input.dealId,
+          confirmationToken: input.confirmationToken,
+        }),
     };
   }
 
