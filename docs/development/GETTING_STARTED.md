@@ -186,5 +186,58 @@ docker compose down -v       # остановить и удалить тома (
 
 ---
 
+## 9. Интеграции с Битрикс24 и МойСклад (MCP)
+
+MCP-серверы вынесены в опциональный профиль `integrations`: базовый стек
+`docker compose up -d` по-прежнему поднимает только 5 основных сервисов.
+
+1. Заполните в `.env` заглушки (значения — только локально, не коммитьте `.env`):
+
+   ```dotenv
+   BITRIX24_WEBHOOK_URL=https://ВАШ_ДОМЕН.bitrix24.ru/rest/1/ВАШ_ТОКЕН/
+   MOYSKLAD_TOKEN=ВАШ_ТОКЕН
+   ```
+
+2. Поднимите стек с интеграциями:
+
+   ```bash
+   docker compose --profile integrations up -d
+   ```
+
+3. Проверьте готовность серверов и реестр инструментов:
+
+   ```bash
+   curl http://localhost:5003/health
+   curl http://localhost:5003/tools
+   curl http://localhost:5004/health
+   curl http://localhost:5004/tools
+   ```
+
+   Доступные инструменты:
+
+   - `bitrix24_get_deal(dealId)` — чтение сделки;
+   - `bitrix24_add_bom_to_deal(dealId, title, totalRub, itemsSummary, confirmationToken)` —
+     добавление спецификации комментарием в сделку;
+   - `moysklad_check_stock(skus)` — остатки по артикулам;
+   - `moysklad_create_customer_order(projectTitle, items, confirmationToken)` —
+     создание заказа покупателя.
+
+4. Вызов инструмента — `POST /mcp/tools/<имя>` с JSON-телом аргументов.
+   Все операции записи требуют `confirmationToken` (HITL по DESIGN v0.8 § 2.1):
+   без него сервер вернёт `success: false` и не выполнит изменение во внешней системе.
+
+5. Проверьте конфигурацию без запуска:
+
+   ```bash
+   docker compose config --quiet
+   docker compose --profile integrations config --quiet
+   ```
+
+Если токен/webhook не задан, сервер стартует, но инструменты отвечают `503` с
+явным сообщением; `/health` продолжает возвращать `status: ok` и хэш секрета
+вместо самого секрета.
+
+---
+
 Подробности по эталонным объектам — `fixtures/golden-dataset/README.md`.
 Правила разработки — [RULES.md](RULES.md).

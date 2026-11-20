@@ -139,6 +139,57 @@ services:
     ports:
       - '${WEB_PORT:-5173}:80'
 
+  bitrix24-mcp:
+    # Опциональная интеграция с Битрикс24 (profile integrations).
+    profiles: ['integrations']
+    build:
+      context: ./infra/mcp/bitrix24
+      dockerfile: Dockerfile
+    image: voltwirecraft/bitrix24-mcp:0.1.0
+    container_name: vwc-bitrix24-mcp
+    restart: unless-stopped
+    environment:
+      BITRIX24_WEBHOOK_URL: ${BITRIX24_WEBHOOK_URL:-}
+      MCP_HTTP_TIMEOUT_SEC: ${MCP_HTTP_TIMEOUT_SEC:-10}
+    ports:
+      - '${BITRIX24_MCP_PORT:-5003}:5003'
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:5003/health", timeout=2)'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  moysklad-mcp:
+    # Опциональная интеграция с МойСклад (profile integrations).
+    profiles: ['integrations']
+    build:
+      context: ./infra/mcp/moysklad
+      dockerfile: Dockerfile
+    image: voltwirecraft/moysklad-mcp:0.1.0
+    container_name: vwc-moysklad-mcp
+    restart: unless-stopped
+    environment:
+      MOYSKLAD_TOKEN: ${MOYSKLAD_TOKEN:-}
+      MOYSKLAD_BASE_URL: ${MOYSKLAD_BASE_URL:-https://api.moysklad.ru/api/remap/1.2}
+      MCP_HTTP_TIMEOUT_SEC: ${MCP_HTTP_TIMEOUT_SEC:-10}
+    ports:
+      - '${MOYSKLAD_MCP_PORT:-5004}:5004'
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:5004/health", timeout=2)'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
 volumes:
   postgres-data:
   redis-data:

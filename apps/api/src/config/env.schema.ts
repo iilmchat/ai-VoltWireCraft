@@ -24,6 +24,19 @@ export const EnvSchema = z.object({
   LLM_API_KEY: z.string().min(1).optional(),
   LLM_MODEL: z.string().min(1).default('gpt-4o-mini'),
   EMBEDDING_MODEL: z.string().min(1).default('text-embedding-3-small'),
+  // MCP-интеграции (опциональный profile `integrations` в docker-compose).
+  BITRIX24_MCP_URL: z
+    .url()
+    .refine((value) => /^https?:\/\//.test(value), 'Ожидается http:// или https://')
+    .default('http://localhost:5003'),
+  MOYSKLAD_MCP_URL: z
+    .url()
+    .refine((value) => /^https?:\/\//.test(value), 'Ожидается http:// или https://')
+    .default('http://localhost:5004'),
+  BITRIX24_WEBHOOK_URL: z.url().optional(),
+  MOYSKLAD_TOKEN: z.string().min(1).optional(),
+  /** Таймаут HTTP-вызова MCP-сервера, мс. */
+  MCP_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   // Хранилище подложек: локальная файловая система или S3-совместимое хранилище.
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   LOCAL_STORAGE_DIR: z.string().min(1).default('./storage/floor-plans'),
