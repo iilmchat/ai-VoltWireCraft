@@ -1,10 +1,16 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 import type { GraphEdge, GraphNode, NodeKind, ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import { useMemo, useRef } from 'react';
 import { useI18n } from '../i18n/index.js';
 import { downloadPdfAsync, downloadPngAsync, downloadSvgAsync } from '../lib/diagramExport.js';
+import {
+    getFeederEdges,
+    getNodesForPanel,
+    resolveActivePanelId,
+} from '../lib/panelHierarchy.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
+import { useUiStore } from '../store/uiStore.js';
 
 /** Ширина символа узла, px. */
 const NODE_WIDTH = 150;
@@ -278,10 +284,39 @@ export function SingleLineDiagramView(): React.JSX.Element {
     const selectNode = useEditorStore((state) => state.selectNode);
     const selectEdge = useEditorStore((state) => state.selectEdge);
     const shortCircuit = useCalculationStore((state) => state.shortCircuit);
+    const activePanelId = useUiStore((state) => state.activePanelId);
     const svgRef = useRef<SVGSVGElement | null>(null);
 
-    const layout = useMemo(() => buildLayout(graph), [graph]);
-    const isEmpty = graph.nodes.length === 0;
+    // Схема активного щита: тот же граф плюс узлы смежных щитов для магистралей.
+    const resolvedPanelId = resolveActivePanelId(graph, activePanelId);
+    const scopedGraph = useMemo(() => {
+        if (resolvedPanelId === null) {
+            return graph;
+        }
+        const feeders = getFeederEdges(graph);
+        const feederIds = new Set<string>();
+        const relatedPanelIds = new Set<string>([resolvedPanelId]);
+        for (const edge of feeders) {
+            if (edge.to === resolvedPanelId || edge.from === resolvedPanelId) {
+                feederIds.add(edge.id);
+                relatedPanelIds.add(edge.to);
+                relatedPanelIds.add(edge.from);
+            }
+        }
+        const panelNodeIds = new Set(getNodesForPanel(graph, resolvedPanelId).map((node) => node.id));
+        const visibleNodes = graph.nodes.filter(
+            (node) => panelNodeIds.has(node.id) || relatedPanelIds.has(node.id),
+        );
+        const visibleIds = new Set(visibleNodes.map((node) => node.id));
+        const visibleEdges = graph.edges.filter(
+            (edge) => feederIds.has(edge.id) || (visibleIds.has(edge.from) && visibleIds.has(edge.to)),
+        );
+        return { ...graph, nodes: visibleNodes, edges: visibleEdges };
+    }, [graph, resolvedPanelId]);
+    const activePanel = graph.nodes.find((node) => node.id === resolvedPanelId);
+
+    const layout = useMemo(() => buildLayout(scopedGraph), [scopedGraph]);
+    const isEmpty = scopedGraph.nodes.length === 0;
     const rawName = graph.name.replace(/[^\p{L}\p{N}._-]+/gu, '_');
     const fileName = rawName.length > 0 ? rawName : 'single-line';
 
@@ -310,6 +345,11 @@ export function SingleLineDiagramView(): React.JSX.Element {
                 <h2 className="mr-auto text-sm font-semibold uppercase tracking-wide text-slate-300">
                     {t('sld.title')}
                 </h2>
+                {activePanel !== undefined && (
+                    <span className="rounded border border-sky-700 px-2 py-1 text-xs text-sky-300">
+                        {t('panel.activePanel')}: {activePanel.label}
+                    </span>
+                )}
                 <button
                     type="button"
                     disabled={isEmpty}

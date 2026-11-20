@@ -97,6 +97,24 @@ describe('editorStore (канонический граф)', () => {
         expect(useEditorStore.getState().graph.name).toBe('Тест');
     });
 
+    it('добавляет дочерний щит с магистралью от родителя', () => {
+        useEditorStore.getState().addNode('panel', { x: 10, y: 10 });
+        const rootId = useEditorStore.getState().selectedNodeId;
+        expect(rootId).not.toBeNull();
+        if (rootId === null) {
+            return;
+        }
+        const childId = useEditorStore.getState().addDistributionPanel(rootId);
+        expect(childId).not.toBeNull();
+        const graph = useEditorStore.getState().graph;
+        const child = graph.nodes.find((node) => node.id === childId);
+        expect(child?.panelRole).toBe('sub_shr');
+        expect(child?.parentPanelId).toBe(rootId);
+        expect(graph.edges.some((edge) => edge.edgeType === 'feeder_line' && edge.to === childId)).toBe(true);
+        useEditorStore.getState().undo();
+        expect(useEditorStore.getState().graph.nodes).toHaveLength(1);
+    });
+
     it('удаляет связанные линии при удалении узла', () => {
         const store = useEditorStore.getState();
         store.addNode('panel', { x: 0, y: 0 });

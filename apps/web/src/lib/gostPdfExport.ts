@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 /**
  * Формирование комплекта документации РД по ГОСТ Р 21.101 в формате PDF.
  *
@@ -6,6 +6,11 @@
  * Правила § 5.4: генерация полностью клиентская, без обращений к серверу.
  * Кириллица отрисовывается системным шрифтом в HTMLCanvasElement, а готовый
  * растр встраивается в jsPDF — встроенные шрифты jsPDF не содержат кириллицу.
+ *
+ * Базовая часть комплекта — 4 листа. Для многощитовых проектов (более одного
+ * узла `kind === 'panel'`) после базовых листов добавляется по два листа на
+ * каждый щит: однолинейная схема щита и компоновка щита. Выборки узлов и рёбер
+ * для этих листов выполняют helper-функции `panelHierarchy` без копирования графа.
  */
 import type {
     GraphEdge,
@@ -23,6 +28,13 @@ import {
     phaseForSlot,
     ratingLabel,
 } from '../lib/panelModules.js';
+import {
+    getEdgesForPanel,
+    getFeederEdges,
+    getNodesForPanel,
+    getPanels,
+} from '../lib/panelHierarchy.js';
+import type { PanelInfo, PanelRole } from '../lib/panelHierarchy.js';
 
 /** Ширина страницы A4 альбомной ориентации, мм. */
 const PAGE_WIDTH_MM = 297;
@@ -34,8 +46,8 @@ const CANVAS_WIDTH_PX = 2480;
 const CANVAS_HEIGHT_PX = 1754;
 /** Перевод миллиметров чертежа в пиксели растра. */
 const MM_TO_PX = CANVAS_WIDTH_PX / PAGE_WIDTH_MM;
-/** Число листов комплекта. */
-const TOTAL_SHEETS = 4;
+/** Число базовых листов комплекта (без листов конкретных щитов). */
+const BASE_SHEET_COUNT = 4;
 /** Левая граница основной области чертежа, мм. */
 const CONTENT_LEFT = 25;
 /** Правая граница основной области чертежа, мм. */
@@ -55,13 +67,20 @@ const STAMP_WIDTH = 180;
 /** Высота основной надписи, мм. */
 const STAMP_HEIGHT = 55;
 
-/** Заголовки листов комплекта в порядке следования. */
+/** Заголовки базовых листов комплекта в порядке следования. */
 const SHEET_TITLES: readonly string[] = [
     'Общие данные',
     'Однолинейная схема',
     'Компоновка щита НКУ',
     'Кабельный журнал и Спецификация оборудования',
 ];
+
+/** Русскоязычные сокращения ролей щитов в иерархии ВРУ → ЩР → ЩО. */
+const PANEL_ROLE_LABELS: Readonly<Record<PanelRole, string>> = {
+    main_vru: 'ВРУ',
+    sub_shr: 'ЩР',
+    lighting_sho: 'ЩО',
+};
 
 /** Русскоязычные наименования типов УГО для спецификации. */
 const KIND_LABELS: Readonly<Record<NodeKind, string>> = {
@@ -80,6 +99,15 @@ const KIND_LABELS: Readonly<Record<NodeKind, string>> = {
 
 /** Группы УГО для однолинейной схемы. */
 type DiagramGroup = 'source' | 'protection' | 'consumer';
+
+/** Категория содержимого листа комплекта. */
+type SheetCategory =
+    | 'general'
+    | 'singleLine'
+    | 'layout'
+    | 'cableSpec'
+    | 'panelSingleLine'
+    | 'panelLayout';
 
 /** Параметры текста основной надписи и таблиц. */
 interface TextOptions {
@@ -151,6 +179,67 @@ interface PanelPlacement {
     height: number;
 }
 
+/** Область размещения блоков однолинейной схемы. */
+interface DiagramArea {
+    /** Верхняя координата блоков, мм. */
+    top: number;
+    /** Доступная высота для блоков, мм. */
+    height: number;
+    /** Координата Y легенды, мм. */
+    legendY: number;
+}
+
+/** Область размещения корпуса щита на листе компоновки. */
+interface LayoutArea {
+    /** Верхняя координата корпуса, мм. */
+    enclosureTop: number;
+}
+
+/** Область однолинейной схемы базового листа 2 (без изменений). */
+const DEFAULT_DIAGRAM_AREA: DiagramArea = { top: 36, height: 88, legendY: 133 };
+/** Область однолинейной схемы листа конкретного щита (ниже таблицы реквизитов). */
+const PANEL_DIAGRAM_AREA: DiagramArea = { top: 56, height: 70, legendY: 133 };
+/** Положение корпуса на базовом листе 3 (без изменений). */
+const DEFAULT_LAYOUT_AREA: LayoutArea = { enclosureTop: 30 };
+/** Положение корпуса на листе компоновки конкретного щита. */
+const PANEL_LAYOUT_AREA: LayoutArea = { enclosureTop: 48 };
+
+/** Контекст щита для пары дополнительных листов. */
+interface PanelSheetContext {
+    /** Описание щита из `getPanels`. */
+    panel: PanelInfo;
+    /** Узлы, электрически принадлежащие щиту. */
+    nodes: readonly GraphNode[];
+    /** Рёбра, соединяющие узлы щита (включая входящую магистраль). */
+    edges: readonly GraphEdge[];
+    /** Сокращённое наименование роли щита. */
+    roleLabel: string;
+    /** Подпись родительского щита или «—». */
+    parentLabel: string;
+    /** Описание входящей питающей линии или «—». */
+    incomingLabel: string;
+    /** Описание исходящих линий к дочерним щитам или «—». */
+    outgoingLabel: string;
+}
+
+/** Описание одного листа комплекта. */
+interface SheetDescriptor {
+    /** Заголовок, выводимый в шапке листа. */
+    title: string;
+    /** Категория содержимого. */
+    category: SheetCategory;
+    /** Контекст для листов конкретного щита. */
+    panel?: PanelSheetContext;
+}
+
+/** План комплекта: упорядоченные листы и их общее число. */
+interface SheetPlan {
+    /** Листы в порядке следования. */
+    descriptors: readonly SheetDescriptor[];
+    /** Общее число листов для штампа и шапки. */
+    total: number;
+}
+
 /**
  * Безопасное строковое значение: пустое значение заменяется прочерком.
  * @param value Исходная строка.
@@ -173,6 +262,39 @@ function formatNumber(value: number): string {
         return '—';
     }
     return value.toFixed(2).replace('.', ',');
+}
+
+/**
+ * Русскоязычная форма числительного со словом «лист».
+ * @param count Число листов.
+ * @returns Строка вида «4 листа».
+ */
+function sheetCountLabel(count: number): string {
+    const lastTwo = count % 100;
+    const last = count % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) {
+        return `${count} листов`;
+    }
+    if (last === 1) {
+        return `${count} лист`;
+    }
+    if (last >= 2 && last <= 4) {
+        return `${count} листа`;
+    }
+    return `${count} листов`;
+}
+
+/**
+ * Сократить длинную подпись для ячейки таблицы.
+ * @param value Исходная строка.
+ * @param maxLength Предельная длина.
+ * @returns Строка, не превышающая предел.
+ */
+function shorten(value: string, maxLength: number): string {
+    if (value.length <= maxLength) {
+        return value;
+    }
+    return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
 /**
@@ -354,12 +476,18 @@ function drawFrame(painter: Painter): void {
 /**
  * Нарисовать заголовок листа и его номер.
  * @param painter Примитивы рисования страницы.
- * @param title Название листа.
+ * @param title Название листа (для листов щита содержит его наименование).
  * @param sheetNumber Порядковый номер листа.
+ * @param totalSheets Общее число листов комплекта.
  */
-function drawPageHeader(painter: Painter, title: string, sheetNumber: number): void {
+function drawPageHeader(
+    painter: Painter,
+    title: string,
+    sheetNumber: number,
+    totalSheets: number,
+): void {
     painter.text(title, CONTENT_LEFT, 22, 6, { bold: true });
-    painter.text(`Лист ${sheetNumber} из ${TOTAL_SHEETS}`, CONTENT_RIGHT, 22, 3.5, {
+    painter.text(`Лист ${sheetNumber} из ${totalSheets}`, CONTENT_RIGHT, 22, 3.5, {
         align: 'right',
     });
     painter.line(CONTENT_LEFT, 24, CONTENT_RIGHT, 24, '#0f172a', 0.4);
@@ -367,12 +495,14 @@ function drawPageHeader(painter: Painter, title: string, sheetNumber: number): v
 
 /**
  * Нарисовать основную надпись (штамп) в правом нижнем углу листа.
- * Вызывается для всех четырёх листов с одинаковыми реквизитами.
+ * Вызывается один раз для каждого листа с одинаковыми реквизитами и сквозной
+ * нумерацией; общее число листов рассчитывается из плана комплекта.
  * @param painter Примитивы рисования страницы.
  * @param stamp Реквизиты штампа.
  * @param graphName Название объекта (проекта).
  * @param sheetNumber Номер листа.
  * @param date Дата выпуска.
+ * @param totalSheets Общее число листов комплекта.
  */
 function drawStamp(
     painter: Painter,
@@ -380,6 +510,7 @@ function drawStamp(
     graphName: string,
     sheetNumber: number,
     date: string,
+    totalSheets: number,
 ): void {
     painter.rect(STAMP_X, STAMP_Y, STAMP_WIDTH, STAMP_HEIGHT, {
         stroke: '#0f172a',
@@ -418,7 +549,7 @@ function drawStamp(
     cell(STAMP_X + 60, row4, 60, 13, 'Проверил', valueOrDash(stamp.reviewerName));
     cell(STAMP_X + 120, row4, 60, 13, 'Дата', date);
 
-    cell(STAMP_X, row5, 120, 15, 'Всего листов', String(TOTAL_SHEETS));
+    cell(STAMP_X, row5, 120, 15, 'Всего листов', String(totalSheets));
     cell(STAMP_X + 120, row5, 60, 15, 'Формат', 'А4');
 }
 
@@ -501,8 +632,14 @@ function drawTable(
  * @param painter Примитивы рисования страницы.
  * @param graph Канонический граф проекта.
  * @param stamp Реквизиты штампа.
+ * @param totalSheets Общее число листов комплекта.
  */
-function drawSheet1(painter: Painter, graph: ProjectGraph, stamp: StampMeta): void {
+function drawSheet1(
+    painter: Painter,
+    graph: ProjectGraph,
+    stamp: StampMeta,
+    totalSheets: number,
+): void {
     const ceiling = graph.floorPlan.ceilingHeightM;
     const rows: readonly (readonly string[])[] = [
         ['Наименование проекта', graph.name],
@@ -547,7 +684,7 @@ function drawSheet1(painter: Painter, graph: ProjectGraph, stamp: StampMeta): vo
         painter.text(note, noteX + 3, CONTENT_TOP + 20 + index * 7, 3.2);
     });
 
-    painter.text('Состав комплекта: 4 листа формата А4, альбомная ориентация.',
+    painter.text(`Состав комплекта: ${sheetCountLabel(totalSheets)} формата А4, альбомная ориентация.`,
         CONTENT_LEFT, 131, 3.4, { color: '#334155' });
     painter.text('Расчётные значения носят справочный характер и подлежат проверке.',
         CONTENT_LEFT, 138, 3.4, { color: '#334155' });
@@ -589,16 +726,25 @@ function drawDiagramLegend(painter: Painter, y: number): void {
 }
 
 /**
- * Лист 2 «Однолинейная схема»: электрическая иерархия из узлов и рёбер графа.
+ * Ядро однолинейной схемы: электрическая иерархия из переданных узлов и рёбер.
+ * Используется как базовым листом 2, так и листами конкретных щитов — для
+ * последних передаются выборки `getNodesForPanel` / `getEdgesForPanel`.
  * @param painter Примитивы рисования страницы.
- * @param graph Канонический граф проекта.
+ * @param nodes Узлы для отображения.
+ * @param edges Рёбра для отображения.
+ * @param area Область размещения блоков на листе.
  */
-function drawSheet2(painter: Painter, graph: ProjectGraph): void {
-    if (graph.nodes.length === 0) {
+function drawSingleLineCore(
+    painter: Painter,
+    nodes: readonly GraphNode[],
+    edges: readonly GraphEdge[],
+    area: DiagramArea,
+): void {
+    if (nodes.length === 0) {
         painter.text('—', (CONTENT_LEFT + CONTENT_RIGHT) / 2, 80, 8, { align: 'center' });
         painter.text('Данные для построения схемы отсутствуют',
             (CONTENT_LEFT + CONTENT_RIGHT) / 2, 90, 4, { align: 'center', color: '#64748b' });
-        drawDiagramLegend(painter, 130);
+        drawDiagramLegend(painter, area.legendY - 3);
         return;
     }
 
@@ -607,7 +753,7 @@ function drawSheet2(painter: Painter, graph: ProjectGraph): void {
         protection: [],
         consumer: [],
     };
-    for (const node of graph.nodes) {
+    for (const node of nodes) {
         groups[diagramGroup(node)].push(node);
     }
 
@@ -618,13 +764,13 @@ function drawSheet2(painter: Painter, graph: ProjectGraph): void {
     ];
     const largestGroup = Math.max(...columns.map((column) => groups[column.group].length));
     const maxCount = Math.max(1, largestGroup);
-    const spacing = Math.min(20, Math.max(6, 88 / maxCount));
+    const spacing = Math.min(20, Math.max(6, area.height / maxCount));
     const boxHeight = Math.max(6, Math.min(12, spacing - 2));
-    const top = 36;
+    const top = area.top;
 
     /** Позиция узла на схеме или undefined для неизвестного узла. */
     const positionOf = (nodeId: string): { x: number; y: number; width: number } | undefined => {
-        const node = graph.nodes.find((item) => item.id === nodeId);
+        const node = nodes.find((item) => item.id === nodeId);
         if (node === undefined) {
             return undefined;
         }
@@ -641,7 +787,7 @@ function drawSheet2(painter: Painter, graph: ProjectGraph): void {
     };
 
     // Соединители выводятся только из рёбер канонического графа.
-    for (const edge of graph.edges) {
+    for (const edge of edges) {
         const from = positionOf(edge.from);
         const to = positionOf(edge.to);
         if (from === undefined || to === undefined) {
@@ -658,7 +804,7 @@ function drawSheet2(painter: Painter, graph: ProjectGraph): void {
     }
 
     columns.forEach((column) => {
-        painter.text(column.title, column.x + column.width / 2, 31, 3.6, {
+        painter.text(column.title, column.x + column.width / 2, top - 5, 3.6, {
             bold: true,
             align: 'center',
         });
@@ -678,16 +824,32 @@ function drawSheet2(painter: Painter, graph: ProjectGraph): void {
         });
     });
 
-    drawDiagramLegend(painter, 133);
+    drawDiagramLegend(painter, area.legendY);
 }
 
 /**
- * Лист 3 «Компоновка щита НКУ»: DIN-рейки, модули и шины N/PE.
+ * Лист 2 «Однолинейная схема»: вся электрическая иерархия канонического графа.
  * @param painter Примитивы рисования страницы.
  * @param graph Канонический граф проекта.
  */
-function drawSheet3(painter: Painter, graph: ProjectGraph): void {
-    const slotted = graph.nodes
+function drawSheet2(painter: Painter, graph: ProjectGraph): void {
+    drawSingleLineCore(painter, graph.nodes, graph.edges, DEFAULT_DIAGRAM_AREA);
+}
+
+/**
+ * Ядро компоновки щита: DIN-рейки, модули и шины N/PE из переданных узлов.
+ * Ширина модуля пропорциональна `moduleWidthModules × DIN_MODULE_WIDTH_MM`,
+ * цвет — `phaseColor(phaseForSlot(panelSlot))`, подпись — `ratingLabel`.
+ * @param painter Примитивы рисования страницы.
+ * @param nodes Узлы для размещения на рейках.
+ * @param area Положение корпуса на листе.
+ */
+function drawLayoutCore(
+    painter: Painter,
+    nodes: readonly GraphNode[],
+    area: LayoutArea,
+): void {
+    const slotted = nodes
         .filter((node): node is GraphNode & { panelSlot: number } => node.panelSlot !== null)
         .sort((left, right) => left.panelSlot - right.panelSlot);
 
@@ -707,7 +869,7 @@ function drawSheet3(painter: Painter, graph: ProjectGraph): void {
     }
 
     const enclosureX = 32;
-    const enclosureY = 30;
+    const enclosureY = area.enclosureTop;
     const enclosureWidth = 220;
     const maxEnclosureBottom = 104;
     const rowStep = packedRails === 0
@@ -807,6 +969,15 @@ function drawSheet3(painter: Painter, graph: ProjectGraph): void {
 }
 
 /**
+ * Лист 3 «Компоновка щита НКУ»: компоновка всех модулей канонического графа.
+ * @param painter Примитивы рисования страницы.
+ * @param graph Канонический граф проекта.
+ */
+function drawSheet3(painter: Painter, graph: ProjectGraph): void {
+    drawLayoutCore(painter, graph.nodes, DEFAULT_LAYOUT_AREA);
+}
+
+/**
  * Собрать агрегированную спецификацию оборудования из узлов графа.
  * @param nodes Узлы канонического графа.
  * @returns Строки спецификации.
@@ -903,6 +1074,179 @@ function drawSheet4(painter: Painter, graph: ProjectGraph): void {
 }
 
 /**
+ * Описать питающую линию для таблицы реквизитов щита.
+ * @param edge Ребро-магистраль.
+ * @param otherId Идентификатор узла на другом конце линии.
+ * @param nodeById Карта узлов графа.
+ * @param arrow Направление линии относительно щита.
+ * @returns Короткая подпись линии.
+ */
+function describeFeeder(
+    edge: GraphEdge,
+    otherId: string,
+    nodeById: ReadonlyMap<string, GraphNode>,
+    arrow: '←' | '→',
+): string {
+    const other = nodeById.get(otherId);
+    const brand = valueOrDash(edge.cableBrand);
+    const section = formatNumber(edge.cableSpecs.crossSection);
+    return `${arrow} ${valueOrDash(other?.label)} · ${brand} ${section} мм²`;
+}
+
+/**
+ * Таблица реквизитов щита на дополнительных листах: наименование, роль,
+ * родительский щит, входящая магистраль и исходящие линии к дочерним щитам.
+ * @param painter Примитивы рисования страницы.
+ * @param context Контекст щита.
+ */
+function drawPanelContext(painter: Painter, context: PanelSheetContext): void {
+    const columns: readonly TableColumn[] = [
+        { title: 'Щит', weight: 18 },
+        { title: 'Роль', weight: 9 },
+        { title: 'Родительский щит', weight: 18 },
+        { title: 'Входящая магистраль', weight: 26 },
+        { title: 'Исходящие магистрали', weight: 29 },
+    ];
+    drawTable(
+        painter,
+        CONTENT_LEFT,
+        CONTENT_TOP,
+        CONTENT_WIDTH,
+        15,
+        columns,
+        [[
+            context.panel.node.label,
+            context.roleLabel,
+            context.parentLabel,
+            context.incomingLabel,
+            context.outgoingLabel,
+        ]],
+    );
+}
+
+/**
+ * Безопасный вызов `getPanels`: отсутствие helper или ошибка дают пустой список.
+ * @param graph Канонический граф проекта.
+ * @returns Список щитов.
+ */
+function safeGetPanels(graph: ProjectGraph): readonly PanelInfo[] {
+    try {
+        return typeof getPanels === 'function' ? getPanels(graph) : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Безопасный вызов `getFeederEdges`: при ошибке возвращает пустой список.
+ * @param graph Канонический граф проекта.
+ * @returns Магистральные линии.
+ */
+function safeGetFeederEdges(graph: ProjectGraph): readonly GraphEdge[] {
+    try {
+        return typeof getFeederEdges === 'function' ? getFeederEdges(graph) : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Безопасный вызов `getNodesForPanel`: при ошибке возвращает пустой список.
+ * @param graph Канонический граф проекта.
+ * @param panelId Идентификатор щита.
+ * @returns Узлы щита.
+ */
+function safeGetNodesForPanel(graph: ProjectGraph, panelId: string): readonly GraphNode[] {
+    try {
+        return typeof getNodesForPanel === 'function' ? getNodesForPanel(graph, panelId) : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Безопасный вызов `getEdgesForPanel`: при ошибке возвращает пустой список.
+ * @param graph Канонический граф проекта.
+ * @param panelId Идентификатор щита.
+ * @returns Рёбра щита.
+ */
+function safeGetEdgesForPanel(graph: ProjectGraph, panelId: string): readonly GraphEdge[] {
+    try {
+        return typeof getEdgesForPanel === 'function' ? getEdgesForPanel(graph, panelId) : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Построить план комплекта: 4 базовых листа и, для многощитового проекта,
+ * по два листа на каждый щит в порядке `getPanels` (корневой ВРУ первым).
+ * Ошибки или отсутствие helper-функций не прерывают формирование базового
+ * комплекта — в таком случае добавляются только 4 исходных листа.
+ * @param graph Канонический граф проекта.
+ * @returns Упорядоченный план листов и их общее число.
+ */
+function buildSheetPlan(graph: ProjectGraph): SheetPlan {
+    const descriptors: SheetDescriptor[] = [
+        { title: SHEET_TITLES[0] ?? 'Общие данные', category: 'general' },
+        { title: SHEET_TITLES[1] ?? 'Однолинейная схема', category: 'singleLine' },
+        { title: SHEET_TITLES[2] ?? 'Компоновка щита НКУ', category: 'layout' },
+        {
+            title: SHEET_TITLES[3] ?? 'Кабельный журнал и Спецификация оборудования',
+            category: 'cableSpec',
+        },
+    ];
+
+    const panels = safeGetPanels(graph);
+    // Один щит (или их отсутствие) — старый порядок из четырёх листов без регрессий.
+    if (panels.length <= 1) {
+        return { descriptors, total: BASE_SHEET_COUNT };
+    }
+
+    const nodeById = new Map<string, GraphNode>(graph.nodes.map((node) => [node.id, node]));
+    const feederEdges = safeGetFeederEdges(graph);
+
+    for (const panel of panels) {
+        const nodes = safeGetNodesForPanel(graph, panel.node.id);
+        const edges = safeGetEdgesForPanel(graph, panel.node.id);
+
+        const childIds = new Set<string>(panel.children);
+        const parentNode = panel.parentPanelId === null
+            ? undefined
+            : nodeById.get(panel.parentPanelId);
+        const incoming = feederEdges
+            .filter((edge) => edge.to === panel.node.id)
+            .map((edge) => describeFeeder(edge, edge.from, nodeById, '←'));
+        const outgoing = feederEdges
+            .filter((edge) => edge.from === panel.node.id && childIds.has(edge.to))
+            .map((edge) => describeFeeder(edge, edge.to, nodeById, '→'));
+
+        const context: PanelSheetContext = {
+            panel,
+            nodes,
+            edges,
+            roleLabel: PANEL_ROLE_LABELS[panel.role] ?? 'ВРУ',
+            parentLabel: valueOrDash(parentNode?.label),
+            incomingLabel: incoming.length > 0 ? shorten(incoming.join('; '), 52) : '—',
+            outgoingLabel: outgoing.length > 0 ? shorten(outgoing.join('; '), 52) : '—',
+        };
+        const label = valueOrDash(panel.node.label);
+        descriptors.push({
+            title: `Однолинейная схема щита ${label}`,
+            category: 'panelSingleLine',
+            panel: context,
+        });
+        descriptors.push({
+            title: `Компоновка щита ${label}`,
+            category: 'panelLayout',
+            panel: context,
+        });
+    }
+
+    return { descriptors, total: descriptors.length };
+}
+
+/**
  * Сформировать имя файла из названия проекта.
  * @param graph Канонический граф проекта.
  * @returns Безопасное имя файла с расширением .pdf.
@@ -920,36 +1264,56 @@ function safeFileName(graph: ProjectGraph): string {
 /**
  * Нарисовать содержимое одного листа комплекта.
  * @param painter Примитивы рисования страницы.
- * @param index Номер листа (начиная с нуля).
+ * @param descriptor Описание листа из плана комплекта.
  * @param graph Канонический граф проекта.
  * @param stamp Реквизиты основной надписи.
+ * @param totalSheets Общее число листов комплекта.
  */
 function drawSheetContent(
     painter: Painter,
-    index: number,
+    descriptor: SheetDescriptor,
     graph: ProjectGraph,
     stamp: StampMeta,
+    totalSheets: number,
 ): void {
-    switch (index) {
-        case 0:
-            drawSheet1(painter, graph, stamp);
+    switch (descriptor.category) {
+        case 'general':
+            drawSheet1(painter, graph, stamp, totalSheets);
             break;
-        case 1:
+        case 'singleLine':
             drawSheet2(painter, graph);
             break;
-        case 2:
+        case 'layout':
             drawSheet3(painter, graph);
             break;
-        case 3:
+        case 'cableSpec':
             drawSheet4(painter, graph);
             break;
+        case 'panelSingleLine': {
+            const context = descriptor.panel;
+            if (context !== undefined) {
+                drawPanelContext(painter, context);
+                drawSingleLineCore(painter, context.nodes, context.edges, PANEL_DIAGRAM_AREA);
+            }
+            break;
+        }
+        case 'panelLayout': {
+            const context = descriptor.panel;
+            if (context !== undefined) {
+                drawPanelContext(painter, context);
+                drawLayoutCore(painter, context.nodes, PANEL_LAYOUT_AREA);
+            }
+            break;
+        }
         default:
             break;
     }
 }
 
 /**
- * Сформировать четырёхлистовой PDF комплекта РД по ГОСТ Р 21.101 и скачать его.
+ * Сформировать PDF комплекта РД по ГОСТ Р 21.101 и скачать его.
+ * Базовые 4 листа сохраняются всегда; при нескольких щитах добавляются листы
+ * «Однолинейная схема щита <label>» и «Компоновка щита <label>» для каждого.
  * Рендер каждой страницы выполняется в canvas системным шрифтом, что
  * гарантирует корректную кириллицу без встраивания шрифтов в jsPDF.
  * @param graph Канонический граф проекта — единственный источник данных.
@@ -960,8 +1324,10 @@ export async function exportGostPdfAsync(graph: ProjectGraph, stamp: StampMeta):
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const date = new Date().toLocaleDateString('ru-RU');
+    const plan = buildSheetPlan(graph);
 
-    for (let index = 0; index < TOTAL_SHEETS; index += 1) {
+    for (const [index, descriptor] of plan.descriptors.entries()) {
+        const sheetNumber = index + 1;
         const canvas = createPageCanvas();
         const context = canvas.getContext('2d');
         if (context === null) {
@@ -969,9 +1335,9 @@ export async function exportGostPdfAsync(graph: ProjectGraph, stamp: StampMeta):
         }
         const painter = createPainter(context);
         drawFrame(painter);
-        drawPageHeader(painter, SHEET_TITLES[index] ?? 'Лист', index + 1);
-        drawSheetContent(painter, index, graph, stamp);
-        drawStamp(painter, stamp, graph.name, index + 1, date);
+        drawPageHeader(painter, descriptor.title, sheetNumber, plan.total);
+        drawSheetContent(painter, descriptor, graph, stamp, plan.total);
+        drawStamp(painter, stamp, graph.name, sheetNumber, date, plan.total);
 
         if (index > 0) {
             pdf.addPage();

@@ -1,10 +1,10 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 import { ProjectGraphSchema } from '@voltwirecraft/shared/graph.schema.js';
 import { describe, expect, it } from 'vitest';
 import { DEMO_PROJECTS, getDemoByGraphId, getDemoProject } from './demoProjects.js';
 
 describe('золотой датасет (демо-проекты)', () => {
-    it('содержит шесть эталонных кейсов', () => {
+    it('содержит семь эталонных кейсов', () => {
         expect(DEMO_PROJECTS.map((project) => project.id)).toEqual([
             'studio-230v',
             'apartment-3room-400v',
@@ -12,6 +12,7 @@ describe('золотой датасет (демо-проекты)', () => {
             'commercial-office-400v',
             'cottages-3phase-15kw',
             'apartment-2room-gas',
+            'twostory-house-vru-shr',
         ]);
     });
 
@@ -54,5 +55,15 @@ describe('золотой датасет (демо-проекты)', () => {
         const demo = getDemoProject('cottages-3phase-15kw');
         expect(getDemoByGraphId(demo.createGraph().id)?.id).toBe('cottages-3phase-15kw');
         expect(getDemoByGraphId('00000000-0000-4000-8000-000000000000')).toBeUndefined();
+    });
+
+    it('кейс 07 содержит иерархию ВРУ → ЩР и магистральные линии', () => {
+        const graph = getDemoProject('twostory-house-vru-shr').createGraph();
+        const panels = graph.nodes.filter((node) => node.kind === 'panel');
+        expect(panels.map((panel) => panel.panelRole)).toContain('main_vru');
+        expect(panels.filter((panel) => panel.panelRole === 'sub_shr')).toHaveLength(2);
+        expect(panels.filter((panel) => panel.parentPanelId !== undefined)).toHaveLength(2);
+        expect(graph.edges.filter((edge) => edge.edgeType === 'feeder_line')).toHaveLength(2);
+        expect(getDemoByGraphId(graph.id)?.badgeKey).toBe('template.twoPanels');
     });
 });

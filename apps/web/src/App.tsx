@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 /** Корневой компонент: оболочка редактора с вкладками проекций графа. */
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
@@ -9,6 +9,7 @@ import { GostDocsPanel } from './components/GostDocsPanel.js';
 import { Header } from './components/Header.js';
 import { InspectorPanel } from './components/InspectorPanel.js';
 import { PanelLayoutEditor } from './components/PanelLayoutEditor.js';
+import { PanelSelector } from './components/PanelSelector.js';
 import { Palette } from './components/Palette.js';
 import { SingleLineDiagramView } from './components/SingleLineDiagramView.js';
 import { I18nProvider, useI18n } from './i18n/index.js';
@@ -87,6 +88,13 @@ function AppShell() {
     const setActiveView = useUiStore((state) => state.setActiveView);
     const gostPanelOpen = useUiStore((state) => state.gostPanelOpen);
     const setGostPanelOpen = useUiStore((state) => state.setGostPanelOpen);
+    const setActivePanelId = useUiStore((state) => state.setActivePanelId);
+    const graphId = useEditorStore((state) => state.graph.id);
+
+    // При загрузке другого проекта сбрасываем контекст активного щита сессии.
+    useEffect(() => {
+        setActivePanelId(null);
+    }, [graphId, setActivePanelId]);
 
     // Undo/Redo: Ctrl+Z / Ctrl+Y (RULES § 2.4 DESIGN_V040 — история сессии).
     useEffect(() => {
@@ -131,6 +139,7 @@ function AppShell() {
                     </button>
                 ))}
             </nav>
+            <PanelSelector activeView={activeView} />
             <div className="flex min-h-0 flex-1">
                 <Palette />
                 <main className="min-w-0 flex-1 overflow-auto">

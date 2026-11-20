@@ -120,6 +120,8 @@ export interface EditorState {
     loadDemoProject: (id: DemoProjectId) => void;
     /** Применить предложенный ИИ граф с записью в историю Undo. */
     applyProposedGraph: (graph: ProjectGraph) => void;
+    /** Добавить дочерний распределительный щит с магистралью от родителя. */
+    addDistributionPanel: (parentPanelId: string) => string | null;
     /** Выбрать инструмент. */
     setTool: (tool: ToolId) => void;
     /** Подготовить ЭУИ к установке. */
@@ -301,6 +303,66 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         selectedEdgeId: null,
         statusKey: 'ai.chat.applied',
     })),
+
+    addDistributionPanel: (parentPanelId) => {
+        const state = get();
+        const parent = state.graph.nodes.find(
+            (node) => node.id === parentPanelId && node.kind === 'panel',
+        );
+        if (parent === undefined) {
+            set({ statusKey: 'panel.invalidParent' });
+            return null;
+        }
+        const nextSlot = state.graph.nodes.reduce(
+            (max, node) => Math.max(max, node.panelSlot ?? 0),
+            0,
+        ) + 1;
+        const panelId = crypto.randomUUID();
+        const panel = GraphNodeSchema.parse({
+            id: panelId,
+            kind: 'panel',
+            label: `ЩР-${nextSlot}`,
+            planPosition: parent.planPosition === null ? null : { ...parent.planPosition },
+            panelSlot: nextSlot,
+            roomId: null,
+            catalogDeviceId: null,
+            parentPanelId,
+            panelRole: 'sub_shr',
+            specs: {
+                ratedPower: 0,
+                ratedCurrent: parent.specs.ratedCurrent,
+                crossSection: parent.specs.crossSection,
+                mountingHeight: parent.specs.mountingHeight,
+            },
+        });
+        const feeder = GraphEdgeSchema.parse({
+            id: crypto.randomUUID(),
+            from: parentPanelId,
+            to: panelId,
+            cableSpecs: {
+                crossSection: parent.specs.crossSection,
+                conductorCount: 5,
+                material: 'cu',
+                length: 0,
+            },
+            waypointsM: [
+                parent.planPosition ?? { x: 0, y: 0 },
+                parent.planPosition ?? { x: 0, y: 0 },
+            ],
+            edgeType: 'feeder_line',
+            cableBrand: 'ВВГнг(А)-LS',
+        });
+        set({
+            ...commitGraph(state, ProjectGraphSchema.parse({
+                ...state.graph,
+                nodes: [...state.graph.nodes, panel],
+                edges: [...state.graph.edges, feeder],
+            })),
+            selectedNodeId: panelId,
+            statusKey: 'status.panelAdded',
+        });
+        return panelId;
+    },
 
     setTool: (tool) => set({ tool, statusKey: 'status.ready' }),
     setArmedDeviceKind: (armedDeviceKind) => set({ armedDeviceKind, tool: 'device' }),

@@ -412,6 +412,11 @@ export function Header() {
                                     <span className="mb-3 flex-1 text-xs text-slate-400">
                                         {t(demo.descriptionKey as TranslationKey)}
                                     </span>
+                                    {demo.badgeKey !== undefined && (
+                                        <span className="mb-2 inline-block w-fit rounded bg-indigo-900/60 px-1.5 py-0.5 text-[10px] font-medium text-indigo-200">
+                                            {t(demo.badgeKey as TranslationKey)}
+                                        </span>
+                                    )}
                                     <span className="flex flex-wrap gap-1.5 text-[11px] text-slate-300">
                                         <span className="rounded bg-slate-700/60 px-1.5 py-0.5">
                                             {demo.supply} {t('template.volt')}

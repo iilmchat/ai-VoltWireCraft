@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 /**
  * Золотой датасет: шесть эталонных проектов, доступных без сети (RULES § 5.4).
  * Каждый кейс строится как канонический `ProjectGraph` — общий источник истины
@@ -27,7 +27,8 @@ export type DemoProjectId =
     | 'house-bath-80m'
     | 'commercial-office-400v'
     | 'cottages-3phase-15kw'
-    | 'apartment-2room-gas';
+    | 'apartment-2room-gas'
+    | 'twostory-house-vru-shr';
 
 /** Фазность ввода шаблона. */
 export type DemoSupply = '230' | '400';
@@ -46,6 +47,8 @@ export interface DemoProjectDefinition {
     powerKw: number;
     /** Число групповых линий в щите. */
     groups: number;
+    /** Необязательный бейдж карточки (например, число щитов). */
+    badgeKey?: TranslationKey;
     /** Создать свежий граф (каждый вызов возвращает независимый объект). */
     createGraph: () => ProjectGraph;
 }
@@ -75,6 +78,12 @@ interface DemoNodeInput {
     crossSection?: number;
     /** Идентификатор зоны. */
     room?: string;
+    /** Роль узла-щита в иерархии. */
+    role?: 'main_vru' | 'sub_shr' | 'lighting_sho';
+    /** Локальный ключ родительского щита. */
+    parent?: string;
+    /** Отключающая способность, kA. */
+    breakingCapacityKa?: number;
 }
 
 /** Параметры кабельной линии эталонного графа. */
@@ -89,6 +98,8 @@ interface DemoEdgeInput {
     brand?: string;
     /** Точки трассы в метрах (по умолчанию — прямая между узлами). */
     waypoints?: readonly (readonly [number, number])[];
+    /** Признак питающей магистрали между щитами. */
+    feeder?: boolean;
 }
 
 /** Результат сборки эталонного графа. */
@@ -137,11 +148,18 @@ function buildGraph(parts: DemoGraphParts): ProjectGraph {
         panelSlot: node.slot,
         roomId: node.room === undefined ? null : roomIds.get(node.room) ?? null,
         catalogDeviceId: null,
+        ...(node.role !== undefined ? { panelRole: node.role } : {}),
+        ...(node.parent !== undefined && nodeIds.has(node.parent)
+            ? { parentPanelId: nodeIds.get(node.parent) }
+            : {}),
         specs: {
             ratedPower: node.power ?? 0,
             ratedCurrent: node.current ?? 16,
             crossSection: node.crossSection ?? 2.5,
             mountingHeight: node.kind === 'socket' ? 0.3 : node.kind === 'light_fixture' ? 2.5 : 1.5,
+            ...(node.breakingCapacityKa !== undefined
+                ? { breakingCapacityKa: node.breakingCapacityKa }
+                : {}),
         },
     }));
     const edges: GraphEdge[] = parts.edges.map((edge, index) => {
@@ -168,7 +186,7 @@ function buildGraph(parts: DemoGraphParts): ProjectGraph {
                 length: 0,
             },
             waypointsM,
-            edgeType: CABLE_LINE_EDGE_TYPE,
+            edgeType: edge.feeder ? 'feeder_line' : CABLE_LINE_EDGE_TYPE,
             cableBrand: edge.brand ?? 'ВВГнг(А)-LS',
         };
     });
@@ -467,6 +485,53 @@ const GAS_APARTMENT_PARTS: DemoGraphParts = {
     ],
 };
 
+/** Двухэтажный дом с иерархией ВРУ → ЩР-1 / ЩР-2 и магистральными линиями. */
+const TWO_STORY_PARTS: DemoGraphParts = {
+    name: 'Дом 2 этажа: ВРУ + ЩР-2',
+    prefix: '70000000-0000',
+    scale: 0.01,
+    rooms: [
+        { key: 'floor1', name: 'Первый этаж', type: 'living', polygon: [[0, 0], [10, 0], [10, 8], [0, 8]] },
+        { key: 'floor2', name: 'Второй этаж', type: 'living', polygon: [[0, 8], [10, 8], [10, 16], [0, 16]] },
+        { key: 'basement', name: 'Подсобное помещение', type: 'utility', polygon: [[10, 0], [14, 0], [14, 5], [10, 5]] },
+    ],
+    walls: [
+        [[0, 0], [10, 0], [10, 16], [0, 16], [0, 0]],
+        [[0, 8], [10, 8]],
+    ],
+    nodes: [
+        { key: 'input', kind: 'input_source', label: 'Ввод 400 В', slot: 1, position: null, current: 125, breakingCapacityKa: 25 },
+        { key: 'vru', kind: 'panel', label: 'ВРУ', slot: 2, position: [0.3, 4], current: 125, role: 'main_vru' },
+        { key: 'qMain', kind: 'circuit_breaker', label: 'QF0 ВРУ 3P', slot: 3, position: null, current: 125, breakingCapacityKa: 25 },
+        { key: 'shr1', kind: 'panel', label: 'ЩР-1', slot: 4, position: [5, 3], current: 63, role: 'sub_shr', parent: 'vru' },
+        { key: 'shr2', kind: 'panel', label: 'ЩР-2', slot: 5, position: [5, 12], current: 63, role: 'sub_shr', parent: 'vru' },
+        { key: 'q1', kind: 'circuit_breaker', label: 'QF1 ЩР-1 Освещение', slot: 6, position: null, current: 16, breakingCapacityKa: 10, parent: 'shr1' },
+        { key: 'q2', kind: 'rcd', label: 'УЗО ЩР-1 Розетки', slot: 7, position: null, current: 32, breakingCapacityKa: 10, parent: 'shr1' },
+        { key: 'q3', kind: 'circuit_breaker', label: 'QF3 ЩР-2 Освещение', slot: 8, position: null, current: 16, breakingCapacityKa: 10, parent: 'shr2' },
+        { key: 'q4', kind: 'rcbo', label: 'QD4 ЩР-2 Розетки', slot: 9, position: null, current: 32, breakingCapacityKa: 10, parent: 'shr2' },
+        { key: 'l1', kind: 'light_fixture', label: 'Свет 1 этажа', slot: null, position: [3, 2], power: 300, current: 10, room: 'floor1' },
+        { key: 's1', kind: 'socket', label: 'Розетки 1 этажа', slot: null, position: [7, 5], power: 2500, current: 16, room: 'floor1' },
+        { key: 'l2', kind: 'light_fixture', label: 'Свет 2 этажа', slot: null, position: [3, 11], power: 300, current: 10, room: 'floor2' },
+        { key: 's2', kind: 'socket', label: 'Розетки 2 этажа', slot: null, position: [7, 14], power: 2500, current: 16, room: 'floor2' },
+        { key: 'boiler', kind: 'appliance', label: 'Котёл', slot: null, position: [12, 2], power: 6000, current: 32, crossSection: 6, room: 'basement' },
+    ],
+    edges: [
+        { from: 'input', to: 'vru', crossSection: 25 },
+        { from: 'vru', to: 'qMain', crossSection: 25 },
+        { from: 'qMain', to: 'shr1', crossSection: 16, feeder: true, waypoints: [[2, 4], [5, 3]] },
+        { from: 'qMain', to: 'shr2', crossSection: 16, feeder: true, waypoints: [[2, 4], [5, 12]] },
+        { from: 'shr1', to: 'q1' },
+        { from: 'shr1', to: 'q2' },
+        { from: 'shr2', to: 'q3' },
+        { from: 'shr2', to: 'q4' },
+        { from: 'q1', to: 'l1', crossSection: 1.5 },
+        { from: 'q2', to: 's1' },
+        { from: 'q3', to: 'l2', crossSection: 1.5 },
+        { from: 'q4', to: 's2' },
+        { from: 'shr1', to: 'boiler', crossSection: 6, waypoints: [[10, 3], [12, 2]] },
+    ],
+};
+
 /** Кейсы золотого датасета в порядке отображения в меню. */
 export const DEMO_PROJECTS: readonly DemoProjectDefinition[] = [
     {
@@ -522,6 +587,16 @@ export const DEMO_PROJECTS: readonly DemoProjectDefinition[] = [
         powerKw: 4.5,
         groups: 3,
         createGraph: () => buildGraph(GAS_APARTMENT_PARTS),
+    },
+    {
+        id: 'twostory-house-vru-shr',
+        nameKey: 'demo.twoStory.name',
+        descriptionKey: 'demo.twoStory.description',
+        supply: '400',
+        powerKw: 15,
+        groups: 4,
+        badgeKey: 'template.twoPanels' as TranslationKey,
+        createGraph: () => buildGraph(TWO_STORY_PARTS),
     },
 ];
 

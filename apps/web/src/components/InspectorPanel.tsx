@@ -1,9 +1,12 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 import type { RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
+import { useState } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
+import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { ShortCircuitBadge } from './ShortCircuitBadge.js';
+import { TccCurveChart } from './TccCurveChart.js';
 
 /** Типы помещений, доступные в инспекторе. */
 const ROOM_KINDS: readonly RoomZoneType[] = ['living', 'wet', 'kitchen', 'outdoor', 'utility'];
@@ -18,11 +21,18 @@ export function InspectorPanel() {
     const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
     const selectedRoomId = useEditorStore((state) => state.selectedRoomId);
     const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId);
+    const shortCircuit = useCalculationStore((state) => state.shortCircuit);
+    const [tccOpen, setTccOpen] = useState(false);
 
     const node = graph.nodes.find((item) => item.id === selectedNodeId) ?? null;
     const room = graph.rooms.find((item) => item.id === selectedRoomId) ?? null;
     const edge = graph.edges.find((item) => item.id === selectedEdgeId) ?? null;
     const scale = graph.floorPlan.scaleMetersPerPx;
+    const isProtectiveDevice =
+        node !== null &&
+        (node.kind === 'circuit_breaker' || node.kind === 'rcd' || node.kind === 'rcbo');
+    const hasUpstream = isProtectiveDevice
+        && graph.edges.some((item) => item.to === node.id && item.from !== node.id);
 
     return (
         <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-700 bg-slate-900 p-4">
@@ -120,6 +130,15 @@ export function InspectorPanel() {
                             : `${node.planPosition.x.toFixed(3)}, ${node.planPosition.y.toFixed(3)}`}
                     </p>
                     <ShortCircuitBadge />
+                    {hasUpstream && node !== null && (
+                        <button
+                            type="button"
+                            onClick={() => setTccOpen(true)}
+                            className="w-full rounded border border-violet-600 px-3 py-2 text-xs font-medium text-violet-300 hover:bg-violet-950"
+                        >
+                            {t('tcc.title')}
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -226,6 +245,18 @@ export function InspectorPanel() {
                                 ? t('inspector.backgroundNone')
                                 : graph.floorPlan.background.name}
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {tccOpen && node !== null && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 p-4">
+                    <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 p-4 shadow-2xl">
+                        <TccCurveChart
+                            deviceId={node.id}
+                            shortCircuitCurrentA={shortCircuit?.shortCircuitCurrentA}
+                            onClose={() => setTccOpen(false)}
+                        />
                     </div>
                 </div>
             )}

@@ -1,7 +1,12 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 import type { GraphNode } from '@voltwirecraft/shared/graph.schema.js';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
+import {
+    getFeederEdges,
+    getNodesForPanel,
+    resolveActivePanelId,
+} from '../lib/panelHierarchy.js';
 import {
     DIN_MODULE_WIDTH_MM,
     RAIL_MODULES,
@@ -11,6 +16,7 @@ import {
     ratingLabel,
 } from '../lib/panelModules.js';
 import { useEditorStore } from '../store/editorStore.js';
+import { useUiStore } from '../store/uiStore.js';
 
 /** Высота прямоугольника модуля в координатах SVG, px. */
 const MODULE_HEIGHT = 72;
@@ -90,9 +96,24 @@ export function PanelLayoutEditor() {
     const graph = useEditorStore((state) => state.graph);
     const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
     const selectNode = useEditorStore((state) => state.selectNode);
+    const activePanelId = useUiStore((state) => state.activePanelId);
+
+    // Graph-First: фильтруем тот же граф по активному щиту сессии (RULES § 5.2).
+    const resolvedPanelId = resolveActivePanelId(graph, activePanelId);
+    const scopedNodes = resolvedPanelId === null
+        ? graph.nodes
+        : getNodesForPanel(graph, resolvedPanelId);
+    const activePanel = graph.nodes.find((node) => node.id === resolvedPanelId);
+    const feeders = getFeederEdges(graph);
+    const incoming = resolvedPanelId === null
+        ? []
+        : feeders.filter((edge) => edge.to === resolvedPanelId);
+    const outgoing = resolvedPanelId === null
+        ? []
+        : feeders.filter((edge) => edge.from === resolvedPanelId);
 
     // Только узлы со слотом щита, в порядке возрастания канонического panelSlot.
-    const panelNodes = graph.nodes
+    const panelNodes = scopedNodes
         .filter((node): node is SlottedNode => node.panelSlot !== null)
         .sort((a, b) => a.panelSlot - b.panelSlot);
 
@@ -108,9 +129,15 @@ export function PanelLayoutEditor() {
             <h2 className="mb-1 shrink-0 text-sm font-semibold uppercase tracking-wide text-slate-300">
                 {t('panel.title' as TranslationKey)}
             </h2>
-            <p className="mb-4 shrink-0 text-xs text-slate-500">
+            <p className="mb-1 shrink-0 text-xs text-slate-500">
                 {t('panel.hint' as TranslationKey)}
             </p>
+            {activePanel !== undefined && (
+                <p className="mb-4 shrink-0 text-xs text-sky-300/80" role="status">
+                    {t('panel.activePanel' as TranslationKey)}: {activePanel.label} ·{' '}
+                    {t('panel.feeders' as TranslationKey)}: {incoming.length} / {outgoing.length}
+                </p>
+            )}
 
             {modules.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center rounded border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center text-sm text-slate-400">

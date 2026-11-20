@@ -122,6 +122,8 @@ export const NodeSpecsSchema = z.object({
     crossSection: z.number().positive(),
     /** Высота установки от пола, m. */
     mountingHeight: z.number().nonnegative(),
+    /** Отключающая способность аппарата, kA. */
+    breakingCapacityKa: z.number().positive().optional(),
     /** Число полюсов ввода у узла `input_source`: '1P' или '3P'. */
     phase: z.enum(['1P', '3P']).optional(),
     /** Напряжение ввода, V. */
@@ -148,6 +150,12 @@ export const GraphNodeSchema = z.object({
     roomId: UuidSchema.nullable().optional(),
     /** Ссылка на позицию каталога `catalog_devices` (schemeVersion 2). */
     catalogDeviceId: UuidSchema.nullable().optional(),
+    /** Роль щита в иерархии ВРУ → ЩР → ЩО. */
+    panelRole: z.enum(['main_vru', 'sub_shr', 'lighting_sho']).optional(),
+    /** Родительский щит для многощитовой иерархии. */
+    parentPanelId: UuidSchema.optional(),
+    /** Отключающая способность, kA (дублируется в `specs` для совместимости). */
+    breakingCapacityKa: z.number().positive().optional(),
 });
 /** Узел графа проекта. */
 export type GraphNode = z.infer<typeof GraphNodeSchema>;
@@ -212,8 +220,10 @@ export const GraphEdgeSchema = z.object({
     waypointsM: z.array(PointSchema).min(2),
     /** Пиксельный кэш для Konva.js; не используется в расчётах. */
     waypointsPx: z.array(PointSchema).optional(),
-    /** Тип линии; для кабельных трасс — `'cable_line'`. */
-    edgeType: z.literal('cable_line').optional(),
+    /** Тип линии: групповая или питающая магистраль между щитами. */
+    edgeType: z.enum(['cable_line', 'feeder_line']).optional(),
+    /** Потеря напряжения на участке выше по цепочке, %. */
+    upstreamVoltageDropPercent: z.number().nonnegative().optional(),
     /** Марка кабеля, например «ВВГнг(А)-LS». */
     cableBrand: z.string().min(1).optional(),
 });
@@ -767,6 +777,8 @@ export const LineSizingRequestSchema = z.object({
     roomType: RoomZoneTypeSchema.optional(),
     /** Предельная потеря напряжения, %; по умолчанию 5. */
     maxVoltageDropPercent: z.number().positive().max(100).optional(),
+    /** Потеря на питающей магистрали ВРУ → ЩР, %. */
+    upstreamVoltageDropPercent: z.number().nonnegative().optional(),
 });
 /** Запрос расчёта линии. */
 export type LineSizingRequest = z.infer<typeof LineSizingRequestSchema>;
@@ -788,6 +800,8 @@ export const LineSizingResponseSchema = z.object({
     voltageDropPercent: z.number().nonnegative(),
     /** Предельная потеря напряжения, %. */
     voltageDropLimitPercent: z.number().positive(),
+    /** Суммарная потеря (магистраль + линия), %. */
+    totalVoltageDropPercent: z.number().nonnegative().optional(),
     /** Рекомендуемый номинал автоматического выключателя, A. */
     breakerRatingA: z.number().int().positive(),
     /** Рекомендуемая уставка УЗО, mA. */
@@ -827,6 +841,8 @@ export const AutoPanelRequestSchema = z.object({
     supplyTopology: z.enum(['1P_230V', '3P_400V']).optional(),
     /** Число полюсов вводного аппарата. */
     panelPoles: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+    /** Идентификатор собираемого щита в многощитовом проекте. */
+    targetPanelId: UuidSchema.optional(),
     /** Желаемый бренд модулей; учитывается агентом при выборе артикула. */
     preferredBrand: z.enum(['IEK', 'EKF', 'КЭАЗ']).optional(),
 });
@@ -999,6 +1015,8 @@ export const ShortCircuitRequestSchema = z.object({
     upstreamBreakerRatingA: z.number().positive().optional(),
     /** Кривая вводного автомата. */
     upstreamTripCurve: z.enum(['B', 'C', 'D']).optional(),
+    /** Сопротивление петли вышестоящей магистрали, Ohm. */
+    upstreamImpedanceOhm: z.number().nonnegative().optional(),
 });
 /** Запрос расчёта КЗ. */
 export type ShortCircuitRequest = z.infer<typeof ShortCircuitRequestSchema>;
@@ -1093,3 +1111,156 @@ export const CopilotChatResponseSchema = z.object({
 });
 /** Ответ чата. */
 export type CopilotChatResponse = z.infer<typeof CopilotChatResponseSchema>;
+
+/** Кривая срабатывания автоматического выключателя (ГОСТ Р 50345). */
+export const TccCurveSchema = z.enum(['B', 'C', 'D']);
+/** Кривая срабатывания. */
+export type TccCurve = z.infer<typeof TccCurveSchema>;
+
+/** Аппарат защиты в запросе расчёта ВТХ. */
+export const TccDeviceSchema = z.object({
+    /** Идентификатор узла графа. */
+    id: UuidSchema,
+    /** Подпись для протокола. */
+    label: z.string().min(1),
+    /** Номинальный ток, A. */
+    ratedCurrentA: z.number().positive(),
+    /** Тип кривой B/C/D. */
+    tripCurve: TccCurveSchema,
+    /** Отключающая способность, kA. */
+    breakingCapacityKa: z.number().positive().optional(),
+    /** Вышестоящий аппарат. */
+    parentId: UuidSchema.nullable().optional(),
+    /** Ток КЗ в точке установки, A. */
+    shortCircuitCurrentA: z.number().nonnegative().optional(),
+});
+/** Аппарат ВТХ. */
+export type TccDevice = z.infer<typeof TccDeviceSchema>;
+
+/** Запрос расчёта время-токовых характеристик. */
+export const TccSelectivityRequestSchema = z.object({
+    /** Цепочка аппаратов от вводного до нижестоящего. */
+    devices: z.array(TccDeviceSchema).min(1),
+    /** Ток однофазного КЗ в точке нижестоящего аппарата, A. */
+    shortCircuitCurrentA: z.number().positive(),
+    /** Требуемая выдержка между кривыми, с (по умолчанию 0,1). */
+    selectivityDeltaS: z.number().positive().optional(),
+});
+/** Запрос ВТХ. */
+export type TccSelectivityRequest = z.infer<typeof TccSelectivityRequestSchema>;
+
+/** Результат проверки пары аппаратов. */
+export const TccPairResultSchema = z.object({
+    /** Нижестоящий аппарат. */
+    deviceId: UuidSchema,
+    /** Вышестоящий аппарат. */
+    parentId: UuidSchema,
+    /** Признак полной селективности пары. */
+    ok: z.boolean(),
+    /** Предельная селективность пары, A. */
+    selectivityLimitA: z.number().nonnegative(),
+});
+/** Результат пары ВТХ. */
+export type TccPairResult = z.infer<typeof TccPairResultSchema>;
+
+/** Ответ расчёта ВТХ и селективности. */
+export const TccSelectivityResponseSchema = z.object({
+    /** Предельная селективность цепочки, A. */
+    selectivityLimitA: z.number().nonnegative(),
+    /** Результаты по парам. */
+    pairs: z.array(TccPairResultSchema),
+    /** Достаточна ли отключающая способность всех аппаратов. */
+    breakingCapacityOk: z.boolean(),
+    /** Суммарная потеря напряжения, % (если известна). */
+    totalVoltageDropPercent: z.number().nonnegative().optional(),
+    /** Предупреждения. */
+    warnings: z.array(z.string()),
+    /** Ссылки на нормативные документы. */
+    references: z.array(z.string().min(1)),
+});
+/** Ответ ВТХ. */
+export type TccSelectivityResponse = z.infer<typeof TccSelectivityResponseSchema>;
+
+/** Аппарат защиты для серверного расчёта ВТХ. */
+export const SelectivityTccDeviceSchema = z.object({
+    /** Идентификатор узла/аппарата. */
+    id: z.string().min(1),
+    /** Номинал автоматического выключателя, A. */
+    ratedCurrentA: z.number().positive(),
+    /** Характеристика расцепителя. */
+    tripCurve: z.enum(['B', 'C', 'D']),
+    /** Отключающая способность, kA. */
+    breakingCapacityKa: z.number().positive().optional(),
+    /** Идентификатор вышестоящего аппарата. */
+    parentId: z.string().min(1).nullable().optional(),
+    /** Ток однофазного КЗ в точке установки, A. */
+    shortCircuitCurrentA: z.number().positive().optional(),
+});
+/** Аппарат серверного ВТХ-расчёта. */
+export type SelectivityTccDevice = z.infer<typeof SelectivityTccDeviceSchema>;
+
+/** Запрос расчёта селективности по ВТХ. */
+export const SelectivityTccRequestSchema = z.object({
+    /** Аппараты защиты цепочки ВРУ → ЩР → линия. */
+    devices: z.array(SelectivityTccDeviceSchema).min(1),
+    /** Потеря напряжения на питающей магистрали, %. */
+    upstreamVoltageDropPercent: z.number().nonnegative().optional(),
+    /** Максимальная потеря на групповых линиях, %. */
+    groupVoltageDropPercent: z.number().nonnegative().optional(),
+    /** Предельная потеря напряжения, %. */
+    voltageDropLimitPercent: z.number().positive().max(100).optional(),
+});
+/** Запрос ВТХ. */
+export type SelectivityTccRequest = z.infer<typeof SelectivityTccRequestSchema>;
+
+/** Точка время-токовой характеристики. */
+export const TccPointSchema = z.object({
+    /** Ток, A. */
+    currentA: z.number().positive(),
+    /** Время срабатывания, s. */
+    timeS: z.number().nonnegative(),
+});
+/** Точка ВТХ. */
+export type TccPoint = z.infer<typeof TccPointSchema>;
+
+/** Результат проверки пары аппаратов серверного ВТХ-расчёта. */
+export const SelectivityTccPairResultSchema = z.object({
+    /** Нижестоящий аппарат. */
+    downstreamId: z.string().min(1),
+    /** Вышестоящий аппарат. */
+    upstreamId: z.string().min(1),
+    /** Предел селективности, A. */
+    selectivityLimitA: z.number().nonnegative(),
+    /** Селективность соблюдена для тока КЗ. */
+    selective: z.boolean(),
+});
+/** Результат пары серверного ВТХ-расчёта. */
+export type SelectivityTccPairResult = z.infer<typeof SelectivityTccPairResultSchema>;
+
+/** Ответ расчёта селективности по ВТХ. */
+export const SelectivityTccResponseSchema = z.object({
+    /** Итоговый статус селективности. */
+    status: z.enum(['full', 'partial', 'none']),
+    /** Предел селективности цепочки, A. */
+    selectivityLimitA: z.number().nonnegative(),
+    /** Отключающая способность всех аппаратов достаточна. */
+    breakingCapacityOk: z.boolean(),
+    /** Суммарная потеря напряжения, %. */
+    totalVoltageDropPercent: z.number().nonnegative(),
+    /** Потеря напряжения в пределах нормы. */
+    voltageDropOk: z.boolean(),
+    /** Результаты по парам аппаратов. */
+    pairs: z.array(SelectivityTccPairResultSchema),
+    /** Точки кривой вышестоящего аппарата. */
+    upstreamCurve: z.array(TccPointSchema),
+    /** Точки кривой нижестоящего аппарата. */
+    downstreamCurve: z.array(TccPointSchema),
+    /** Предупреждения. */
+    warnings: z.array(z.string().min(1)),
+    /** Ссылки на пункты справочника. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ ВТХ. */
+export type SelectivityTccResponse = z.infer<typeof SelectivityTccResponseSchema>;

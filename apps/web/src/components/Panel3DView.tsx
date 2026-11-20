@@ -1,6 +1,6 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.4.0
 import type { GraphNode, ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { useI18n } from '../i18n/index.js';
@@ -13,7 +13,9 @@ import {
     phaseForSlot,
     ratingLabel,
 } from '../lib/panelModules.js';
+import { getFeederEdges, getNodesForPanel, resolveActivePanelId } from '../lib/panelHierarchy.js';
 import { useEditorStore } from '../store/editorStore.js';
+import { useUiStore } from '../store/uiStore.js';
 
 /** Масштаб сцены: 1 единица Three.js соответствует 10 мм (RULES § 5.3). */
 const UNITS_PER_MM = 0.1;
@@ -459,6 +461,19 @@ export function Panel3DView() {
     const { t } = useI18n();
     const graph = useEditorStore((state) => state.graph);
     const selectedNodeId = useEditorStore((state) => state.selectedNodeId);
+    const activePanelId = useUiStore((state) => state.activePanelId);
+    const resolvedPanelId = resolveActivePanelId(graph, activePanelId);
+    // Проекция активного щита: те же объекты графа, без дублирования модели.
+    const scopedGraph = useMemo(() => {
+        if (resolvedPanelId === null) {
+            return graph;
+        }
+        return { ...graph, nodes: [...getNodesForPanel(graph, resolvedPanelId)] };
+    }, [graph, resolvedPanelId]);
+    const activePanel = graph.nodes.find((node) => node.id === resolvedPanelId);
+    const feederCount = resolvedPanelId === null
+        ? 0
+        : getFeederEdges(graph).filter((edge) => edge.to === resolvedPanelId || edge.from === resolvedPanelId).length;
     const containerRef = useRef<HTMLDivElement | null>(null);
     const contextRef = useRef<SceneContext | null>(null);
     const selectedRef = useRef<string | null>(selectedNodeId);
@@ -644,8 +659,8 @@ export function Panel3DView() {
         if (context === null) {
             return;
         }
-        rebuildContent(context, graph, materialKind, selectedRef.current);
-    }, [graph, materialKind]);
+        rebuildContent(context, scopedGraph, materialKind, selectedRef.current);
+    }, [scopedGraph, materialKind]);
 
     // Подсветка выбранного узла без пересоздания сцены.
     useEffect(() => {
@@ -657,7 +672,7 @@ export function Panel3DView() {
         updateHighlights(context);
     }, [selectedNodeId]);
 
-    const hasPanelModules = graph.nodes.some((node) => node.panelSlot !== null);
+    const hasPanelModules = scopedGraph.nodes.some((node) => node.panelSlot !== null);
 
     return (
         <section className="flex h-full w-full flex-col overflow-hidden bg-slate-950 p-4">
@@ -669,6 +684,12 @@ export function Panel3DView() {
                     <p className="mt-1 text-xs text-slate-500">
                         {t('panel3d.hint' as TranslationKey)}
                     </p>
+                    {activePanel !== undefined && (
+                        <p className="mt-1 text-xs text-sky-300/80">
+                            {t('panel3d.activePanel' as TranslationKey)}: {activePanel.label} ·{' '}
+                            {t('panel.feeders' as TranslationKey)}: {feederCount}
+                        </p>
+                    )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button

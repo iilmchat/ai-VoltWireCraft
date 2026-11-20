@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 /** UI-состояние оболочки: вкладки, панель ИИ, результаты аудита и кэш каталога. */
 import type { PueFinding } from '@voltwirecraft/shared/graph.schema.js';
 import { create } from 'zustand';
@@ -23,6 +23,8 @@ export interface UiState {
     aiDrawerOpen: boolean;
     /** Признак открытой формы выпуска комплекта РД по ГОСТ. */
     gostPanelOpen: boolean;
+    /** Идентификатор активного щита в сессии UI (не часть графа, RULES § 5.2). */
+    activePanelId: string | null;
     /** Находки последнего аудита ПУЭ-7. */
     auditIssues: readonly PueFinding[];
     /** Выполняемое действие ИИ. */
@@ -41,6 +43,8 @@ export interface UiState {
     setAiDrawerOpen: (open: boolean) => void;
     /** Открыть/закрыть форму выпуска РД по ГОСТ. */
     setGostPanelOpen: (open: boolean) => void;
+    /** Выбрать активный щит (только состояние сессии, граф не меняется). */
+    setActivePanelId: (id: string | null) => void;
     /** Сохранить результаты аудита. */
     setAuditIssues: (issues: readonly PueFinding[]) => void;
     /** Отметить начало/конец действия ИИ. */
@@ -62,6 +66,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     activeView: 'plan',
     aiDrawerOpen: false,
     gostPanelOpen: false,
+    activePanelId: null,
     auditIssues: [],
     busyAction: null,
     catalog: [],
@@ -72,6 +77,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     setActiveView: (activeView) => set({ activeView }),
     setAiDrawerOpen: (aiDrawerOpen) => set({ aiDrawerOpen }),
     setGostPanelOpen: (gostPanelOpen) => set({ gostPanelOpen }),
+    setActivePanelId: (activePanelId) => set({ activePanelId }),
     setAuditIssues: (auditIssues) => set({ auditIssues }),
     setBusyAction: (busyAction) => set({ busyAction }),
 
