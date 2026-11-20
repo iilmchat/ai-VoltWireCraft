@@ -167,6 +167,22 @@
     ],
     "nodes": [
       {
+        "id": "778deee0-e8e0-5ca4-8ca6-6a82d87181d8",
+        "kind": "input_source",
+        "label": "Ввод 400 В",
+        "planPosition": null,
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 0,
+          "phase": "3P",
+          "voltageV": 400
+        },
+        "catalogDeviceId": null
+      },
+      {
         "id": "e1679443-7c88-5784-b9ae-d331e28ca89f",
         "kind": "panel",
         "label": "Щит НКУ",
@@ -174,7 +190,7 @@
           "x": 0,
           "y": 0
         },
-        "panelSlot": 1,
+        "panelSlot": 2,
         "specs": {
           "ratedPower": 0,
           "ratedCurrent": 63,
@@ -350,6 +366,11 @@
         "cableBrand": "ВВГнг(А)-LS"
       }
     ],
+    "meta": {
+      "networkSystem": "tn-s",
+      "supplyTopology": "3P_400V",
+      "panelPoles": 4
+    },
     "stampMeta": {
       "projectCode": "03_house_bath_long_line",
       "organizationName": "VoltWireCraft",

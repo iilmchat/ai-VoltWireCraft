@@ -1,0 +1,441 @@
+{
+  "format": "vwc-project",
+  "schemaVersion": 2,
+  "graph": {
+    "schemaVersion": 2,
+    "id": "61423a4f-56db-5dc7-ae47-74f6bc95725e",
+    "name": "Коттедж 15 кВт, 400 В",
+    "floorPlan": {
+      "background": null,
+      "scaleMetersPerPx": 0.01,
+      "ceilingHeightM": 2.7
+    },
+    "rooms": [
+      {
+        "id": "c34bc48b-da3e-5318-8522-48cef55e850c",
+        "name": "Электрокотёл 9 кВт 3P",
+        "type": "utility",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "3cb3eb7c-5171-56c5-88bf-9b04026ed706",
+        "name": "Бойлер",
+        "type": "wet",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "0e3db234-bb68-55ad-ba63-c5ec3669fe91",
+        "name": "Тёплые полы",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "69326b88-ba6e-578b-84fe-443db7adc944",
+        "name": "Скважинный насос",
+        "type": "utility",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "c678c683-7c86-59db-823f-f87f25c0a60c",
+        "name": "Освещение",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "id": "c93b0430-60b1-5b67-8365-89454fb52151",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 11.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "f31329d6-4f2f-5dab-bd52-b6b3b14553de",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 11.0,
+            "y": 0.0
+          },
+          {
+            "x": 11.0,
+            "y": 8.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "443d8502-6093-55c0-8778-dbf4d6a55313",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 11.0,
+            "y": 8.0
+          },
+          {
+            "x": 0.0,
+            "y": 8.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "50770226-5789-5299-9454-928c4621faea",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 8.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "c6bb4d7c-5b8e-563b-8dbe-8dce7e28ce4f",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 6.0,
+            "y": 0.0
+          },
+          {
+            "x": 6.0,
+            "y": 8.0
+          }
+        ],
+        "thickness": 0.1
+      }
+    ],
+    "nodes": [
+      {
+        "id": "e1af9dd5-ec7c-58f9-b04d-8d9ca8bcfcd6",
+        "kind": "input_source",
+        "label": "Ввод 400 В",
+        "planPosition": null,
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 0,
+          "phase": "3P",
+          "voltageV": 400
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "e404a58d-2925-5e60-bb5d-78be6bd235fd",
+        "kind": "panel",
+        "label": "Щит НКУ",
+        "planPosition": {
+          "x": 0,
+          "y": 0
+        },
+        "panelSlot": 2,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 1.5
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "91f7a3cb-0ba6-5eaa-a012-51c63233eb6d",
+        "kind": "appliance",
+        "label": "Электрокотёл 9 кВт 3P",
+        "planPosition": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "c34bc48b-da3e-5318-8522-48cef55e850c",
+        "specs": {
+          "ratedPower": 9000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "bf24af07-771f-5b38-8d7b-3bfb38a1db38",
+        "kind": "appliance",
+        "label": "Бойлер",
+        "planPosition": {
+          "x": 2.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "3cb3eb7c-5171-56c5-88bf-9b04026ed706",
+        "specs": {
+          "ratedPower": 3000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "4b741f11-2fa2-5360-8450-f9e4c9746ada",
+        "kind": "appliance",
+        "label": "Тёплые полы",
+        "planPosition": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "0e3db234-bb68-55ad-ba63-c5ec3669fe91",
+        "specs": {
+          "ratedPower": 2500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "7ecd0a47-3c06-5f05-b624-c663b6defd19",
+        "kind": "appliance",
+        "label": "Скважинный насос",
+        "planPosition": {
+          "x": 4.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "69326b88-ba6e-578b-84fe-443db7adc944",
+        "specs": {
+          "ratedPower": 1500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "52974247-f94f-5c7b-b1c7-95b63d6d2b27",
+        "kind": "light_fixture",
+        "label": "Освещение",
+        "planPosition": {
+          "x": 5.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "c678c683-7c86-59db-823f-f87f25c0a60c",
+        "specs": {
+          "ratedPower": 500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "1cd57082-995e-5d56-b0d0-998253829bec",
+        "from": "e404a58d-2925-5e60-bb5d-78be6bd235fd",
+        "to": "91f7a3cb-0ba6-5eaa-a012-51c63233eb6d",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 1.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "1e4e4438-6437-5976-8cc1-f6bf5e9d1caf",
+        "from": "e404a58d-2925-5e60-bb5d-78be6bd235fd",
+        "to": "bf24af07-771f-5b38-8d7b-3bfb38a1db38",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "c5e42928-d4bf-59fb-b984-9404aa5ecd98",
+        "from": "e404a58d-2925-5e60-bb5d-78be6bd235fd",
+        "to": "4b741f11-2fa2-5360-8450-f9e4c9746ada",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 16
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "10ade4a2-a6c8-5e2f-978b-a7f4e16c22c8",
+        "from": "e404a58d-2925-5e60-bb5d-78be6bd235fd",
+        "to": "7ecd0a47-3c06-5f05-b624-c663b6defd19",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 25
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 4.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "88eee452-5c9e-5f31-8ef2-26624fa2d99f",
+        "from": "e404a58d-2925-5e60-bb5d-78be6bd235fd",
+        "to": "52974247-f94f-5c7b-b1c7-95b63d6d2b27",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 5.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      }
+    ],
+    "meta": {
+      "networkSystem": "tn-s",
+      "supplyTopology": "3P_400V",
+      "panelPoles": 4
+    },
+    "stampMeta": {
+      "projectCode": "05_cottages_3phase_15kw",
+      "organizationName": "VoltWireCraft",
+      "stage": "РД"
+    }
+  },
+  "savedAt": "2026-11-20T00:00:00.000Z"
+}

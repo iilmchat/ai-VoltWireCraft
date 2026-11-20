@@ -186,6 +186,22 @@
     ],
     "nodes": [
       {
+        "id": "56455475-d8ad-55f2-9657-ebe56d72f943",
+        "kind": "input_source",
+        "label": "Ввод 230 В",
+        "planPosition": null,
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 40,
+          "crossSection": 16,
+          "mountingHeight": 0,
+          "phase": "1P",
+          "voltageV": 230
+        },
+        "catalogDeviceId": null
+      },
+      {
         "id": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
         "kind": "panel",
         "label": "Щит НКУ",
@@ -193,7 +209,7 @@
           "x": 0,
           "y": 0
         },
-        "panelSlot": 1,
+        "panelSlot": 2,
         "specs": {
           "ratedPower": 0,
           "ratedCurrent": 40,
@@ -410,6 +426,11 @@
         "cableBrand": "ВВГнг(А)-LS"
       }
     ],
+    "meta": {
+      "networkSystem": "tn-s",
+      "supplyTopology": "1P_230V",
+      "panelPoles": 2
+    },
     "stampMeta": {
       "projectCode": "01_studio_230v",
       "organizationName": "VoltWireCraft",

@@ -239,6 +239,22 @@
     ],
     "nodes": [
       {
+        "id": "0ccfecce-8a1b-50a3-b843-2acfeef73525",
+        "kind": "input_source",
+        "label": "Ввод 400 В",
+        "planPosition": null,
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 0,
+          "phase": "3P",
+          "voltageV": 400
+        },
+        "catalogDeviceId": null
+      },
+      {
         "id": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
         "kind": "panel",
         "label": "Щит НКУ",
@@ -246,7 +262,7 @@
           "x": 0,
           "y": 0
         },
-        "panelSlot": 1,
+        "panelSlot": 2,
         "specs": {
           "ratedPower": 0,
           "ratedCurrent": 63,
@@ -260,7 +276,7 @@
         "kind": "switch",
         "label": "Мастер-выключатель",
         "planPosition": null,
-        "panelSlot": 2,
+        "panelSlot": 3,
         "specs": {
           "ratedPower": 0,
           "ratedCurrent": 63,
@@ -274,7 +290,7 @@
         "kind": "contactor",
         "label": "Контактор (неотключаемые линии)",
         "planPosition": null,
-        "panelSlot": 3,
+        "panelSlot": 4,
         "specs": {
           "ratedPower": 0,
           "ratedCurrent": 25,
@@ -573,6 +589,11 @@
         "cableBrand": "ВВГнг(А)-LS"
       }
     ],
+    "meta": {
+      "networkSystem": "tn-s",
+      "supplyTopology": "3P_400V",
+      "panelPoles": 4
+    },
     "stampMeta": {
       "projectCode": "02_apartment_3room_400v",
       "organizationName": "VoltWireCraft",

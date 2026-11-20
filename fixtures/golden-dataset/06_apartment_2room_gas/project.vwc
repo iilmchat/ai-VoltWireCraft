@@ -1,0 +1,441 @@
+{
+  "format": "vwc-project",
+  "schemaVersion": 2,
+  "graph": {
+    "schemaVersion": 2,
+    "id": "c20855c1-3891-52d9-ba11-cdeb30edd65c",
+    "name": "Квартира 2-комнатная с газовой плитой, 230 В",
+    "floorPlan": {
+      "background": null,
+      "scaleMetersPerPx": 0.01,
+      "ceilingHeightM": 2.7
+    },
+    "rooms": [
+      {
+        "id": "581bd6db-c779-5a15-9ae1-9fc0380f6778",
+        "name": "Освещение",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "b92ea4a7-8f37-51d3-9e29-3453000c896d",
+        "name": "Розетки",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "d7aff8a9-b5b4-5d59-a18d-3ab59126be0a",
+        "name": "Кухня (газовая плита)",
+        "type": "kitchen",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "a4a4ce4e-7707-5b6b-89fb-215e46c77608",
+        "name": "Холодильник",
+        "type": "kitchen",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "b9419579-29fc-5a16-b495-33b1e4bdade4",
+        "name": "Кондиционер",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "id": "b3cb37e9-9d57-5462-aec6-1028589d0f04",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 8.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "870cfb15-c857-5d4e-8120-5d5888812b13",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 8.0,
+            "y": 0.0
+          },
+          {
+            "x": 8.0,
+            "y": 5.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "f6368b3f-1923-5967-bb47-cbcfd1ea316e",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 8.0,
+            "y": 5.0
+          },
+          {
+            "x": 0.0,
+            "y": 5.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "ce3f696d-6945-5afb-8377-156e66cfbc89",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 5.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "3a1ef209-0b6a-5db9-ad7d-2b4b7b5daf52",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 4.0,
+            "y": 0.0
+          },
+          {
+            "x": 4.0,
+            "y": 5.0
+          }
+        ],
+        "thickness": 0.1
+      }
+    ],
+    "nodes": [
+      {
+        "id": "d62aa4c9-3d88-54cc-89a6-36fb32dbc809",
+        "kind": "input_source",
+        "label": "Ввод 230 В",
+        "planPosition": null,
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 40,
+          "crossSection": 16,
+          "mountingHeight": 0,
+          "phase": "1P",
+          "voltageV": 230
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "bcd04d51-a98a-5939-8a7a-789aa8c2c310",
+        "kind": "panel",
+        "label": "Щит НКУ",
+        "planPosition": {
+          "x": 0,
+          "y": 0
+        },
+        "panelSlot": 2,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 40,
+          "crossSection": 16,
+          "mountingHeight": 1.5
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "88585d42-a76f-5556-a17f-cfa7916bcdca",
+        "kind": "light_fixture",
+        "label": "Освещение",
+        "planPosition": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "581bd6db-c779-5a15-9ae1-9fc0380f6778",
+        "specs": {
+          "ratedPower": 300,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "6d3b7723-4131-5f52-9a0f-fbae0ddda232",
+        "kind": "socket",
+        "label": "Розетки",
+        "planPosition": {
+          "x": 2.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "b92ea4a7-8f37-51d3-9e29-3453000c896d",
+        "specs": {
+          "ratedPower": 1200,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "c72f887a-e15c-5b00-89ff-554c010df8f5",
+        "kind": "socket",
+        "label": "Кухня (газовая плита)",
+        "planPosition": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "d7aff8a9-b5b4-5d59-a18d-3ab59126be0a",
+        "specs": {
+          "ratedPower": 1500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "735d8ba3-ed73-5816-8718-0d23a0a9c1bf",
+        "kind": "socket",
+        "label": "Холодильник",
+        "planPosition": {
+          "x": 4.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "a4a4ce4e-7707-5b6b-89fb-215e46c77608",
+        "specs": {
+          "ratedPower": 300,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "487018f5-3de4-55be-bbde-e94e2a0e4407",
+        "kind": "appliance",
+        "label": "Кондиционер",
+        "planPosition": {
+          "x": 5.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "b9419579-29fc-5a16-b495-33b1e4bdade4",
+        "specs": {
+          "ratedPower": 1800,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "9a697788-6b86-53ef-82e0-315b6e4833d7",
+        "from": "bcd04d51-a98a-5939-8a7a-789aa8c2c310",
+        "to": "88585d42-a76f-5556-a17f-cfa7916bcdca",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 1.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "ec918f60-cf64-5c34-942f-938ce18db82f",
+        "from": "bcd04d51-a98a-5939-8a7a-789aa8c2c310",
+        "to": "6d3b7723-4131-5f52-9a0f-fbae0ddda232",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "9215c1e7-5cce-5074-9d6a-1b310c86e2d2",
+        "from": "bcd04d51-a98a-5939-8a7a-789aa8c2c310",
+        "to": "c72f887a-e15c-5b00-89ff-554c010df8f5",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "eda7294d-f690-528e-b29f-1902124c5cd2",
+        "from": "bcd04d51-a98a-5939-8a7a-789aa8c2c310",
+        "to": "735d8ba3-ed73-5816-8718-0d23a0a9c1bf",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 8
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 4.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "e1a9e3b2-cbe6-5bdb-b69b-78a168c4f105",
+        "from": "bcd04d51-a98a-5939-8a7a-789aa8c2c310",
+        "to": "487018f5-3de4-55be-bbde-e94e2a0e4407",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 5.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      }
+    ],
+    "meta": {
+      "networkSystem": "tn-s",
+      "supplyTopology": "1P_230V",
+      "panelPoles": 2
+    },
+    "stampMeta": {
+      "projectCode": "06_apartment_2room_gas",
+      "organizationName": "VoltWireCraft",
+      "stage": "РД"
+    }
+  },
+  "savedAt": "2026-11-20T00:00:00.000Z"
+}

@@ -66,16 +66,20 @@ push и pull request. Локальные интеграционные тесты
 
 ---
 
-### KI-005 — DWG требует внешний ODA-конвертер 🟡 Medium · Deferred (v0.4.0)
+### KI-005 — DWG требует внешний ODA-конвертер 🟡 Medium · Fixed (2026-11-20)
 
-**Проблема.** Нативный парсер `ezdxf` читает только DXF. Файлы DWG принимаются
-эндпоинтом `POST /projects/:id/import-cad`, но отклоняются с явным сообщением
-до тех пор, пока не настроен конвертер `ODA_CONVERTER_PATH`.
+**Проблема.** Нативный парсер `ezdxf` читает только DXF. Файлы DWG принимались
+эндпоинтом `POST /projects/:id/import-cad`, но отклонялись до настройки
+внешнего конвертера.
 
-**Митигация.** Пользователь получает понятную причину и предложение
-экспортировать чертёж в DXF; контракт и лимиты уже готовы (RULES § 5.5).
+**Решение.** В `calc-engine` добавлен конвейер `DWG → DXF → ezdxf`: приоритет
+`ODA_CONVERTER_PATH`, затем `dwg2dxf` из PATH; `subprocess.run` со списком
+аргументов, без `shell=True`, таймаутом 30 с и очисткой временной директории.
+API передаёт `.dwg` в ядро без отклонения. Покрыто мок-тестами успеха,
+таймаута и отсутствия конвертера (RULES § 5.5).
 
-**Файлы.** `apps/api/src/projects/projects.service.ts`, `apps/calc-engine/app/cad_parser.py`.
+**Файлы.** `apps/calc-engine/app/cad_parser.py`, `apps/calc-engine/app/main.py`,
+`apps/api/src/projects/projects.service.ts`, `apps/calc-engine/tests/test_dwg_converter.py`.
 
 ---
 
@@ -113,17 +117,21 @@ push и pull request. Локальные интеграционные тесты
 
 ---
 
-### KI-007 — Трёхфазный режим ввода из `meta` не передаётся в `PanelArchitectAgent` 🟡 Medium · Deferred (v0.5.0)
+### KI-007 — Трёхфазный режим ввода из `meta` не передаётся в `PanelArchitectAgent` 🟡 Medium · Fixed (2026-11-20)
 
-**Проблема.** Агент сборки щита использует значение по умолчанию для числа
-фаз; признак трёхфазного ввода, хранящийся в `meta` проекта, не читается.
-Из‑за этого для объектов 400 В компоновка может отличаться от ожидаемой.
+**Проблема.** Агент сборки щита использовал 230 В / 1 фазу по умолчанию:
+топология ввода из `ProjectGraph.meta` и узла `input_source` не читалась,
+3P/4P-аппараты и балансировка L1/L2/L3 не учитывались.
 
-**Планируемое решение.** Передавать `meta.phases` в запрос автосборки и
-учитывать его при расстановке вводных аппаратов и балансировке L1/L2/L3
-в `v0.5.0`. Текущие расчёты линий трёхфазный режим поддерживают.
+**Решение.** Топология (`supplyTopology`, `panelPoles`, `specs.phase/voltageV`)
+передаётся в `POST /v1/calc/auto-panel`; мощные приборы > 2 кВт делятся на
+пофазные подгруппы, жадная балансировка дополнена локальным поиском — перекос
+на кейсе `02_apartment_3room_400v` составляет 3,47 % (≤ 15 %). Вводные аппараты
+3P/4P, реле напряжения и УЗО 4P типа `S` 100/300 мА подбираются из каталога.
 
-**Файлы.** `apps/api/src/agents/`, `apps/calc-engine/app/auto_panel.py`.
+**Файлы.** `apps/api/src/agents/panel-architect.agent.ts`, `apps/api/src/agents/tools.ts`,
+`apps/api/src/database/catalog-seed-data.ts`, `apps/calc-engine/app/auto_panel.py`,
+`packages/shared/src/graph.schema.ts`.
 
 ---
 
@@ -133,12 +141,12 @@ push и pull request. Локальные интеграционные тесты
 |---|---|
 | Open | 0 |
 | In Progress | 0 |
-| Fixed | 3 |
+| Fixed | 5 |
 | Documented | 1 |
-| Deferred | 2 |
+| Deferred | 0 |
 | Won't Fix | 0 |
 | Resolved | 1 |
 | **Всего** | **7** |
 
-> Сводка пересчитана поиском по файлу перед релизом `v0.4.0` (RULES § 3.9):
-> 7 заголовков `### KI-` и 7 статусных строк; Fixed 3 + Documented 1 + Deferred 2 + Resolved 1 = 7.
+> Сводка пересчитана поиском по файлу перед релизом `v0.5.0` (RULES § 3.9):
+> 7 заголовков `### KI-` и 7 статусных строк; Fixed 5 + Documented 1 + Resolved 1 = 7.
