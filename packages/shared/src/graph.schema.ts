@@ -122,6 +122,10 @@ export const NodeSpecsSchema = z.object({
     crossSection: z.number().positive(),
     /** Высота установки от пола, m. */
     mountingHeight: z.number().nonnegative(),
+    /** Число полюсов ввода у узла `input_source`: '1P' или '3P'. */
+    phase: z.enum(['1P', '3P']).optional(),
+    /** Напряжение ввода, V. */
+    voltageV: z.union([z.literal(220), z.literal(230), z.literal(400)]).optional(),
 });
 /** Спецификация узла. */
 export type NodeSpecs = z.infer<typeof NodeSpecsSchema>;
@@ -336,6 +340,17 @@ export const ProjectGraphSchema = z
         edges: z.array(GraphEdgeSchema),
         /** Штамп ГОСТ; не влияет на расчёты. */
         stampMeta: StampMetaSchema.optional(),
+        /** Метаданные проекта: топология ввода и число полюсов щита. */
+        meta: z
+            .object({
+                /** Система заземления (ПУЭ-7). */
+                networkSystem: z.enum(['tn-s', 'tn-c-s', 'tn-c', 'tt', 'it']).optional(),
+                /** Топология ввода. */
+                supplyTopology: z.enum(['1P_230V', '3P_400V']).optional(),
+                /** Число полюсов вводного аппарата. */
+                panelPoles: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+            })
+            .optional(),
     })
     .check((context) => {
         validateGraphReferences(context.value, (path, message) => {
@@ -802,8 +817,16 @@ export const AutoPanelRequestSchema = z.object({
         .object({
             voltageV: SupplyVoltageSchema,
             phases: PhasesSchema,
+            /** Топология ввода, переданная агентом из `ProjectGraph.meta`. */
+            supplyTopology: z.enum(['1P_230V', '3P_400V']).optional(),
+            /** Число полюсов вводного аппарата: 2 для 1P, 3 или 4 для 3P. */
+            panelPoles: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
         })
         .optional(),
+    /** Топология ввода, извлекаемая агентом из `ProjectGraph.meta`. */
+    supplyTopology: z.enum(['1P_230V', '3P_400V']).optional(),
+    /** Число полюсов вводного аппарата. */
+    panelPoles: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
     /** Желаемый бренд модулей; учитывается агентом при выборе артикула. */
     preferredBrand: z.enum(['IEK', 'EKF', 'КЭАЗ']).optional(),
 });

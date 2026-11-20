@@ -176,6 +176,29 @@ export class ToolRegistry {
   }
 
   /**
+   * Определяет топологию ввода из `input_source` и `meta` графа (KI-007).
+   *
+   * @param graph — граф проекта.
+   * @returns параметры ввода для `calc-engine`.
+   */
+  private supplyForGraph(graph: ProjectGraph): {
+    voltageV: 230 | 400;
+    phases: 1 | 3;
+    supplyTopology: '1P_230V' | '3P_400V';
+    panelPoles?: 2 | 3 | 4;
+  } {
+    const source = graph.nodes.find((node) => node.kind === 'input_source');
+    const threePhase =
+      graph.meta?.supplyTopology === '3P_400V' ||
+      source?.specs.phase === '3P' ||
+      source?.specs.voltageV === 400 ||
+      (graph.meta?.panelPoles !== undefined && graph.meta.panelPoles >= 3);
+    return threePhase
+      ? { voltageV: 400, phases: 3, supplyTopology: '3P_400V', panelPoles: graph.meta?.panelPoles ?? 4 }
+      : { voltageV: 230, phases: 1, supplyTopology: '1P_230V' };
+  }
+
+  /**
    * Добавляет мастер-выключатель и контактор с обязательным пересчётом щита.
    *
    * @param input — граф и номинал ввода.
@@ -210,6 +233,7 @@ export class ToolRegistry {
     const panel = await this.calcClient.autoAssemblePanelAsync({
       nodes: graph.nodes,
       rooms: graph.rooms,
+      supply: this.supplyForGraph(graph),
     });
 
     return {
@@ -234,10 +258,12 @@ export class ToolRegistry {
     }
     const panel = input.graph.nodes.find((item) => item.kind === 'panel');
     const lengthM = input.lengthM ?? 12;
+    const supply = this.supplyForGraph(input.graph);
+    const powerfulThreePhase = supply.phases === 3 && node.specs.ratedPower > 2000;
     const sizing = await this.calcClient.calculateLineSizingAsync({
       powerW: node.specs.ratedPower > 0 ? node.specs.ratedPower : 1000,
-      voltageV: 230,
-      phases: 1,
+      voltageV: powerfulThreePhase ? 400 : 230,
+      phases: powerfulThreePhase ? 3 : 1,
       powerFactor: 0.95,
       lengthM,
       consumerKind: node.kind === 'socket' ? 'socket' : 'other',
@@ -267,7 +293,11 @@ export class ToolRegistry {
         },
       ],
     };
-    await this.calcClient.autoAssemblePanelAsync({ nodes: graph.nodes, rooms: graph.rooms });
+    await this.calcClient.autoAssemblePanelAsync({
+      nodes: graph.nodes,
+      rooms: graph.rooms,
+      supply: this.supplyForGraph(graph),
+    });
 
     return {
       graph,
@@ -307,6 +337,7 @@ export class ToolRegistry {
     const panel = await this.calcClient.autoAssemblePanelAsync({
       nodes,
       rooms: graph.rooms,
+      supply: this.supplyForGraph(graph),
       preferredBrand: input.brand,
     });
 
