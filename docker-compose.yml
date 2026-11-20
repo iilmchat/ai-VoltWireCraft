@@ -36,6 +36,8 @@ services:
       retries: 5
 
   minio:
+    # Опциональный S3: базовый стек поднимается без этого образа (KI-006).
+    profiles: ['s3']
     image: minio/minio:latest
     container_name: vwc-minio
     restart: unless-stopped
@@ -65,6 +67,8 @@ services:
       CALC_ENGINE_HOST: 0.0.0.0
       CALC_ENGINE_PORT: 8000
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      DWG_CONVERTER_TYPE: ${DWG_CONVERTER_TYPE:-auto}
+      ODA_CONVERTER_PATH: ${ODA_CONVERTER_PATH:-}
     ports:
       - '${CALC_ENGINE_PORT:-8000}:8000'
     healthcheck:
