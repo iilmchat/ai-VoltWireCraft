@@ -18,6 +18,7 @@ import { LlmClient } from '../src/agents/llm.client.js';
 import { NormativeService } from '../src/agents/normative.service.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
 import { ToolRegistry } from '../src/agents/tools.js';
+import { IntegrationService } from '../src/integrations/integration.service.js';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import type { Env } from '../src/config/env.schema.js';
 import type { Database } from '../src/database/drizzle.provider.js';
@@ -202,6 +203,7 @@ describe('PueAuditorAgent: проверка КЗ через инструмент
                 { provide: CalcEngineClient, useValue: calc },
                 { provide: NormativeService, useValue: { searchAsync: vi.fn(async () => []) } },
                 { provide: CatalogService, useValue: { findByTypeAsync: vi.fn(async () => null) } },
+                { provide: IntegrationService, useValue: { checkStockAsync: vi.fn(), createOrderAsync: vi.fn(), sendEstimateAsync: vi.fn(), buildBomFromGraph: vi.fn(() => []), statusAsync: vi.fn() } },
                 { provide: LlmClient, useValue: { generateExplanationAsync: vi.fn(async () => 'Объяснение') } },
             ],
         }).compile();

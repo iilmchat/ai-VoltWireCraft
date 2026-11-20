@@ -11,6 +11,7 @@ import { CopilotChatAgent } from '../src/agents/copilot-chat.agent.js';
 import { LlmClient } from '../src/agents/llm.client.js';
 import { NormativeService } from '../src/agents/normative.service.js';
 import { ToolRegistry } from '../src/agents/tools.js';
+import { IntegrationService } from '../src/integrations/integration.service.js';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -108,6 +109,7 @@ describe('CopilotChatAgent', () => {
                 { provide: CalcEngineClient, useValue: calc },
                 { provide: NormativeService, useValue: { searchAsync: vi.fn(async () => []) } },
                 { provide: CatalogService, useValue: catalog },
+                { provide: IntegrationService, useValue: { checkStockAsync: vi.fn(), createOrderAsync: vi.fn(), sendEstimateAsync: vi.fn(), buildBomFromGraph: vi.fn(() => []), statusAsync: vi.fn() } },
                 { provide: LlmClient, useValue: llm },
             ],
         }).compile();

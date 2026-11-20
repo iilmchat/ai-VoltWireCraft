@@ -12,6 +12,8 @@ import {
   CadParseResponseSchema,
   LineSizingRequestSchema,
   LineSizingResponseSchema,
+  LightingCalcRequestSchema,
+  LightingCalcResponseSchema,
   SelectivityTccRequestSchema,
   SelectivityTccResponseSchema,
   ShortCircuitRequestSchema,
@@ -25,6 +27,8 @@ import type {
   CadParseResponse,
   LineSizingRequest,
   LineSizingResponse,
+  LightingCalcRequest,
+  LightingCalcResponse,
   SelectivityTccRequest,
   SelectivityTccResponse,
   ShortCircuitRequest,
@@ -44,6 +48,8 @@ const AUTO_PANEL_PATH = '/v1/calc/auto-panel';
 const SHORT_CIRCUIT_PATH = '/v1/calc/short-circuit';
 /** Путь разбора CAD-плана. */
 const CAD_PARSE_PATH = '/v1/cad/parse-dxf';
+/** Путь расчёта освещённости. */
+const LIGHTING_PATH = '/v1/calc/lighting';
 /** Путь расчёта селективности по время-токовым характеристикам. */
 const SELECTIVITY_TCC_PATH = '/v1/calc/selectivity-tcc';
 
@@ -149,6 +155,21 @@ export class CalcEngineClient {
       path: SELECTIVITY_TCC_PATH,
       payload: SelectivityTccRequestSchema.parse(request),
       responseSchema: SelectivityTccResponseSchema,
+    });
+  }
+
+  /**
+   * Рассчитывает освещённость помещения в расчётном ядре.
+   *
+   * @param request — параметры комнаты и светильников.
+   * @returns провалидированный результат.
+   * @throws {BadGatewayException|GatewayTimeoutException} при ошибке вызова.
+   */
+  public async calculateLightingAsync(request: LightingCalcRequest): Promise<LightingCalcResponse> {
+    return this.postAsync({
+      path: LIGHTING_PATH,
+      payload: LightingCalcRequestSchema.parse(request),
+      responseSchema: LightingCalcResponseSchema,
     });
   }
 

@@ -4,6 +4,8 @@
 import { Module } from '@nestjs/common';
 import { CalcEngineModule } from '../calc-engine/calc-engine.module.js';
 import { drizzleProvider } from '../database/drizzle.provider.js';
+import { ErpMcpService } from '../integrations/erp-mcp.service.js';
+import { IntegrationService } from '../integrations/integration.service.js';
 import { CatalogService } from './catalog.service.js';
 import { CopilotChatAgent } from './copilot-chat.agent.js';
 import { LlmClient } from './llm.client.js';
@@ -18,6 +20,8 @@ import { ToolRegistry } from './tools.js';
   controllers: [],
   providers: [
     drizzleProvider,
+    ErpMcpService,
+    IntegrationService,
     LlmClient,
     CatalogService,
     NormativeService,

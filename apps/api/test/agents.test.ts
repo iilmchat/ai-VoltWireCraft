@@ -17,6 +17,7 @@ import { NormativeService } from '../src/agents/normative.service.js';
 import { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
 import { ToolRegistry } from '../src/agents/tools.js';
+import { IntegrationService } from '../src/integrations/integration.service.js';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import { ProjectsController } from '../src/projects/projects.controller.js';
 import type { ProjectsService } from '../src/projects/projects.service.js';
@@ -175,6 +176,7 @@ describe('ИИ-агенты', () => {
                 { provide: CalcEngineClient, useValue: calc },
                 { provide: LlmClient, useValue: llm },
                 { provide: CatalogService, useValue: catalog },
+                { provide: IntegrationService, useValue: { checkStockAsync: vi.fn(), createOrderAsync: vi.fn(), sendEstimateAsync: vi.fn(), buildBomFromGraph: vi.fn(() => []), statusAsync: vi.fn() } },
                 { provide: NormativeService, useValue: normative },
             ],
         }).compile();
