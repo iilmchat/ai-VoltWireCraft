@@ -12,7 +12,9 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck && tsc -p tsconfig.scripts.json --noEmit",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
+    "smoke:e2e": "node scripts/e2e-smoke.mjs",
     "test": "turbo run test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
