@@ -1264,3 +1264,127 @@ export const SelectivityTccResponseSchema = z.object({
 });
 /** Ответ ВТХ. */
 export type SelectivityTccResponse = z.infer<typeof SelectivityTccResponseSchema>;
+
+/** Запрос светотехнического расчёта помещения по СП 52.13330. */
+export const LightingCalcRequestSchema = z.object({
+    /** Вершины полигона комнаты, m; альтернатива `areaM2`. */
+    polygonM: z.array(PointSchema).min(3).optional(),
+    /** Площадь комнаты, m2; альтернатива `polygonM`. */
+    areaM2: z.number().positive().optional(),
+    /** Высота потолка / подвеса светильника над расчётной плоскостью, m. */
+    ceilingHeightM: z.number().positive(),
+    /** Тип зоны помещения. */
+    zoneType: RoomZoneTypeSchema.optional(),
+    /** Световой поток одного светильника, lm. */
+    luminaireFluxLm: z.number().positive(),
+    /** Мощность одного светильника, W. */
+    luminairePowerW: z.number().positive(),
+    /** Коэффициент запаса; по умолчанию 1,15. */
+    safetyFactor: z.number().positive().optional(),
+}).refine(
+    (value) => value.polygonM !== undefined || value.areaM2 !== undefined,
+    { message: 'Укажите polygonM или areaM2', path: ['polygonM'] },
+);
+/** Запрос расчёта освещённости. */
+export type LightingCalcRequest = z.infer<typeof LightingCalcRequestSchema>;
+
+/** Ответ светотехнического расчёта. */
+export const LightingCalcResponseSchema = z.object({
+    /** Площадь помещения, m2. */
+    areaM2: z.number().positive(),
+    /** Нормативная освещённость, lx. */
+    requiredLux: z.number().positive(),
+    /** Индекс помещения. */
+    roomIndex: z.number().positive(),
+    /** Коэффициент использования светового потока. */
+    utilizationFactor: z.number().positive().max(1),
+    /** Рекомендуемое число светильников. */
+    recommendedLuminairesCount: z.number().int().positive(),
+    /** Суммарная мощность освещения, W. */
+    totalPowerW: z.number().positive(),
+    /** Фактическая освещённость при рекомендуемом числе светильников, lx. */
+    actualLux: z.number().positive(),
+    /** Предупреждения. */
+    warnings: z.array(z.string().min(1)),
+    /** Ссылки на пункты справочника. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ расчёта освещённости. */
+export type LightingCalcResponse = z.infer<typeof LightingCalcResponseSchema>;
+
+/** Состояние подключения внешней системы. */
+export const IntegrationStatusSchema = z.object({
+    /** Идентификатор MCP-сервера. */
+    server: z.enum(['moysklad', 'bitrix24']),
+    /** Доступен ли сервер. */
+    available: z.boolean(),
+    /** Человекочитаемое состояние. */
+    message: z.string(),
+    /** Поддерживаемые инструменты. */
+    tools: z.array(z.string().min(1)),
+});
+/** Статус интеграции. */
+export type IntegrationStatus = z.infer<typeof IntegrationStatusSchema>;
+
+/** Позиция спецификации для проверки остатков. */
+export const StockCheckItemSchema = z.object({
+    /** Артикул производителя. */
+    sku: z.string().min(1),
+    /** Требуемое количество. */
+    quantity: z.number().int().positive(),
+});
+/** Позиция проверки остатков. */
+export type StockCheckItem = z.infer<typeof StockCheckItemSchema>;
+
+/** Ответ проверки остатков в МойСклад. */
+export const StockCheckResponseSchema = z.object({
+    /** Результаты по позициям. */
+    items: z.array(
+        StockCheckItemSchema.extend({
+            /** Доступное количество на складе. */
+            available: z.number().int().nonnegative(),
+            /** Хватает ли остатков. */
+            sufficient: z.boolean(),
+        }),
+    ),
+    /** Все позиции в наличии. */
+    allAvailable: z.boolean(),
+    /** Идентификатор операции для журнала. */
+    operationId: z.string().min(1),
+});
+/** Ответ проверки остатков. */
+export type StockCheckResponse = z.infer<typeof StockCheckResponseSchema>;
+
+/** Запрос выгрузки сметы/заказа во внешнюю систему. */
+export const ExportToErpRequestSchema = z.object({
+    /** Идентификатор проекта. */
+    projectId: UuidSchema,
+    /** Целевая система. */
+    target: z.enum(['moysklad', 'bitrix24']),
+    /** Позиции спецификации. */
+    items: z.array(StockCheckItemSchema).min(1),
+    /** Идентификатор сделки Битрикс24 (для `bitrix24`). */
+    dealId: z.string().min(1).optional(),
+    /** Токен подтверждения пользователя (HITL). */
+    confirmationToken: z.string().min(1),
+});
+/** Запрос выгрузки в ERP/CRM. */
+export type ExportToErpRequest = z.infer<typeof ExportToErpRequestSchema>;
+
+/** Ответ выгрузки в ERP/CRM. */
+export const ExportToErpResponseSchema = z.object({
+    /** Успешность операции. */
+    success: z.boolean(),
+    /** Целевая система. */
+    target: z.enum(['moysklad', 'bitrix24']),
+    /** Идентификатор созданного заказа/документа во внешней системе. */
+    externalId: z.string().min(1),
+    /** Идентификатор операции для журнала. */
+    operationId: z.string().min(1),
+    /** Сообщение. */
+    message: z.string(),
+});
+/** Ответ выгрузки. */
+export type ExportToErpResponse = z.infer<typeof ExportToErpResponseSchema>;

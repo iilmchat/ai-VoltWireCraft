@@ -1,4 +1,4 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.8.0
 /** Корневой компонент: оболочка редактора с вкладками проекций графа. */
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
@@ -9,8 +9,10 @@ import { InspectorPanel } from './components/InspectorPanel.js';
 import { PanelLayoutEditor } from './components/PanelLayoutEditor.js';
 import { PanelSelector } from './components/PanelSelector.js';
 import { Palette } from './components/Palette.js';
+import { isDesktop } from './lib/tauriAdapter.js';
 
-import { I18nProvider, useI18n } from './i18n/index.js';
+import type { DemoProjectId } from './lib/demoProjects.js';
+import { I18nProvider, dictionaries, useI18n } from './i18n/index.js';
 import type { Locale, TranslationKey } from './i18n/index.js';
 import { useEditorStore } from './store/editorStore.js';
 import { useUiStore } from './store/uiStore.js';
@@ -40,6 +42,10 @@ const BillOfMaterialsTable = lazy(() =>
 const GostDocsPanel = lazy(() =>
     import('./components/GostDocsPanel.js').then((module) => ({ default: module.GostDocsPanel })),
 );
+/** Лендинг загружается только в веб-режиме на корневом пути. */
+const LandingPage = lazy(() =>
+    import('./components/LandingPage.js').then((module) => ({ default: module.LandingPage })),
+);
 
 /**
  * Скелетон на время загрузки чанка Three.js.
@@ -67,6 +73,38 @@ function Panel3DSkeleton() {
  */
 export function App() {
     const [locale, setLocale] = useState<Locale>('ru');
+    const [path, setPath] = useState(() => window.location.pathname);
+    const desktop = isDesktop();
+
+    useEffect(() => {
+        const onPopState = (): void => setPath(window.location.pathname);
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+    }, []);
+
+    /** Перейти к другому SPA-маршруту. */
+    const navigate = (nextPath: string): void => {
+        window.history.pushState({}, '', nextPath);
+        setPath(nextPath);
+    };
+
+    /** Открыть демо-проект и сразу перейти в редактор. */
+    const openDemo = (id: DemoProjectId): void => {
+        useEditorStore.getState().loadDemoProject(id);
+        navigate('/editor');
+    };
+
+    // В Tauri всегда открывается редактор без публичного лендинга (DESIGN_V080 § 2.3).
+    if (!desktop && path !== '/editor') {
+        return (
+            <I18nProvider locale={locale} setLocale={setLocale}>
+                <Suspense fallback={<div className="p-8 text-sm text-slate-400">{dictionaries[locale]['view.loading']}</div>}>
+                    <LandingPage onOpenEditor={() => navigate('/editor')} onLoadDemo={openDemo} />
+                </Suspense>
+            </I18nProvider>
+        );
+    }
+
     return (
         <I18nProvider locale={locale} setLocale={setLocale}>
             <AppShell />

@@ -21,6 +21,8 @@ import type {
 } from './aiContracts.js';
 import { ShortCircuitResponseSchema } from './cadContracts.js';
 import type { ShortCircuitResponse } from './cadContracts.js';
+import { LightingResponseSchema } from './lighting.js';
+import type { LightingRequest, LightingResponse } from './lighting.js';
 import {
     CreateProjectDtoSchema,
     FloorPlanUploadDtoSchema,
@@ -359,6 +361,25 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 z.union([TccSelectivityResponseSchema, SelectivityTccResponseSchema]),
             );
             return normalizeTccResponse(response);
+        },
+
+        /**
+         * Светотехнический расчёт комнаты: `POST /projects/:id/lighting/calculate`.
+         * @param id — идентификатор проекта.
+         * @param request — параметры зоны и светового потока светильника.
+         * @returns канонический результат расчёта.
+         */
+        async calculateLightingAsync(
+            id: Uuid,
+            request: LightingRequest,
+        ): Promise<LightingResponse> {
+            const projectId = UuidSchema.parse(id);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/lighting/calculate`,
+                'POST',
+                request,
+                LightingResponseSchema,
+            );
         },
     };
 }

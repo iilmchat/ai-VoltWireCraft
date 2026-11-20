@@ -1,8 +1,11 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
-import type { RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.8.0
+import { UuidSchema, type RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
 import { lazy, Suspense, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
+import { apiClient } from '../lib/apiClient.js';
+import { calculateLighting, fixturePositions } from '../lib/lighting.js';
+import type { LightingResult } from '../lib/lighting.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { ShortCircuitBadge } from './ShortCircuitBadge.js';
@@ -26,7 +29,12 @@ export function InspectorPanel() {
     const selectedRoomId = useEditorStore((state) => state.selectedRoomId);
     const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId);
     const shortCircuit = useCalculationStore((state) => state.shortCircuit);
+    const serverProjectId = useEditorStore((state) => state.serverProjectId);
     const [tccOpen, setTccOpen] = useState(false);
+    const [lumen, setLumen] = useState(1200);
+    const [lightingResult, setLightingResult] = useState<LightingResult | null>(null);
+    const [lightingBusy, setLightingBusy] = useState(false);
+    const [lightingNotice, setLightingNotice] = useState<'offline' | 'failed' | null>(null);
 
     const node = graph.nodes.find((item) => item.id === selectedNodeId) ?? null;
     const room = graph.rooms.find((item) => item.id === selectedRoomId) ?? null;
@@ -37,6 +45,52 @@ export function InspectorPanel() {
         (node.kind === 'circuit_breaker' || node.kind === 'rcd' || node.kind === 'rcbo');
     const hasUpstream = isProtectiveDevice
         && graph.edges.some((item) => item.to === node.id && item.from !== node.id);
+
+    /** Рассчитать освещённость: сервер, при ошибке — локальный предпросмотр. */
+    const handleCalculateLighting = async (): Promise<void> => {
+        if (room === null) {
+            return;
+        }
+        setLightingBusy(true);
+        setLightingNotice(null);
+        const request = {
+            polygonM: room.polygon.map((point) => ({ x: point.x, y: point.y })),
+            ceilingHeightM: graph.floorPlan.ceilingHeightM,
+            roomType: room.type,
+            lumenPerFixture: lumen,
+        };
+        const parsedId = UuidSchema.safeParse(serverProjectId ?? '');
+        try {
+            const result = parsedId.success
+                ? await apiClient.calculateLightingAsync(parsedId.data, request)
+                : null;
+            setLightingResult(result === null ? calculateLighting(request) : {
+                ...result,
+                targetLux: result.targetLux ?? calculateLighting(request).targetLux,
+                references: result.references ?? [t('lighting.reference')],
+            });
+            if (result === null) {
+                setLightingNotice('offline');
+            }
+        } catch {
+            setLightingResult(calculateLighting(request));
+            setLightingNotice('offline');
+        } finally {
+            setLightingBusy(false);
+        }
+    };
+
+    /** Расставить рассчитанное число светильников равномерной сеткой. */
+    const handlePlaceFixtures = (): void => {
+        if (room === null || lightingResult === null) {
+            return;
+        }
+        useEditorStore.getState().addLightingFixtures(
+            room.id,
+            fixturePositions(room, lightingResult.fixtureCount),
+            lumen,
+        );
+    };
 
     return (
         <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-700 bg-slate-900 p-4">
@@ -177,6 +231,62 @@ export function InspectorPanel() {
                             ))}
                         </select>
                     </label>
+
+                    <div className="rounded border border-slate-700 bg-slate-800/50 p-3">
+                        <h3 className="mb-2 text-xs font-semibold text-slate-300">
+                            {t('lighting.title')}
+                        </h3>
+                        <label className="mb-2 block">
+                            <span className="mb-1 block text-[11px] text-slate-400">
+                                {t('lighting.lumen')}
+                            </span>
+                            <input
+                                type="number"
+                                min="1"
+                                step="100"
+                                value={lumen}
+                                onChange={(event) => {
+                                    const value = Number(event.target.value);
+                                    if (Number.isFinite(value) && value > 0) {
+                                        setLumen(value);
+                                    }
+                                }}
+                                className="w-full rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm"
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            disabled={lightingBusy}
+                            onClick={() => void handleCalculateLighting()}
+                            className="mb-2 w-full rounded border border-sky-600 px-2 py-1.5 text-xs text-sky-300 hover:bg-sky-950 disabled:opacity-50"
+                        >
+                            {lightingBusy ? t('lighting.calculating') : t('lighting.calculate')}
+                        </button>
+                        {lightingNotice !== null && (
+                            <p className="mb-2 text-[11px] text-amber-300">
+                                {t(lightingNotice === 'failed' ? 'lighting.failed' : 'lighting.offline')}
+                            </p>
+                        )}
+                        {lightingResult !== null && (
+                            <div className="mb-2 space-y-1 text-[11px] text-slate-300">
+                                <p className="font-medium text-slate-200">{t('lighting.result')}</p>
+                                <p>{t('lighting.area')}: {lightingResult.areaM2.toFixed(2)}</p>
+                                <p>{t('lighting.index')}: {lightingResult.roomIndex.toFixed(2)}</p>
+                                <p>{t('lighting.utilization')}: {lightingResult.utilizationFactor.toFixed(2)}</p>
+                                <p>{t('lighting.fixtures')}: {lightingResult.fixtureCount}</p>
+                                <p className="text-slate-500">{lightingResult.references.join(', ')}</p>
+                            </div>
+                        )}
+                        {lightingResult !== null && lightingResult.fixtureCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={handlePlaceFixtures}
+                                className="w-full rounded bg-sky-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-sky-500"
+                            >
+                                {t('lighting.place')}
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 

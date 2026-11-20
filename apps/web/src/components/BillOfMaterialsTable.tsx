@@ -1,11 +1,16 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
-import { useEffect, useMemo } from 'react';
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.8.0
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import type { BomRow } from '../lib/bomExport.js';
 import { buildBomRows, exportBomCsvAsync, exportBomXlsxAsync } from '../lib/bomExport.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { useUiStore } from '../store/uiStore.js';
+
+/** Модальное окно интеграций загружается только при открытии. */
+const ErpExportModal = lazy(() =>
+    import('./ErpExportModal.js').then((module) => ({ default: module.ErpExportModal })),
+);
 
 /** Ключи локализованных заголовков в порядке столбцов таблицы и экспорта. */
 const HEADER_KEYS: readonly TranslationKey[] = [
@@ -143,6 +148,7 @@ export function BillOfMaterialsTable() {
     const catalog = useUiStore((state) => state.catalog);
     const catalogLoading = useUiStore((state) => state.catalogLoading);
     const catalogError = useUiStore((state) => state.catalogError);
+    const [erpOpen, setErpOpen] = useState(false);
 
     // Каталог грузится один раз при монтировании (дальше — кэш в uiStore на 5 минут).
     useEffect(() => {
@@ -182,6 +188,13 @@ export function BillOfMaterialsTable() {
                     </span>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setErpOpen(true)}
+                        className="rounded border border-sky-600 bg-slate-800 px-2 py-1 text-xs text-sky-300 transition-colors hover:bg-slate-700"
+                    >
+                        {t('erp.open')}
+                    </button>
                     <button
                         type="button"
                         disabled={catalogLoading}
@@ -248,6 +261,16 @@ export function BillOfMaterialsTable() {
                         <span>{formatNumber(grandTotal)} ₽</span>
                     </div>
                 </>
+            )}
+            {erpOpen && (
+                <Suspense fallback={null}>
+                    <ErpExportModal
+                        open
+                        onClose={() => setErpOpen(false)}
+                        rows={allRows}
+                        projectName={graph.name}
+                    />
+                </Suspense>
             )}
         </section>
     );

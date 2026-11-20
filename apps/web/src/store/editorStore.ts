@@ -122,6 +122,8 @@ export interface EditorState {
     applyProposedGraph: (graph: ProjectGraph) => void;
     /** Добавить дочерний распределительный щит с магистралью от родителя. */
     addDistributionPanel: (parentPanelId: string) => string | null;
+    /** Расставить светильники по зоне и записать изменение в историю Undo. */
+    addLightingFixtures: (roomId: string, positions: readonly Point[], lumen: number) => number;
     /** Выбрать инструмент. */
     setTool: (tool: ToolId) => void;
     /** Подготовить ЭУИ к установке. */
@@ -362,6 +364,42 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             statusKey: 'status.panelAdded',
         });
         return panelId;
+    },
+
+    addLightingFixtures: (roomId, positions, lumen) => {
+        const state = get();
+        const room = state.graph.rooms.find((item) => item.id === roomId);
+        if (room === undefined || positions.length === 0) {
+            set({ statusKey: 'lighting.failed' });
+            return 0;
+        }
+        const ceiling = state.graph.floorPlan.ceilingHeightM;
+        const fixtures = positions.map((position) => GraphNodeSchema.parse({
+            id: crypto.randomUUID(),
+            kind: 'light_fixture',
+            label: `Светильник ${lumen} лм`,
+            planPosition: { x: position.x, y: position.y },
+            panelSlot: null,
+            roomId,
+            catalogDeviceId: null,
+            specs: {
+                ratedPower: Math.max(0, Math.round(lumen / 100)),
+                ratedCurrent: 6,
+                crossSection: 1.5,
+                mountingHeight: Math.max(0, ceiling - 0.1),
+            },
+        }));
+        set({
+            ...commitGraph(state, ProjectGraphSchema.parse({
+                ...state.graph,
+                nodes: [...state.graph.nodes, ...fixtures],
+            })),
+            selectedRoomId: roomId,
+            selectedNodeId: null,
+            selectedEdgeId: null,
+            statusKey: 'lighting.placed',
+        });
+        return fixtures.length;
     },
 
     setTool: (tool) => set({ tool, statusKey: 'status.ready' }),
