@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   AutoPanelResponseSchema,
   ProjectGraphSchema,
+  UuidSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 
 /** Вызов инструмента, зафиксированный в протоколе агента. */
@@ -21,6 +22,8 @@ export type ToolCall = z.infer<typeof ToolCallSchema>;
 export const AssemblePanelRequestSchema = z.object({
   /** Желаемый бренд оборудования. */
   preferredBrand: z.enum(['IEK', 'EKF', 'КЭАЗ']).optional(),
+  /** Собираемый щит в многощитовом проекте. */
+  targetPanelId: UuidSchema.optional(),
 });
 /** Запрос автосборки. */
 export type AssemblePanelRequest = z.infer<typeof AssemblePanelRequestSchema>;

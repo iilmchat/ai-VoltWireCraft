@@ -8,6 +8,7 @@ import {
   AutoPanelRequestSchema,
   LineSizingRequestSchema,
   ProjectGraphSchema,
+  SelectivityTccRequestSchema,
   ShortCircuitRequestSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
@@ -18,6 +19,8 @@ import type {
   LineSizingResponse,
   PueCitation,
   ProjectGraph,
+  SelectivityTccRequest,
+  SelectivityTccResponse,
   ShortCircuitRequest,
   ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
@@ -114,6 +117,8 @@ export class ToolRegistry {
   public readonly inspectPueRulesTool: AgentTool<InspectPueRulesInput, PueCitation[]>;
   /** Проверка тока КЗ «фаза-ноль» и селективности (делегируется `calc-engine`). */
   public readonly checkShortCircuitTool: AgentTool<ShortCircuitRequest, ShortCircuitResponse>;
+  /** Проверка селективности по ВТХ и отключающей способности. */
+  public readonly checkTccSelectivityTool: AgentTool<SelectivityTccRequest, SelectivityTccResponse>;
   /** Добавление мастер-выключателя с контактором и пересчёт щита. */
   public readonly addMasterSwitchTool: AgentTool<AddMasterSwitchInput, GraphMutationResult>;
   /** Выделение отдельной линии на прибор с пересчётом линии. */
@@ -154,6 +159,12 @@ export class ToolRegistry {
       description: 'Проверяет ток однофазного КЗ, кратность срабатывания и селективность автоматов.',
       inputSchema: ShortCircuitRequestSchema,
       invokeAsync: (input) => this.calcClient.checkShortCircuitAsync(input),
+    };
+    this.checkTccSelectivityTool = {
+      name: 'check_tcc_selectivity_tool',
+      description: 'Строит ВТХ B/C/D, находит предел селективности и проверяет I_cn ≥ I_кз.',
+      inputSchema: SelectivityTccRequestSchema,
+      invokeAsync: (input) => this.calcClient.checkSelectivityTccAsync(input),
     };
     this.addMasterSwitchTool = {
       name: 'add_master_switch_tool',

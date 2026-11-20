@@ -67,6 +67,7 @@ export class PanelArchitectAgent {
       supply: threePhase
         ? { voltageV: 400, phases: 3, supplyTopology: '3P_400V', panelPoles }
         : { voltageV: 230, phases: 1, supplyTopology: '1P_230V' },
+      ...(request.targetPanelId !== undefined ? { targetPanelId: request.targetPanelId } : {}),
       ...(request.preferredBrand !== undefined ? { preferredBrand: request.preferredBrand } : {}),
     };
     const panel = await this.tools.autoAssemblePanelTool.invokeAsync(autoPanelRequest);
@@ -118,6 +119,7 @@ export class PanelArchitectAgent {
         planPosition: null,
         panelSlot: module.panelSlot,
         roomId: group?.roomId ?? null,
+        ...(request.targetPanelId !== undefined ? { parentPanelId: request.targetPanelId } : {}),
         specs,
       });
     }

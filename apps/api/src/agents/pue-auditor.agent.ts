@@ -183,6 +183,59 @@ export class PueAuditorAgent {
       });
     }
 
+    // ВТХ-селективность и отключающая способность — только через инструмент ядра.
+    if (breakerNodes.length > 0) {
+      const feeder = graph.edges.find((edge) => edge.edgeType === 'feeder_line');
+      const faultCurrent = graph.edges[0]?.cableSpecs.shortCircuitCurrentA ?? 2000;
+      const devices = [
+        ...(upstream !== undefined
+          ? [{
+              id: upstream.id,
+              ratedCurrentA: upstream.specs.ratedCurrent,
+              tripCurve: 'C' as const,
+              parentId: null,
+              shortCircuitCurrentA: faultCurrent,
+            }]
+          : []),
+        ...breakerNodes.map((node) => ({
+          id: node.id,
+          ratedCurrentA: node.specs.ratedCurrent,
+          tripCurve: 'C' as const,
+          ...(node.specs.breakingCapacityKa !== undefined
+            ? { breakingCapacityKa: node.specs.breakingCapacityKa }
+            : node.breakingCapacityKa !== undefined
+              ? { breakingCapacityKa: node.breakingCapacityKa }
+              : {}),
+          parentId: upstream?.id ?? null,
+          shortCircuitCurrentA: faultCurrent,
+        })),
+      ];
+      const tccRequest = this.tools.checkTccSelectivityTool.inputSchema.parse({
+        devices,
+        upstreamVoltageDropPercent: feeder?.upstreamVoltageDropPercent ?? 0,
+        groupVoltageDropPercent: Math.max(
+          0,
+          ...graph.edges.map((edge) => edge.cableSpecs.voltageDropPercent ?? 0),
+        ),
+      });
+      const tcc = await this.tools.checkTccSelectivityTool.invokeAsync(tccRequest);
+      toolCalls.push(this.tools.checkTccSelectivityTool.name);
+
+      findings.push({
+        id: 'F-TCC-SELECTIVITY',
+        severity: tcc.breakingCapacityOk && tcc.status !== 'none' ? 'info' : 'warning',
+        ruleId: 'PUE-SELECT-TCC',
+        section: '1.7. Селективность по ВТХ',
+        message: `ВТХ: статус ${tcc.status}, предел Is = ${tcc.selectivityLimitA} А, ΔUсумм = ${tcc.totalVoltageDropPercent} %, I_cn достаточно: ${tcc.breakingCapacityOk}.`,
+        nodeIds: breakerNodes.map((node) => node.id),
+        recommendation:
+          tcc.warnings[0] ?? 'Проверьте пересечение ВТХ и отключающую способность вводного аппарата.',
+      });
+      for (const reference of tcc.references) {
+        citations.push({ ruleId: reference, excerpt: `Пункт справочника: ${reference}`, document: 'TCC-7' });
+      }
+    }
+
     const summary = {
       errors: findings.filter((finding) => finding.severity === 'error').length,
       warnings: findings.filter((finding) => finding.severity === 'warning').length,

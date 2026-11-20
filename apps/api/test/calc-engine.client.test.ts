@@ -105,3 +105,34 @@ describe('CalcEngineClient', () => {
         ).rejects.toBeInstanceOf(BadGatewayException);
     });
 });
+
+describe('CalcEngineClient: ВТХ', () => {
+    it('вызывает /v1/calc/selectivity-tcc и проверяет ответ', async () => {
+        const tccResponse = {
+            status: 'full',
+            selectivityLimitA: 615.7,
+            breakingCapacityOk: true,
+            totalVoltageDropPercent: 4.5,
+            voltageDropOk: true,
+            pairs: [ { downstreamId: 'shr', upstreamId: 'vru', selectivityLimitA: 615.7, selective: true } ],
+            upstreamCurve: [{ currentA: 63, timeS: 3600 }],
+            downstreamCurve: [{ currentA: 32, timeS: 3600 }],
+            warnings: [],
+            references: ['TCC-113'],
+            rulesVersion: '0.1',
+        };
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(tccResponse), { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = await makeClient().checkSelectivityTccAsync({
+            devices: [
+                { id: 'vru', ratedCurrentA: 63, tripCurve: 'C' },
+                { id: 'shr', ratedCurrentA: 32, tripCurve: 'B', parentId: 'vru' },
+            ],
+        });
+
+        expect(String(fetchMock.mock.calls[0]?.[0])).toBe('http://calc-engine:8000/v1/calc/selectivity-tcc');
+        expect(result.status).toBe('full');
+        expect(result.selectivityLimitA).toBe(615.7);
+    });
+});
