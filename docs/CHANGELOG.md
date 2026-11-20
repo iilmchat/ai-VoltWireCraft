@@ -18,6 +18,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-11-20
+
 ### Added
 
 - `docs/development/v0.8/DESIGN_V080_MCP_LIGHTING_LANDING.md` — дизайн релиза
