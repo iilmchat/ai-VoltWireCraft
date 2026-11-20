@@ -1,6 +1,6 @@
 name: Release Desktop (Tauri)
 
-# Проверка нативной сборки: вручную или по семантическому тегу v*.
+# Сборка десктопа: вручную или по тегу v*. По тегу — публикация latest.json в Release.
 on:
   workflow_dispatch:
   push:
@@ -11,7 +11,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: desktop-${{ github.ref }}
@@ -21,6 +21,10 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
+    env:
+      # Приватный ключ подписи хранится только в GitHub Repository Secrets.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +73,10 @@ jobs:
           args: ${{ matrix.args }}
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: '[platform]-[arch]-[bundle]'
+          # По тегу v* артефакты и latest.json прикрепляются к GitHub Release.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseDraft: false
+          prerelease: false
 
       - name: Verify native bundle
         shell: bash
@@ -76,3 +84,11 @@ jobs:
           found=$(find apps/web/src-tauri/target/release/bundle -type f -name '${{ matrix.bundle-glob }}' | head -n 1)
           test -n "$found"
           echo "Готово: $found"
+
+      - name: Verify signed updater artifacts
+        if: env.TAURI_SIGNING_PRIVATE_KEY != ''
+        shell: bash
+        run: |
+          echo "Подпись доступна: проверяем *.sig и latest.json"
+          find apps/web/src-tauri/target/release/bundle -type f \( -name '*.sig' -o -name 'latest.json' \) -print | head -n 20
+          test -n "$(find apps/web/src-tauri/target/release/bundle -type f -name '*.sig' | head -n 1)"
