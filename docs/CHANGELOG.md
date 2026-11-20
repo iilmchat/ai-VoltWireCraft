@@ -46,6 +46,9 @@
 
 ### Changed
 
+- Дополнительные вкладки (однолинейная схема, спецификация), форма выпуска РД
+  и график ВТХ переведены на `React.lazy`: основной чанк web-клиента уменьшен
+  до ~783 КБ, сборка проходит без предупреждений Vite о размере.
 - Tauri v2: невалидное разрешение `fs:allow-save` заменено на корректный набор
   `core:default`, `dialog:default`, `dialog:allow-open`, `dialog:allow-save`,
   `fs:default`, `fs:allow-read-text-file`, `fs:allow-write-text-file` с областью
