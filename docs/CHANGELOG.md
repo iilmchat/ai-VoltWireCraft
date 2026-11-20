@@ -18,6 +18,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-20
+
 ### Added
 
 - `docs/development/v0.4/DESIGN_V040_COPILOT_3D_GOST_DOCS.md` — дизайн релиза
@@ -110,6 +112,15 @@
   `PUT /projects/:id/graph` после подтверждения пользователем (RULES § 5.1,
   § 5.2). Тесты с моками LLM и calc-engine подтверждают, что числа приходят
   только из инструментов.
+
+### Documented
+
+- `KI-006`: образ `minio/minio:latest` недоступен в части registry; по умолчанию
+  используется `STORAGE_DRIVER=local`, S3 остаётся опциональным.
+- `KI-007`: передача трёхфазного режима ввода из `meta` в `PanelArchitectAgent`
+  запланирована на `v0.5.0`.
+- Сводка реестра пересчитана по RULES § 3.9: Fixed 3, Documented 1,
+  Deferred 2, Resolved 1, всего 7 записей.
 
 ## [0.3.0] — 2026-11-19
 

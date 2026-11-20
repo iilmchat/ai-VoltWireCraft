@@ -1,6 +1,6 @@
 {
   "name": "@voltwirecraft/shared",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Единые типизированные контракты VoltWireCraft (граф проекта, подложки, расчёты)",
