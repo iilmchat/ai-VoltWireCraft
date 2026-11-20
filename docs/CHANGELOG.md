@@ -18,11 +18,13 @@
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-20
+
 ### Added
 
 - Автообновление Tauri: `tauri-plugin-updater` (Rust + `@tauri-apps/plugin-updater`),
   разрешение `updater:default`, `createUpdaterArtifacts` и секция
-  `plugins.updater` с endpoint GitHub Releases и публичным ключом-заглушкой.
+  `plugins.updater` с endpoint GitHub Releases и боевым публичным ключом, соответствующим приватному ключу в GitHub Secrets.
   Приватный ключ в репозиторий не попадает (RULES § 6.2).
 - `.github/workflows/release-desktop.yml`: секреты `TAURI_SIGNING_PRIVATE_KEY`
   и `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` передаются в шаг сборки; по тегу `v*`
