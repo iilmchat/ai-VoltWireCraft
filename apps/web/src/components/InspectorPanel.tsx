@@ -6,6 +6,8 @@ import type { TranslationKey } from '../i18n/index.js';
 import { apiClient } from '../lib/apiClient.js';
 import { calculateLighting, fixturePositions } from '../lib/lighting.js';
 import type { LightingResult } from '../lib/lighting.js';
+import { calculateThreePhaseSc } from '../lib/threePhaseSc.js';
+import type { ThreePhaseScResult } from '../lib/threePhaseSc.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { ShortCircuitBadge } from './ShortCircuitBadge.js';
@@ -35,6 +37,8 @@ export function InspectorPanel() {
     const [lightingResult, setLightingResult] = useState<LightingResult | null>(null);
     const [lightingBusy, setLightingBusy] = useState(false);
     const [lightingNotice, setLightingNotice] = useState<'offline' | 'failed' | null>(null);
+    const [sc3Result, setSc3Result] = useState<ThreePhaseScResult | null>(null);
+    const [sc3Busy, setSc3Busy] = useState(false);
 
     const node = graph.nodes.find((item) => item.id === selectedNodeId) ?? null;
     const room = graph.rooms.find((item) => item.id === selectedRoomId) ?? null;
@@ -45,6 +49,41 @@ export function InspectorPanel() {
         (node.kind === 'circuit_breaker' || node.kind === 'rcd' || node.kind === 'rcbo');
     const hasUpstream = isProtectiveDevice
         && graph.edges.some((item) => item.to === node.id && item.from !== node.id);
+    const isThreePhaseInput = node !== null
+        && node.kind === 'circuit_breaker'
+        && (node.specs.phase === '3P' || /3P|3ф|трехф/i.test(node.label));
+
+    /** Рассчитать трёхфазное КЗ и ударный ток. */
+    const handleCalculateThreePhaseSc = async (): Promise<void> => {
+        if (node === null) {
+            return;
+        }
+        setSc3Busy(true);
+        const request = {
+            lineVoltageV: 400,
+            loopImpedanceOhm: shortCircuit?.loopImpedanceOhm ?? 1,
+            peakFactor: 1.8,
+            breakingCapacityKa: node.specs.breakingCapacityKa,
+        };
+        const parsedId = UuidSchema.safeParse(serverProjectId ?? '');
+        const local = calculateThreePhaseSc(request);
+        try {
+            const response = parsedId.success
+                ? await apiClient.calculateThreePhaseScAsync(parsedId.data, request)
+                : null;
+            setSc3Result(response === null ? local : {
+                ...local,
+                shortCircuitCurrentA: response.shortCircuitCurrentA,
+                peakCurrentA: response.peakCurrentA,
+                peakFactor: response.peakFactor ?? local.peakFactor,
+                breakingCapacityOk: response.breakingCapacityOk ?? local.breakingCapacityOk,
+            });
+        } catch {
+            setSc3Result(local);
+        } finally {
+            setSc3Busy(false);
+        }
+    };
 
     /** Рассчитать освещённость: сервер, при ошибке — локальный предпросмотр. */
     const handleCalculateLighting = async (): Promise<void> => {
@@ -196,6 +235,28 @@ export function InspectorPanel() {
                         >
                             {t('tcc.title')}
                         </button>
+                    )}
+                    {isThreePhaseInput && (
+                        <div className="rounded border border-slate-700 bg-slate-800/50 p-2">
+                            <h3 className="mb-2 text-xs font-semibold text-slate-300">{t('sc3.title')}</h3>
+                            <button
+                                type="button"
+                                disabled={sc3Busy}
+                                onClick={() => void handleCalculateThreePhaseSc()}
+                                className="mb-2 w-full rounded border border-amber-600 px-2 py-1.5 text-xs text-amber-300 hover:bg-amber-950 disabled:opacity-50"
+                            >
+                                {sc3Busy ? t('lighting.calculating') : t('sc3.calculate')}
+                            </button>
+                            {sc3Result !== null && (
+                                <div className="space-y-1 text-[11px] text-slate-300">
+                                    <p>{t('sc3.current')}: {(sc3Result.shortCircuitCurrentA / 1000).toFixed(2)}</p>
+                                    <p>{t('sc3.peak')}: {(sc3Result.peakCurrentA / 1000).toFixed(2)}</p>
+                                    <p className={sc3Result.breakingCapacityOk ? 'text-emerald-300' : 'text-rose-300'}>
+                                        {t('sc3.icn')}: {t(sc3Result.breakingCapacityOk ? 'sc3.ok' : 'sc3.bad')}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             )}

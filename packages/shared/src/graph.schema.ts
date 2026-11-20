@@ -1388,3 +1388,218 @@ export const ExportToErpResponseSchema = z.object({
 });
 /** Ответ выгрузки. */
 export type ExportToErpResponse = z.infer<typeof ExportToErpResponseSchema>;
+
+/** Роль участника проекта. */
+export const ProjectRoleSchema = z.enum(['owner', 'engineer', 'client']);
+/** Роль участника. */
+export type ProjectRole = z.infer<typeof ProjectRoleSchema>;
+
+/** Запрос регистрации пользователя. */
+export const RegisterDtoSchema = z.object({
+    /** Email пользователя. */
+    email: z.email(),
+    /** Пароль (не менее 8 символов). */
+    password: z.string().min(8).max(128),
+    /** Отображаемое имя. */
+    displayName: z.string().min(1).max(200),
+});
+/** DTO регистрации. */
+export type RegisterDto = z.infer<typeof RegisterDtoSchema>;
+
+/** Запрос входа. */
+export const LoginDtoSchema = z.object({
+    /** Email пользователя. */
+    email: z.email(),
+    /** Пароль. */
+    password: z.string().min(1),
+});
+/** DTO входа. */
+export type LoginDto = z.infer<typeof LoginDtoSchema>;
+
+/** Ответ авторизации. */
+export const AuthResponseSchema = z.object({
+    /** Access-токен JWT. */
+    accessToken: z.string().min(1),
+    /** Refresh-токен JWT. */
+    refreshToken: z.string().min(1),
+    /** Данные пользователя. */
+    user: z.object({
+        id: UuidSchema,
+        email: z.email(),
+        displayName: z.string(),
+        /** Глобальная роль пользователя или роль в проекте. */
+        role: z.union([ProjectRoleSchema, z.enum(['user', 'admin'])]),
+    }),
+});
+/** Ответ авторизации. */
+export type AuthResponse = z.infer<typeof AuthResponseSchema>;
+
+/** Участник проекта. */
+export const ProjectMemberDtoSchema = z.object({
+    /** Идентификатор записи. */
+    id: UuidSchema,
+    /** Идентификатор проекта. */
+    projectId: UuidSchema,
+    /** Идентификатор пользователя. */
+    userId: UuidSchema,
+    /** Email пользователя. */
+    email: z.email(),
+    /** Роль в проекте. */
+    role: ProjectRoleSchema,
+});
+/** DTO участника проекта. */
+export type ProjectMemberDto = z.infer<typeof ProjectMemberDtoSchema>;
+
+/** Запрос добавления участника по email. */
+export const AddProjectMemberDtoSchema = z.object({
+    /** Email пользователя. */
+    email: z.email(),
+    /** Роль (`engineer` или `client`). */
+    role: z.enum(['engineer', 'client']),
+});
+/** DTO добавления участника. */
+export type AddProjectMemberDto = z.infer<typeof AddProjectMemberDtoSchema>;
+
+/** Комментарий/замечание к проекту. */
+export const ProjectCommentDtoSchema = z.object({
+    /** Идентификатор комментария. */
+    id: UuidSchema,
+    /** Идентификатор проекта. */
+    projectId: UuidSchema,
+    /** Идентификатор автора. */
+    authorId: UuidSchema,
+    /** Email автора. */
+    authorEmail: z.email(),
+    /** Текст замечания. */
+    text: z.string().min(1),
+    /** Согласовано/закрыто. */
+    resolved: z.boolean(),
+    /** Время создания, ISO 8601. */
+    createdAt: z.iso.datetime(),
+});
+/** DTO комментария. */
+export type ProjectCommentDto = z.infer<typeof ProjectCommentDtoSchema>;
+
+/** Запрос создания комментария. */
+export const CreateCommentDtoSchema = z.object({
+    /** Текст замечания. */
+    text: z.string().min(1).max(4000),
+});
+/** DTO создания комментария. */
+export type CreateCommentDto = z.infer<typeof CreateCommentDtoSchema>;
+
+/** Запрос трёхфазного КЗ. */
+export const ThreePhaseShortCircuitRequestSchema = z.object({
+    /** Линейное напряжение, V. */
+    voltageV: z.union([z.literal(220), z.literal(230), z.literal(400)]),
+    /** Активное сопротивление петли КЗ, Ohm. */
+    resistanceOhm: z.number().nonnegative(),
+    /** Реактивное сопротивление петли КЗ, Ohm. */
+    reactanceOhm: z.number().nonnegative(),
+    /** Постоянная времени цепи, s. */
+    timeConstantS: z.number().positive().optional(),
+    /** Отключающая способность вводного автомата, kA. */
+    breakingCapacityKa: z.number().positive(),
+});
+/** Запрос трёхфазного КЗ. */
+export type ThreePhaseShortCircuitRequest = z.infer<typeof ThreePhaseShortCircuitRequestSchema>;
+
+/** Ответ трёхфазного КЗ. */
+export const ThreePhaseShortCircuitResponseSchema = z.object({
+    /** Симметричный ток КЗ, A. */
+    shortCircuitCurrentA: z.number().positive(),
+    /** Ударный ток, A. */
+    peakShortCircuitA: z.number().positive(),
+    /** Коэффициент ударного тока. */
+    impactFactor: z.number().positive(),
+    /** Полное сопротивление петли, Ohm. */
+    loopImpedanceOhm: z.number().positive(),
+    /** Отключающая способность достаточна. */
+    breakingCapacityOk: z.boolean(),
+    /** Предупреждения. */
+    warnings: z.array(z.string().min(1)),
+    /** Ссылки на пункты нормативов. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ трёхфазного КЗ. */
+export type ThreePhaseShortCircuitResponse = z.infer<typeof ThreePhaseShortCircuitResponseSchema>;
+
+/** Тип грунта для расчёта заземления. */
+export const SoilTypeSchema = z.enum([
+    'clay',
+    'loam',
+    'chernozem',
+    'sand',
+    'gravel',
+    'rock',
+]);
+/** Тип грунта. */
+export type SoilType = z.infer<typeof SoilTypeSchema>;
+
+/** Запрос расчёта заземления и молниезащиты. */
+export const GroundingLightningRequestSchema = z.object({
+    /** Тип грунта. */
+    soilType: SoilTypeSchema.optional(),
+    /** Удельное сопротивление грунта, Ohm·m; если задано — приоритетнее типа. */
+    soilResistivityOhmM: z.number().positive().optional(),
+    /** Влажность грунта. */
+    soilMoisture: z.enum(['wet', 'dry']).optional(),
+    /** Глубина заложения, m. */
+    burialDepthM: z.number().positive(),
+    /** Число вертикальных электродов. */
+    verticalElectrodesCount: z.number().int().positive(),
+    /** Длина одного вертикального электрода, m. */
+    verticalElectrodeLengthM: z.number().positive(),
+    /** Диаметр вертикального электрода, m. */
+    verticalElectrodeDiameterM: z.number().positive(),
+    /** Длина горизонтальной полосы, m. */
+    horizontalStripLengthM: z.number().nonnegative(),
+    /** Ширина полосы, m. */
+    horizontalStripWidthM: z.number().positive().optional(),
+    /** Требуемое сопротивление, Ohm. */
+    requiredResistanceOhm: z.number().positive().optional(),
+    /** Высота здания, m. */
+    buildingHeightM: z.number().positive(),
+    /** Высота молниеотвода, m. */
+    lightningRodHeightM: z.number().nonnegative(),
+    /** Расчётная высота точки для зоны защиты, m. */
+    protectionHeightM: z.number().nonnegative(),
+});
+/** Запрос заземления/молниезащиты. */
+export type GroundingLightningRequest = z.infer<typeof GroundingLightningRequestSchema>;
+
+/** Ответ расчёта заземления и молниезащиты. */
+export const GroundingLightningResponseSchema = z.object({
+    /** Расчётное удельное сопротивление грунта, Ohm·m. */
+    designResistivityOhmM: z.number().positive(),
+    /** Сезонный коэффициент. */
+    seasonalFactor: z.number().positive(),
+    /** Сопротивление одного вертикального электрода, Ohm. */
+    verticalElectrodeResistanceOhm: z.number().positive(),
+    /** Сопротивление горизонтальной полосы, Ohm. */
+    horizontalStripResistanceOhm: z.number().nonnegative(),
+    /** Коэффициент использования группы. */
+    utilizationFactor: z.number().positive().max(1),
+    /** Итоговое сопротивление ЗУ, Ohm. */
+    groundingResistanceOhm: z.number().positive(),
+    /** Требуемое сопротивление, Ohm. */
+    requiredResistanceOhm: z.number().positive(),
+    /** Соответствие ПУЭ-7. */
+    groundingCompliant: z.boolean(),
+    /** Радиус зоны защиты на расчётной высоте, m. */
+    protectionRadiusM: z.number().nonnegative(),
+    /** Категория зоны (А/Б). */
+    protectionZoneType: z.enum(['A', 'B']),
+    /** Соответствие молниезащиты. */
+    lightningCompliant: z.boolean(),
+    /** Предупреждения. */
+    warnings: z.array(z.string().min(1)),
+    /** Ссылки на пункты нормативов. */
+    references: z.array(z.string().min(1)),
+    /** Версия справочника. */
+    rulesVersion: z.string().min(1),
+});
+/** Ответ заземления/молниезащиты. */
+export type GroundingLightningResponse = z.infer<typeof GroundingLightningResponseSchema>;

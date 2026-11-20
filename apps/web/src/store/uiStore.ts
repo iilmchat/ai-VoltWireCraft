@@ -10,7 +10,7 @@ import { useEditorStore } from './editorStore.js';
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** Идентификатор рабочего представления. */
-export type WorkspaceView = 'plan' | 'panel' | 'panel3d' | 'singleLine' | 'bom';
+export type WorkspaceView = 'plan' | 'panel' | 'panel3d' | 'singleLine' | 'bom' | 'grounding';
 
 /** Действие ИИ-агента. */
 export type AiAction = 'assemble' | 'audit' | 'chat';

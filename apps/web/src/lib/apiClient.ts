@@ -23,6 +23,10 @@ import { ShortCircuitResponseSchema } from './cadContracts.js';
 import type { ShortCircuitResponse } from './cadContracts.js';
 import { LightingResponseSchema } from './lighting.js';
 import type { LightingRequest, LightingResponse } from './lighting.js';
+import { ThreePhaseScResponseSchema } from './threePhaseSc.js';
+import type { ThreePhaseScInput, ThreePhaseScResponse } from './threePhaseSc.js';
+import { GroundingResponseSchema } from './grounding.js';
+import type { GroundingInput, GroundingResult } from './grounding.js';
 import {
     CreateProjectDtoSchema,
     FloorPlanUploadDtoSchema,
@@ -379,6 +383,44 @@ export function createApiClient(options: ApiClientOptions = {}) {
                 'POST',
                 request,
                 LightingResponseSchema,
+            );
+        },
+
+        /**
+         * Расчёт трёхфазного КЗ и ударного тока.
+         * @param id — идентификатор проекта.
+         * @param request — параметры расчёта.
+         * @returns ответ расчётного ядра.
+         */
+        async calculateThreePhaseScAsync(
+            id: Uuid,
+            request: ThreePhaseScInput,
+        ): Promise<ThreePhaseScResponse> {
+            const projectId = UuidSchema.parse(id);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/calc/three-phase-sc`,
+                'POST',
+                request,
+                ThreePhaseScResponseSchema,
+            );
+        },
+
+        /**
+         * Расчёт заземления и молниезащиты.
+         * @param id — идентификатор проекта.
+         * @param request — параметры контура.
+         * @returns ответ расчётного ядра.
+         */
+        async calculateGroundingAsync(
+            id: Uuid,
+            request: GroundingInput,
+        ): Promise<GroundingResult> {
+            const projectId = UuidSchema.parse(id);
+            return sendJsonAsync(
+                `/projects/${encodeURIComponent(projectId)}/calc/grounding-lightning`,
+                'POST',
+                request,
+                GroundingResponseSchema,
             );
         },
     };

@@ -1,8 +1,9 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.8.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.0
 /** Корневой компонент: оболочка редактора с вкладками проекций графа. */
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AiAssistantDrawer } from './components/AiAssistantDrawer.js';
+import { CommentsDrawer } from './components/CommentsDrawer.js';
 import { FloorPlanEditor } from './components/FloorPlanEditor.js';
 import { Header } from './components/Header.js';
 import { InspectorPanel } from './components/InspectorPanel.js';
@@ -14,12 +15,13 @@ import { isDesktop } from './lib/tauriAdapter.js';
 import type { DemoProjectId } from './lib/demoProjects.js';
 import { I18nProvider, dictionaries, useI18n } from './i18n/index.js';
 import type { Locale, TranslationKey } from './i18n/index.js';
+import { useAuthStore } from './store/authStore.js';
 import { useEditorStore } from './store/editorStore.js';
 import { useUiStore } from './store/uiStore.js';
 import type { WorkspaceView } from './store/uiStore.js';
 
 /** Перечень вкладок рабочей области. */
-const VIEWS: readonly WorkspaceView[] = ['plan', 'panel', 'panel3d', 'singleLine', 'bom'];
+const VIEWS: readonly WorkspaceView[] = ['plan', 'panel', 'panel3d', 'singleLine', 'bom', 'grounding'];
 
 /**
  * Отложенная загрузка 3D-проекции: Three.js не попадает в основной чанк (DESIGN_V050 § 2.3).
@@ -45,6 +47,13 @@ const GostDocsPanel = lazy(() =>
 /** Лендинг загружается только в веб-режиме на корневом пути. */
 const LandingPage = lazy(() =>
     import('./components/LandingPage.js').then((module) => ({ default: module.LandingPage })),
+);
+/** Кабинет и инструмент заземления загружаются по требованию. */
+const ProjectsDashboard = lazy(() =>
+    import('./components/ProjectsDashboard.js').then((module) => ({ default: module.ProjectsDashboard })),
+);
+const GroundingCalculatorPanel = lazy(() =>
+    import('./components/GroundingCalculatorPanel.js').then((module) => ({ default: module.GroundingCalculatorPanel })),
 );
 
 /**
@@ -94,6 +103,21 @@ export function App() {
         navigate('/editor');
     };
 
+    // Личный кабинет доступен только в веб-режиме (десктоп работает офлайн).
+    if (!desktop && path === '/dashboard') {
+        return (
+            <I18nProvider locale={locale} setLocale={setLocale}>
+                <Suspense fallback={<div className="p-8 text-sm text-slate-400">{dictionaries[locale]['view.loading']}</div>}>
+                    <ProjectsDashboard
+                        open
+                        onClose={() => navigate('/editor')}
+                        onOpenProject={() => navigate('/editor')}
+                    />
+                </Suspense>
+            </I18nProvider>
+        );
+    }
+
     // В Tauri всегда открывается редактор без публичного лендинга (DESIGN_V080 § 2.3).
     if (!desktop && path !== '/editor') {
         return (
@@ -137,6 +161,8 @@ function AppShell() {
     const setGostPanelOpen = useUiStore((state) => state.setGostPanelOpen);
     const setActivePanelId = useUiStore((state) => state.setActivePanelId);
     const graphId = useEditorStore((state) => state.graph.id);
+    const userRole = useAuthStore((state) => state.user?.role ?? null);
+    const readOnly = userRole === 'client';
 
     // При загрузке другого проекта сбрасываем контекст активного щита сессии.
     useEffect(() => {
@@ -187,8 +213,15 @@ function AppShell() {
                 ))}
             </nav>
             <PanelSelector activeView={activeView} />
+            {readOnly && (
+                <p role="status" className="border-b border-amber-700 bg-amber-950/60 px-4 py-1 text-xs text-amber-300">
+                    {t('comments.readOnly')}
+                </p>
+            )}
             <div className="flex min-h-0 flex-1">
-                <Palette />
+                <fieldset disabled={readOnly} className="contents">
+                    <Palette />
+                </fieldset>
                 <main className="min-w-0 flex-1 overflow-auto">
                     {activeView === 'plan' && <FloorPlanEditor />}
                     {activeView === 'panel' && <PanelLayoutEditor />}
@@ -207,8 +240,16 @@ function AppShell() {
                             <BillOfMaterialsTable />
                         </Suspense>
                     )}
+                    {activeView === 'grounding' && (
+                        <Suspense fallback={<div className="p-8 text-sm text-slate-400">{t('view.loading')}</div>}>
+                            <GroundingCalculatorPanel />
+                        </Suspense>
+                    )}
                 </main>
-                <InspectorPanel />
+                <fieldset disabled={readOnly} className="contents">
+                    <InspectorPanel />
+                </fieldset>
+                <CommentsDrawer />
                 <AiAssistantDrawer />
             </div>
             {gostPanelOpen && (

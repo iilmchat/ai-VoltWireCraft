@@ -18,6 +18,10 @@ import { isDesktop } from '../lib/tauriAdapter.js';
 import { APP_VERSION, checkForAppUpdateAsync } from '../lib/updater.js';
 import type { AvailableUpdate } from '../lib/updater.js';
 import { UpdateBanner } from './UpdateBanner.js';
+import { AuthModal } from './AuthModal.js';
+import { ProjectsDashboard } from './ProjectsDashboard.js';
+import { useAuthStore } from '../store/authStore.js';
+import { useCommentsStore } from '../store/commentsStore.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { useUiStore } from '../store/uiStore.js';
@@ -40,6 +44,9 @@ export function Header() {
     const activeDemo = getDemoByGraphId(graph.id);
     const themeMode = useUiStore((state) => state.themeMode);
     const setThemeMode = useUiStore((state) => state.setThemeMode);
+    const authUser = useAuthStore((state) => state.user);
+    const [authOpen, setAuthOpen] = useState(false);
+    const [dashboardOpen, setDashboardOpen] = useState(false);
     const desktop = isDesktop();
 
     /** Циклическое переключение темы: светлая → тёмная → системная. */
@@ -302,6 +309,24 @@ export function Header() {
             >
                 {themeMode === 'light' ? '☀' : themeMode === 'dark' ? '☾' : '◐'}
             </button>
+            {!desktop && (
+                <button
+                    type="button"
+                    onClick={() => (authUser === null ? setAuthOpen(true) : setDashboardOpen(true))}
+                    className="rounded border border-emerald-600 px-2 py-1.5 text-xs text-emerald-300 hover:bg-emerald-950"
+                >
+                    {authUser === null
+                        ? t('auth.signIn')
+                        : `${authUser.name} · ${t(`auth.role.${authUser.role}` as TranslationKey)}`}
+                </button>
+            )}
+            <button
+                type="button"
+                onClick={() => useCommentsStore.getState().setDrawerOpen(true)}
+                className="rounded border border-amber-600 px-2 py-1.5 text-xs text-amber-300 hover:bg-amber-950"
+            >
+                {t('comments.open')}
+            </button>
             <button
                 type="button"
                 aria-expanded={demoMenuOpen}
@@ -474,6 +499,8 @@ export function Header() {
             </button>
 
             <UpdateBanner update={update} onDismiss={() => setUpdate(null)} />
+            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+            <ProjectsDashboard open={dashboardOpen} onClose={() => setDashboardOpen(false)} />
 
             {demoMenuOpen && (
                 <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4">
