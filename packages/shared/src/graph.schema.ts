@@ -296,6 +296,22 @@ export const ProjectGraphSchemaV1 = z
 /** Граф проекта версии 1. */
 export type ProjectGraphV1 = z.infer<typeof ProjectGraphSchemaV1>;
 
+/** Данные основной надписи (штампа) по ГОСТ Р 21.101. */
+export const StampMetaSchema = z.object({
+    /** Код проекта. */
+    projectCode: z.string().min(1).optional(),
+    /** Фамилия разработчика. */
+    designerName: z.string().min(1).optional(),
+    /** Фамилия проверяющего. */
+    reviewerName: z.string().min(1).optional(),
+    /** Наименование организации. */
+    organizationName: z.string().min(1).optional(),
+    /** Стадия проектирования. */
+    stage: z.string().min(1).optional(),
+});
+/** Данные штампа ГОСТ. */
+export type StampMeta = z.infer<typeof StampMetaSchema>;
+
 /**
  * Канонический граф проекта версии 2: координаты трасс — в метрах СИ.
  * Единый источник истины для БД, API, клиента и `.vwc` (RULES § 5.2, KI-003).
@@ -318,6 +334,8 @@ export const ProjectGraphSchema = z
         nodes: z.array(GraphNodeSchema),
         /** Кабельные линии. */
         edges: z.array(GraphEdgeSchema),
+        /** Штамп ГОСТ; не влияет на расчёты. */
+        stampMeta: StampMetaSchema.optional(),
     })
     .check((context) => {
         validateGraphReferences(context.value, (path, message) => {
@@ -1001,3 +1019,54 @@ export const ShortCircuitResponseSchema = z.object({
 });
 /** Ответ расчёта КЗ. */
 export type ShortCircuitResponse = z.infer<typeof ShortCircuitResponseSchema>;
+
+/** Сообщение истории переписки с копилотом. */
+export const CopilotChatMessageSchema = z.object({
+    /** Роль отправителя. */
+    role: z.enum(['user', 'assistant']),
+    /** Текст сообщения. */
+    content: z.string().min(1),
+});
+/** Сообщение чата. */
+export type CopilotChatMessage = z.infer<typeof CopilotChatMessageSchema>;
+
+/** Запрос к ИИ-копилоту проекта. */
+export const CopilotChatRequestSchema = z.object({
+    /** Сообщение пользователя на естественном языке. */
+    message: z.string().min(1).max(4000),
+    /** Предыдущие сообщения. */
+    history: z.array(CopilotChatMessageSchema).max(50).optional(),
+    /** Предпочтительный бренд оборудования. */
+    preferredBrand: z.enum(['IEK', 'EKF', 'КЭАЗ']).optional(),
+});
+/** Запрос чата. */
+export type CopilotChatRequest = z.infer<typeof CopilotChatRequestSchema>;
+
+/** Вызов инструмента, зафиксированный в ответе копилота. */
+export const CopilotToolCallSchema = z.object({
+    /** Имя инструмента. */
+    tool: z.string().min(1),
+    /** Краткое описание результата. */
+    summary: z.string().min(1),
+});
+/** Вызов инструмента копилотом. */
+export type CopilotToolCall = z.infer<typeof CopilotToolCallSchema>;
+
+/**
+ * Ответ ИИ-копилота: предложение патча графа без записи в БД.
+ * Применение выполняется отдельным запросом `PUT /projects/:id/graph`.
+ */
+export const CopilotChatResponseSchema = z.object({
+    /** Пояснение на русском языке. */
+    reply: z.string().min(1),
+    /** Предлагаемый граф; отсутствует, если изменений нет. */
+    proposedGraph: ProjectGraphSchema.optional(),
+    /** Человекочитаемые изменения. */
+    diffSummary: z.array(z.string().min(1)),
+    /** Инструменты, вызванные для получения чисел. */
+    toolCalls: z.array(CopilotToolCallSchema),
+    /** Ссылки на пункты нормативов. */
+    citations: z.array(z.string().min(1)).optional(),
+});
+/** Ответ чата. */
+export type CopilotChatResponse = z.infer<typeof CopilotChatResponseSchema>;
