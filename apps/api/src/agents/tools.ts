@@ -6,18 +6,21 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import {
   AutoPanelRequestSchema,
+  GroundingLightningRequestSchema,
   LightingCalcRequestSchema,
   LineSizingRequestSchema,
   ProjectGraphSchema,
   SelectivityTccRequestSchema,
   ShortCircuitRequestSchema,
   StockCheckItemSchema,
+  ThreePhaseShortCircuitRequestSchema,
   UuidSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
   AutoPanelRequest,
   AutoPanelResponse,
   GraphNode,
+  GroundingLightningRequest,
   LightingCalcRequest,
   LightingCalcResponse,
   LineSizingRequest,
@@ -26,10 +29,13 @@ import type {
   ProjectGraph,
   SelectivityTccRequest,
   SelectivityTccResponse,
+  ThreePhaseShortCircuitRequest,
   ShortCircuitRequest,
   ShortCircuitResponse,
   StockCheckResponse,
   ExportToErpResponse,
+  GroundingLightningResponse,
+  ThreePhaseShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
 import { IntegrationService } from '../integrations/integration.service.js';
@@ -175,6 +181,10 @@ export class ToolRegistry {
   public readonly moyskladCreateOrderTool: AgentTool<CreateOrderInput, ExportToErpResponse>;
   /** Отправка сметы в Битрикс24 (HITL). */
   public readonly bitrix24SendEstimateTool: AgentTool<SendEstimateInput, ExportToErpResponse>;
+  /** Проверка трёхфазного КЗ и ударного тока. */
+  public readonly checkThreePhaseScTool: AgentTool<ThreePhaseShortCircuitRequest, ThreePhaseShortCircuitResponse>;
+  /** Проверка заземления и молниезащиты. */
+  public readonly checkGroundingTool: AgentTool<GroundingLightningRequest, GroundingLightningResponse>;
 
   /**
    * @param calcClient — клиент расчётного ядра.
@@ -272,6 +282,18 @@ export class ToolRegistry {
           dealId: input.dealId,
           confirmationToken: input.confirmationToken,
         }),
+    };
+    this.checkThreePhaseScTool = {
+      name: 'check_three_phase_sc_tool',
+      description: 'Рассчитывает Iкз^(3), ударный ток и проверяет отключающую способность в ядре.',
+      inputSchema: ThreePhaseShortCircuitRequestSchema,
+      invokeAsync: (input) => this.calcClient.checkThreePhaseShortCircuitAsync(input),
+    };
+    this.checkGroundingTool = {
+      name: 'check_grounding_tool',
+      description: 'Рассчитывает сопротивление ЗУ и зону стержневой молниезащиты в ядре.',
+      inputSchema: GroundingLightningRequestSchema,
+      invokeAsync: (input) => this.calcClient.calculateGroundingAsync(input),
     };
   }
 

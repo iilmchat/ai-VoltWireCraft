@@ -236,6 +236,58 @@ export class PueAuditorAgent {
       }
     }
 
+    // v0.9: 3-фазное КЗ и заземление/молниезащита — только инструменты ядра.
+    if (breakerNodes.length > 0) {
+      const breaker = breakerNodes[0]!;
+      const threePhase = await this.tools.checkThreePhaseScTool.invokeAsync(
+        this.tools.checkThreePhaseScTool.inputSchema.parse({
+          voltageV: 400,
+          resistanceOhm: 0.03,
+          reactanceOhm: 0.07,
+          breakingCapacityKa: 10,
+        }),
+      );
+      toolCalls.push(this.tools.checkThreePhaseScTool.name);
+      findings.push({
+        id: 'F-THREE-PHASE-SC',
+        severity: threePhase.breakingCapacityOk ? 'info' : 'error',
+        ruleId: 'PUE-SC-BREAKING-CAPACITY',
+        section: '1.7. Трёхфазное КЗ',
+        message: `Iкз^(3) = ${threePhase.shortCircuitCurrentA} А, ударный ток ${threePhase.peakShortCircuitA} А, I_cn достаточно: ${threePhase.breakingCapacityOk}.`,
+        nodeIds: breakerNodes.map((node) => node.id),
+        recommendation:
+          threePhase.warnings[0] ?? 'Проверьте отключающую способность вводного автомата.',
+      });
+
+      const grounding = await this.tools.checkGroundingTool.invokeAsync(
+        this.tools.checkGroundingTool.inputSchema.parse({
+          soilType: 'loam',
+          burialDepthM: 1,
+          verticalElectrodesCount: 3,
+          verticalElectrodeLengthM: 3,
+          verticalElectrodeDiameterM: 0.016,
+          horizontalStripLengthM: 10,
+          buildingHeightM: 9,
+          lightningRodHeightM: 4,
+          protectionHeightM: 0,
+        }),
+      );
+      toolCalls.push(this.tools.checkGroundingTool.name);
+      findings.push({
+        id: 'F-GROUNDING',
+        severity: grounding.groundingCompliant && grounding.lightningCompliant ? 'info' : 'warning',
+        ruleId: 'PUE-GR-4',
+        section: '1.7. Заземление и молниезащита',
+        message: `R_ЗУ = ${grounding.groundingResistanceOhm} Ом (норма ${grounding.requiredResistanceOhm} Ом), радиус зоны ${grounding.protectionRadiusM} м.`,
+        nodeIds: [breaker.id],
+        recommendation:
+          grounding.warnings[0] ?? 'Контур заземления и молниезащита соответствуют нормативам.',
+      });
+      for (const reference of [...threePhase.references, ...grounding.references]) {
+        citations.push({ ruleId: reference, excerpt: `Пункт справочника: ${reference}`, document: 'ПУЭ-7' });
+      }
+    }
+
     const summary = {
       errors: findings.filter((finding) => finding.severity === 'error').length,
       warnings: findings.filter((finding) => finding.severity === 'warning').length,

@@ -59,7 +59,7 @@ export class ProjectsService {
    * @returns созданный проект с графом.
    * @throws {Error} если вставка в БД завершилась неудачей.
    */
-  public async createAsync(dto: CreateProjectDto): Promise<ProjectDto> {
+  public async createAsync(dto: CreateProjectDto, ownerId?: string): Promise<ProjectDto> {
     const id = randomUUID();
     const graph = createEmptyProjectGraph(dto.title, id);
     const [row] = await this.db
@@ -70,6 +70,7 @@ export class ProjectsService {
         objectType: dto.objectType,
         networkSystem: dto.networkSystem,
         graphJson: graph,
+        ...(ownerId !== undefined ? { ownerId } : {}),
       })
       .returning();
 

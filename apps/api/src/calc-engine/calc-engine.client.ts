@@ -10,6 +10,8 @@ import {
   CalculateCableLengthRequestSchema,
   CalculateCableLengthResponseSchema,
   CadParseResponseSchema,
+  GroundingLightningRequestSchema,
+  GroundingLightningResponseSchema,
   LineSizingRequestSchema,
   LineSizingResponseSchema,
   LightingCalcRequestSchema,
@@ -18,6 +20,8 @@ import {
   SelectivityTccResponseSchema,
   ShortCircuitRequestSchema,
   ShortCircuitResponseSchema,
+  ThreePhaseShortCircuitRequestSchema,
+  ThreePhaseShortCircuitResponseSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
   AutoPanelRequest,
@@ -25,6 +29,8 @@ import type {
   CalculateCableLengthRequest,
   CalculateCableLengthResponse,
   CadParseResponse,
+  GroundingLightningRequest,
+  GroundingLightningResponse,
   LineSizingRequest,
   LineSizingResponse,
   LightingCalcRequest,
@@ -33,6 +39,8 @@ import type {
   SelectivityTccResponse,
   ShortCircuitRequest,
   ShortCircuitResponse,
+  ThreePhaseShortCircuitRequest,
+  ThreePhaseShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type { Env } from '../config/env.schema.js';
 
@@ -50,6 +58,10 @@ const SHORT_CIRCUIT_PATH = '/v1/calc/short-circuit';
 const CAD_PARSE_PATH = '/v1/cad/parse-dxf';
 /** Путь расчёта освещённости. */
 const LIGHTING_PATH = '/v1/calc/lighting';
+/** Путь расчёта трёхфазного КЗ. */
+const THREE_PHASE_SC_PATH = '/v1/calc/three-phase-sc';
+/** Путь расчёта заземления и молниезащиты. */
+const GROUNDING_PATH = '/v1/calc/grounding-lightning';
 /** Путь расчёта селективности по время-токовым характеристикам. */
 const SELECTIVITY_TCC_PATH = '/v1/calc/selectivity-tcc';
 
@@ -170,6 +182,38 @@ export class CalcEngineClient {
       path: LIGHTING_PATH,
       payload: LightingCalcRequestSchema.parse(request),
       responseSchema: LightingCalcResponseSchema,
+    });
+  }
+
+  /**
+   * Рассчитывает трёхфазное КЗ и ударный ток в ядре.
+   *
+   * @param request — напряжение, сопротивления и I_cn.
+   * @returns провалидированный ответ ядра.
+   */
+  public async checkThreePhaseShortCircuitAsync(
+    request: ThreePhaseShortCircuitRequest,
+  ): Promise<ThreePhaseShortCircuitResponse> {
+    return this.postAsync({
+      path: THREE_PHASE_SC_PATH,
+      payload: ThreePhaseShortCircuitRequestSchema.parse(request),
+      responseSchema: ThreePhaseShortCircuitResponseSchema,
+    });
+  }
+
+  /**
+   * Рассчитывает заземление и молниезащиту в ядре.
+   *
+   * @param request — параметры грунта, контура и молниеотвода.
+   * @returns провалидированный ответ ядра.
+   */
+  public async calculateGroundingAsync(
+    request: GroundingLightningRequest,
+  ): Promise<GroundingLightningResponse> {
+    return this.postAsync({
+      path: GROUNDING_PATH,
+      payload: GroundingLightningRequestSchema.parse(request),
+      responseSchema: GroundingLightningResponseSchema,
     });
   }
 

@@ -167,6 +167,32 @@ describe('CalcEngineClient v0.3', () => {
 describe('PueAuditorAgent: проверка КЗ через инструмент', () => {
     it('вызывает check_short_circuit_tool и добавляет находку', async () => {
         const calc = {
+checkThreePhaseShortCircuitAsync: vi.fn(async () => ({
+            shortCircuitCurrentA: 2065,
+            peakShortCircuitA: 3995,
+            impactFactor: 1.368,
+            loopImpedanceOhm: 0.112,
+            breakingCapacityOk: true,
+            warnings: [],
+            references: ['PUE-SC-BREAKING-CAPACITY'],
+            rulesVersion: '0.1',
+        })),
+        calculateGroundingAsync: vi.fn(async () => ({
+            designResistivityOhmM: 130,
+            seasonalFactor: 1.3,
+            verticalElectrodeResistanceOhm: 45.7,
+            horizontalStripResistanceOhm: 12.1,
+            utilizationFactor: 0.75,
+            groundingResistanceOhm: 20.3,
+            requiredResistanceOhm: 4,
+            groundingCompliant: false,
+            protectionRadiusM: 22.5,
+            protectionZoneType: 'A' as const,
+            lightningCompliant: true,
+            warnings: ['Проверьте контур заземления'],
+            references: ['PUE-GR-4'],
+            rulesVersion: '0.1',
+        })),
             checkShortCircuitAsync: vi.fn(async () => shortCircuitResponse),
             checkSelectivityTccAsync: vi.fn(async () => ({
                 status: 'full' as const,

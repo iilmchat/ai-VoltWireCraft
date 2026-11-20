@@ -109,6 +109,32 @@ function makeGraph(): ProjectGraph {
 
 describe('ИИ-агенты', () => {
     const calc = {
+checkThreePhaseShortCircuitAsync: vi.fn(async () => ({
+            shortCircuitCurrentA: 2065,
+            peakShortCircuitA: 3995,
+            impactFactor: 1.368,
+            loopImpedanceOhm: 0.112,
+            breakingCapacityOk: true,
+            warnings: [],
+            references: ['PUE-SC-BREAKING-CAPACITY'],
+            rulesVersion: '0.1',
+        })),
+        calculateGroundingAsync: vi.fn(async () => ({
+            designResistivityOhmM: 130,
+            seasonalFactor: 1.3,
+            verticalElectrodeResistanceOhm: 45.7,
+            horizontalStripResistanceOhm: 12.1,
+            utilizationFactor: 0.75,
+            groundingResistanceOhm: 20.3,
+            requiredResistanceOhm: 4,
+            groundingCompliant: false,
+            protectionRadiusM: 22.5,
+            protectionZoneType: 'A' as const,
+            lightningCompliant: true,
+            warnings: ['Проверьте контур заземления'],
+            references: ['PUE-GR-4'],
+            rulesVersion: '0.1',
+        })),
         calculateCableLengthAsync: vi.fn(),
         calculateLineSizingAsync: vi.fn(async () => lineResponse),
         autoAssemblePanelAsync: vi.fn(async () => panelResponse),
@@ -259,6 +285,8 @@ describe('ИИ-агенты', () => {
         expect(report.findings.some((item) => item.ruleId.startsWith('PUE-BREAKER-S'))).toBe(true);
         expect(report.findings.some((item) => item.ruleId === 'PUE-RCD-WET-30')).toBe(true);
         expect(report.findings.some((item) => item.ruleId === 'PUE-SELECT-TCC')).toBe(true);
+        expect(report.findings.some((item) => item.id === 'F-THREE-PHASE-SC')).toBe(true);
+        expect(report.findings.some((item) => item.id === 'F-GROUNDING')).toBe(true);
         expect(report.citations.some((item) => item.ruleId === 'PUE-1.3.4-T1-S2.5')).toBe(true);
         expect(report.rulesVersion).toBe('0.1');
         expect(report.explanation).toBe('Пояснение агентов');
