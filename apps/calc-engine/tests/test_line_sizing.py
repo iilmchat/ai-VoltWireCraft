@@ -126,7 +126,7 @@ class TestLineSizing:
 
         assert result.selected_cross_section_mm2 == 16
         assert result.voltage_drop_percent > 5
-        assert any("Потеря напряжения" in item for item in result.recommendations)
+        assert any("потеря напряжения" in item.lower() for item in result.recommendations)
 
     def test_determinism(self) -> None:
         """Одинаковые входы дают одинаковый результат."""

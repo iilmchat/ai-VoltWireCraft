@@ -138,7 +138,9 @@ def select_cross_section(
     selected = CROSS_SECTIONS[-1]
     last_drop = Decimal(0)
     for section in CROSS_SECTIONS:
-        last_drop = voltage_drop_percent(request, section, current)
+        last_drop = voltage_drop_percent(request, section, current) + _to_decimal(
+            request.upstream_voltage_drop_percent
+        )
         if (
             ampacity(section, request.installation_method) >= current
             and last_drop <= limit
@@ -209,9 +211,11 @@ def calculate_line_sizing(request: LineSizingRequest) -> LineSizingResponse:
                 "Ни одно стандартное сечение не обеспечивает допустимый ток и потерю напряжения ≤ 5 %; "
                 "принято наибольшее сечение — требуется пересмотр длины или мощности линии."
             )
-        if drop > _to_decimal(request.max_voltage_drop_percent):
+        total_drop = drop + _to_decimal(request.upstream_voltage_drop_percent)
+        if total_drop > _to_decimal(request.max_voltage_drop_percent):
             recommendations.append(
-                "Потеря напряжения превышает предел: уменьшите длину линии или увеличьте сечение жилы."
+                "Суммарная потеря напряжения (магистраль + линия) превышает предел 5 %: "
+                "уменьшите длину или увеличьте сечение."
             )
         if not breaker_ok:
             recommendations.append(
@@ -232,6 +236,7 @@ def calculate_line_sizing(request: LineSizingRequest) -> LineSizingResponse:
             permissible_current_a=float(permissible),
             voltage_drop_percent=_round(drop),
             voltage_drop_limit_percent=_round(_to_decimal(request.max_voltage_drop_percent)),
+            total_voltage_drop_percent=_round(total_drop),
             breaker_rating_a=breaker,
             rcd_current_ma=rcd_ma,
             rcd_required=rcd_required,

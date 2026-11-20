@@ -24,10 +24,13 @@ from .schemas import (
     HealthResponse,
     LineSizingRequest,
     LineSizingResponse,
+    SelectivityTccRequest,
+    SelectivityTccResponse,
     ShortCircuitRequest,
     ShortCircuitResponse,
 )
 from .short_circuit import calculate_short_circuit
+from .tcc_selectivity import calculate_tcc_selectivity
 
 app = FastAPI(
     title="VoltWireCraft Calc Engine",
@@ -75,6 +78,12 @@ def auto_assemble_panel_endpoint(request: AutoPanelRequest) -> AutoPanelResponse
 def calculate_short_circuit_endpoint(request: ShortCircuitRequest) -> ShortCircuitResponse:
     """Рассчитывает петлю «фаза-ноль», кратность срабатывания и селективность."""
     return calculate_short_circuit(request)
+
+
+@app.post("/v1/calc/selectivity-tcc", response_model=SelectivityTccResponse)
+def calculate_selectivity_tcc_endpoint(request: SelectivityTccRequest) -> SelectivityTccResponse:
+    """Рассчитывает ВТХ B/C/D, предел селективности и каскадное ΔU."""
+    return calculate_tcc_selectivity(request)
 
 
 @app.post("/v1/cad/parse-dxf", response_model=CadParseResponse)

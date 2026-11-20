@@ -73,7 +73,11 @@ def calculate_short_circuit(request: ShortCircuitRequest) -> ShortCircuitRespons
 
         conductor_r = rho * length / section
         loop_reactance = Decimal(2) * conductor_x
-        real_part = transformer_z + Decimal(2) * conductor_r
+        # Каскад ВРУ → магистраль → ЩР: сопротивление вышестоящей петли
+        # добавляется к сопротивлению трансформатора.
+        real_part = transformer_z + Decimal(2) * conductor_r + _to_decimal(
+            request.upstream_impedance_ohm
+        )
         loop_impedance = (real_part * real_part + loop_reactance * loop_reactance).sqrt()
         current = voltage / loop_impedance
 

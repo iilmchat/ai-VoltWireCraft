@@ -292,6 +292,8 @@ def auto_assemble_panel(request: AutoPanelRequest) -> AutoPanelResponse:
                 next_slot += 1
 
         warnings: list[str] = []
+        if request.target_panel_id is not None:
+            warnings.append(f"Сборка выполнена для щита {request.target_panel_id}")
         references: set[str] = {"PUE-RCD-FIRE-100"}
         if three_phase and imbalance > _MAX_IMBALANCE_PERCENT:
             warnings.append(

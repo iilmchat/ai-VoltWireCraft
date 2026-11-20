@@ -33,7 +33,9 @@ def test_golden_case(case_dir: Path) -> None:
     graph = envelope["graph"]
     assert graph["schemaVersion"] == 2
     assert len(graph["walls"]) == expected["dxf"]["walls"]
-    assert len(graph["edges"]) == expected["totals"]["groups"]
+    group_edges = [edge for edge in graph["edges"] if edge.get("edgeType") != "feeder_line"]
+    assert len(group_edges) == expected["totals"]["groups"]
+    assert len(graph["edges"]) - len(group_edges) == expected["totals"]["feederLines"]
     assert graph["stampMeta"]["projectCode"] == expected["case"]
 
     for record in expected["lines"].values():
@@ -49,6 +51,7 @@ def test_golden_case(case_dir: Path) -> None:
                     "installation_method": request["installation"],
                     "consumer_kind": request["consumerKind"],
                     "room_type": request["roomType"],
+                    "upstream_voltage_drop_percent": request.get("upstreamVoltageDropPercent", 0),
                 }
             )
         )
@@ -69,10 +72,26 @@ def test_golden_case(case_dir: Path) -> None:
         assert fault.model_dump(by_alias=True, mode="json") == record["shortCircuit"]
 
 
-def test_golden_dataset_has_six_cases() -> None:
-    """Датасет содержит ровно шесть эталонных комплектов."""
-    assert len(CASES) == 6
+def test_golden_dataset_has_seven_cases() -> None:
+    """Датасет содержит ровно семь эталонных комплектов."""
+    assert len(CASES) == 7
     for case_dir in CASES:
         assert (case_dir / "plan.dxf").is_file()
         assert (case_dir / "project.vwc").is_file()
         assert (case_dir / "expected_calc.json").is_file()
+
+
+def test_multipanel_case_has_cascade_and_tcc() -> None:
+    """Кейс 07 фиксирует каскадное ΔU и результат расчёта ВТХ."""
+    expected = json.loads(
+        (FIXTURES / "07_twostory_house_vru_shr" / "expected_calc.json").read_text(encoding="utf-8")
+    )
+    graph = json.loads(
+        (FIXTURES / "07_twostory_house_vru_shr" / "project.vwc").read_text(encoding="utf-8")
+    )["graph"]
+
+    assert any(edge.get("edgeType") == "feeder_line" for edge in graph["edges"])
+    assert any(node.get("panelRole") == "main_vru" for node in graph["nodes"])
+    assert any(node.get("panelRole") == "sub_shr" for node in graph["nodes"])
+    assert expected["cascade"]["totalVoltageDropPercent"] <= 5
+    assert expected["selectivityTcc"]["status"] in ("full", "partial", "none")
