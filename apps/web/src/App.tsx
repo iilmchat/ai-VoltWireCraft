@@ -3,15 +3,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AiAssistantDrawer } from './components/AiAssistantDrawer.js';
-import { BillOfMaterialsTable } from './components/BillOfMaterialsTable.js';
 import { FloorPlanEditor } from './components/FloorPlanEditor.js';
-import { GostDocsPanel } from './components/GostDocsPanel.js';
 import { Header } from './components/Header.js';
 import { InspectorPanel } from './components/InspectorPanel.js';
 import { PanelLayoutEditor } from './components/PanelLayoutEditor.js';
 import { PanelSelector } from './components/PanelSelector.js';
 import { Palette } from './components/Palette.js';
-import { SingleLineDiagramView } from './components/SingleLineDiagramView.js';
+
 import { I18nProvider, useI18n } from './i18n/index.js';
 import type { Locale, TranslationKey } from './i18n/index.js';
 import { useEditorStore } from './store/editorStore.js';
@@ -31,6 +29,17 @@ type LazyPanel3DModule = { default: ComponentType };
 const loadPanel3DViewAsync = (): Promise<LazyPanel3DModule> =>
     import('./components/Panel3DView.js').then((module) => ({ default: module.Panel3DView }));
 const Panel3DView = lazy(loadPanel3DViewAsync);
+
+/** Остальные тяжёлые проекции и форма РД загружаются по требованию. */
+const SingleLineDiagramView = lazy(() =>
+    import('./components/SingleLineDiagramView.js').then((module) => ({ default: module.SingleLineDiagramView })),
+);
+const BillOfMaterialsTable = lazy(() =>
+    import('./components/BillOfMaterialsTable.js').then((module) => ({ default: module.BillOfMaterialsTable })),
+);
+const GostDocsPanel = lazy(() =>
+    import('./components/GostDocsPanel.js').then((module) => ({ default: module.GostDocsPanel })),
+);
 
 /**
  * Скелетон на время загрузки чанка Three.js.
@@ -150,13 +159,25 @@ function AppShell() {
                             <Panel3DView />
                         </Suspense>
                     )}
-                    {activeView === 'singleLine' && <SingleLineDiagramView />}
-                    {activeView === 'bom' && <BillOfMaterialsTable />}
+                    {activeView === 'singleLine' && (
+                        <Suspense fallback={<div className="p-8 text-sm text-slate-400">{t('view.loading')}</div>}>
+                            <SingleLineDiagramView />
+                        </Suspense>
+                    )}
+                    {activeView === 'bom' && (
+                        <Suspense fallback={<div className="p-8 text-sm text-slate-400">{t('view.loading')}</div>}>
+                            <BillOfMaterialsTable />
+                        </Suspense>
+                    )}
                 </main>
                 <InspectorPanel />
                 <AiAssistantDrawer />
             </div>
-            <GostDocsPanel open={gostPanelOpen} onClose={() => setGostPanelOpen(false)} />
+            {gostPanelOpen && (
+                <Suspense fallback={null}>
+                    <GostDocsPanel open onClose={() => setGostPanelOpen(false)} />
+                </Suspense>
+            )}
         </div>
     );
 }

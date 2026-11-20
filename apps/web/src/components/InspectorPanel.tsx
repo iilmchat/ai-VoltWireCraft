@@ -1,12 +1,16 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.6.0
 import type { RoomZoneType } from '@voltwirecraft/shared/graph.schema.js';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
 import type { TranslationKey } from '../i18n/index.js';
 import { useCalculationStore } from '../store/calculationStore.js';
 import { useEditorStore } from '../store/editorStore.js';
 import { ShortCircuitBadge } from './ShortCircuitBadge.js';
-import { TccCurveChart } from './TccCurveChart.js';
+
+/** График ВТХ загружается только при открытии из инспектора. */
+const TccCurveChart = lazy(() =>
+    import('./TccCurveChart.js').then((module) => ({ default: module.TccCurveChart })),
+);
 
 /** Типы помещений, доступные в инспекторе. */
 const ROOM_KINDS: readonly RoomZoneType[] = ['living', 'wet', 'kitchen', 'outdoor', 'utility'];
@@ -252,11 +256,13 @@ export function InspectorPanel() {
             {tccOpen && node !== null && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/85 p-4">
                     <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 p-4 shadow-2xl">
-                        <TccCurveChart
-                            deviceId={node.id}
-                            shortCircuitCurrentA={shortCircuit?.shortCircuitCurrentA}
-                            onClose={() => setTccOpen(false)}
-                        />
+                        <Suspense fallback={<p className="p-8 text-center text-sm text-slate-400">{t('tcc.loading')}</p>}>
+                            <TccCurveChart
+                                deviceId={node.id}
+                                shortCircuitCurrentA={shortCircuit?.shortCircuitCurrentA}
+                                onClose={() => setTccOpen(false)}
+                            />
+                        </Suspense>
                     </div>
                 </div>
             )}

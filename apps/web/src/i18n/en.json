@@ -305,5 +305,6 @@
   "tcc.noParent": "Upstream device not found",
   "demo.twoStory.name": "Two-storey house: main + sub panel",
   "demo.twoStory.description": "Two-storey house: main panel, two distribution boards, feeder lines and cascaded selectivity",
-  "template.twoPanels": "2 panels: main + sub-2"
+  "template.twoPanels": "2 panels: main + sub-2",
+  "view.loading": "Loading view…"
 }
