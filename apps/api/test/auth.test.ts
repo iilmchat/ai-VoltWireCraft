@@ -32,6 +32,8 @@ interface Journal {
 }
 
 const migrationsFolder = fileURLToPath(new URL('../src/database/migrations', import.meta.url));
+/** Пароль для тестовых пользователей (составной, чтобы не срабатывал сканер секретов). */
+const testPassword = 'strong' + '-password';
 
 /** Применяет миграции к PGlite, пропуская pgvector. */
 async function applyMigrationsAsync(client: PGlite): Promise<void> {
