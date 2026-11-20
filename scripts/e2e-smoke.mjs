@@ -1,16 +1,15 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.3.0
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.5.0
 /**
- * Сквозной прогон «Золотого датасета» по живому API VoltWireCraft.
+ * Сквозной прогон всех кейсов «Золотого датасета» по живому API VoltWireCraft.
  * Запуск: `pnpm smoke:e2e` (предварительно — `docker compose up -d`).
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, readdir } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 
 /**
  * @typedef {{ success: boolean, data: unknown, message: string }} ApiEnvelope
  * @typedef {{ status: string, services?: readonly unknown[] }} HealthData
- * @typedef {{ id: string, graph: { walls: readonly unknown[] } }} ProjectData
  * @typedef {{ edgeId: string, status: string, lengthM?: number, error?: string }} CalcEdge
  * @typedef {{ projectId: string, totalLengthM: number, edges: readonly CalcEdge[] }} CalcData
  * @typedef {{ usedDinModules: number, imbalancePercent: number, modules: readonly unknown[], groups: readonly unknown[] }} PanelData
@@ -19,18 +18,28 @@ import { resolve } from 'node:path';
  * @typedef {{ findings: readonly { id: string, ruleId: string, severity: string }[] }} AuditData
  * @typedef {{
  *   case: string,
+ *   supply: { phases: number, voltageV: number },
  *   dxf: { walls: number },
- *   lines: Record<string, { shortCircuit: { shortCircuitCurrentA: number } }>,
+ *   lines: Record<string, {
+ *     label: string,
+ *     powerW: number,
+ *     request: { phases: number },
+ *     shortCircuit: { shortCircuitCurrentA: number }
+ *   }>,
  *   totals: { groups: number, powerW: number }
  * }} ExpectedCalc
  */
 
 const API_URL = process.env['API_URL'] ?? 'http://localhost:3000';
 const CALC_URL = process.env['CALC_URL'] ?? 'http://localhost:8000';
-const FIXTURE_DIR = resolve(
-  process.env['SMOKE_FIXTURE_DIR'] ?? 'fixtures/golden-dataset/02_apartment_3room_400v',
+const FIXTURES_ROOT = resolve(
+  process.env['SMOKE_FIXTURES_DIR'] ?? 'fixtures/golden-dataset',
 );
+const CASE_FILTER = process.env['SMOKE_CASE'] ?? '';
+// Кейсы с нормируемым трёхфазным балансом (остальные 3P-кейсы проверяются мягко).
+const BALANCE_CASES = new Set(['02_apartment_3room_400v', '05_cottages_3phase_15kw']);
 const REQUEST_TIMEOUT_MS = 30_000;
+const REQUIRED_CASE_FILES = ['project.vwc', 'plan.dxf', 'expected_calc.json'];
 
 /** @type {string[]} */
 const passed = [];
@@ -98,6 +107,19 @@ function asArray(value, label) {
  * @returns {Promise<ApiEnvelope>} ответ API.
  */
 async function requestJson(url, init = {}) {
+  const envelope = asRecord(await requestRawJson(url, init), url);
+  const detail = `${typeof envelope['message'] === 'string' ? envelope['message'] : ''} ${JSON.stringify(envelope['data']).slice(0, 600)}`;
+  expect(envelope['success'] === true, `${url}: ответ API не успешен: ${detail}`);
+  return cast(envelope);
+}
+
+/**
+ * Выполняет JSON-запрос без проверки обёртки (для calc-engine).
+ * @param {string} url — адрес.
+ * @param {RequestInit} init — параметры запроса.
+ * @returns {Promise<unknown>} разобранный JSON.
+ */
+async function requestRawJson(url, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -110,10 +132,8 @@ async function requestJson(url, init = {}) {
     } catch {
       throw new Error(`${url}: некорректный JSON (${text.slice(0, 120)})`);
     }
-    const envelope = asRecord(body, url);
-    const detail = `${typeof envelope['message'] === 'string' ? envelope['message'] : ''} ${JSON.stringify(envelope['data']).slice(0, 600)}`;
-    expect(response.ok && envelope['success'] === true, `${url}: ответ API не успешен (HTTP ${response.status}): ${detail}`);
-    return cast(envelope);
+    expect(response.ok, `${url}: HTTP ${response.status}: ${text.slice(0, 300)}`);
+    return body;
   } finally {
     clearTimeout(timeout);
   }
@@ -136,36 +156,94 @@ async function checkHealthAsync(name, url, enveloped) {
 
 /**
  * Читает JSON-файл фикстуры.
+ * @param {string} caseDir — каталог кейса.
  * @param {string} fileName — имя файла.
  * @returns {Promise<unknown>} содержимое.
  */
-async function readJsonAsync(fileName) {
-  const path = resolve(FIXTURE_DIR, fileName);
-  return JSON.parse(await readFile(path, 'utf8'));
+async function readJsonAsync(caseDir, fileName) {
+  return JSON.parse(await readFile(join(caseDir, fileName), 'utf8'));
 }
 
 /**
- * Основной сценарий.
+ * Находит все полные кейсы золотого датасета.
+ * @returns {Promise<string[]>} пути к каталогам кейсов.
+ */
+async function discoverCasesAsync() {
+  const entries = await readdir(FIXTURES_ROOT, { withFileTypes: true });
+  /** @type {string[]} */
+  const found = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const caseDir = join(FIXTURES_ROOT, entry.name);
+    const files = new Set(await readdir(caseDir));
+    if (REQUIRED_CASE_FILES.every((file) => files.has(file))) {
+      found.push(caseDir);
+    }
+  }
+  const filtered = CASE_FILTER === '' ? found : found.filter((dir) => basename(dir) === CASE_FILTER);
+  expect(filtered.length > 0, `Золотой датасет: не найдено кейсов в ${FIXTURES_ROOT}`);
+  return filtered.sort();
+}
+
+/**
+ * Проверяет баланс фаз по эталонным данным трёхфазного кейса.
+ * Трёхфазные потребители распределяются поровну, однофазные — жадным методом.
+ *
+ * @param {ExpectedCalc} expected — эталон.
+ * @param {string} caseName — имя кейса.
+ * @returns {void}
+ */
+function checkPhaseBalance(expected, caseName) {
+  if (expected.supply.phases !== 3 || !BALANCE_CASES.has(caseName)) {
+    return;
+  }
+  /** @type {Record<string, number>} */
+  const loads = { L1: 0, L2: 0, L3: 0 };
+  for (const line of Object.values(expected.lines)) {
+    if (line.request.phases === 3) {
+      for (const phase of ['L1', 'L2', 'L3']) {
+        loads[phase] += line.powerW / 3;
+      }
+    } else {
+      const phase = ['L1', 'L2', 'L3'].reduce((left, right) =>
+        loads[left] <= loads[right] ? left : right,
+      );
+      loads[phase] += line.powerW;
+    }
+  }
+  const values = Object.values(loads);
+  const peak = Math.max(...values);
+  const imbalance = peak > 0 ? ((peak - Math.min(...values)) / peak) * 100 : 0;
+  expect(
+    imbalance <= 15,
+    `${caseName}: баланс L1/L2/L3 — перекос ${imbalance.toFixed(1)} % ≤ 15 %`,
+  );
+}
+
+/**
+ * Прогоняет один эталонный кейс.
+ * @param {string} caseDir — каталог кейса.
  * @returns {Promise<void>} nothing.
  */
-async function mainAsync() {
-  console.log(`VoltWireCraft E2E smoke: ${API_URL} / ${CALC_URL}`);
+async function runCaseAsync(caseDir) {
+  const caseName = basename(caseDir);
+  console.log(`— ${caseName}`);
 
-  await checkHealthAsync('api', `${API_URL}/health`, true);
-  await checkHealthAsync('calc-engine', `${CALC_URL}/health`, false);
-
-  const vwc = asRecord(await readJsonAsync('project.vwc'), 'project.vwc');
+  const vwc = asRecord(await readJsonAsync(caseDir, 'project.vwc'), 'project.vwc');
   /** @type {ExpectedCalc} */
-  const expected = cast(await readJsonAsync('expected_calc.json'));
+  const expected = cast(await readJsonAsync(caseDir, 'expected_calc.json'));
   /** @type {Record<string, unknown>} */
   const graph = cast(asRecord(vwc['graph'], 'project.vwc.graph'));
-  expect(vwc['schemaVersion'] === 2, 'project.vwc: ожидается schemaVersion 2');
+  expect(vwc['schemaVersion'] === 2, `${caseName}: project.vwc — schemaVersion 2`);
+  checkPhaseBalance(expected, caseName);
 
   const created = await requestJson(`${API_URL}/projects`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      title: 'E2E smoke — 3-комнатная квартира 400 В',
+      title: `E2E smoke — ${expected.case ?? caseName}`,
       objectType: 'apartment',
       networkSystem: 'tn-s',
     }),
@@ -173,17 +251,17 @@ async function mainAsync() {
   /** @type {Record<string, unknown>} */
   const project = cast(created.data);
   const projectId = project['id'];
-  expect(typeof projectId === 'string', 'POST /projects: не получен идентификатор проекта');
+  expect(typeof projectId === 'string', `${caseName}: POST /projects вернул id`);
 
-  // POST /projects создаёт пустой граф; загрузка эталона завершается через PUT графа.
+  // POST /projects создаёт пустой граф; эталон загружается через PUT графа.
   await requestJson(`${API_URL}/projects/${projectId}/graph`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ graph: { ...graph, id: projectId } }),
   });
-  passed.push('project.vwc: граф загружен в проект');
+  passed.push(`${caseName}: граф загружен`);
 
-  const dxf = await readFile(resolve(FIXTURE_DIR, 'plan.dxf'));
+  const dxf = await readFile(join(caseDir, 'plan.dxf'));
   const form = new FormData();
   form.append('file', new Blob([dxf]), 'plan.dxf');
   await requestJson(`${API_URL}/projects/${projectId}/import-cad`, { method: 'POST', body: form });
@@ -191,16 +269,13 @@ async function mainAsync() {
   /** @type {Record<string, unknown>} */
   const loaded = cast((await requestJson(`${API_URL}/projects/${projectId}`, {})).data);
   const walls = asArray(asRecord(loaded['graph'], 'project.graph')['walls'], 'graph.walls');
-  expect(walls.length >= expected.dxf.walls, `import-cad: импортировано ${walls.length} стен`);
+  expect(walls.length >= expected.dxf.walls, `${caseName}: импортировано ${walls.length} стен`);
 
   /** @type {CalcData} */
   const calc = cast((await requestJson(`${API_URL}/projects/${projectId}/calculate`, { method: 'POST' })).data);
   const totalLength = asNumber(calc.totalLengthM, 'calculate.totalLengthM');
-  expect(totalLength > 0, `calculate: суммарная длина ${totalLength} м положительна`);
-  expect(
-    calc.edges.every((edge) => edge.status === 'ok'),
-    'calculate: все линии рассчитаны успешно',
-  );
+  expect(totalLength > 0, `${caseName}: суммарная длина ${totalLength} м положительна`);
+  expect(calc.edges.every((edge) => edge.status === 'ok'), `${caseName}: все линии рассчитаны`);
 
   /** @type {AssembleData} */
   const assembled = cast((await requestJson(`${API_URL}/projects/${projectId}/ai/assemble-panel`, {
@@ -208,13 +283,17 @@ async function mainAsync() {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ preferredBrand: 'IEK' }),
   })).data);
-  const panelObject = assembled.panel;
-  const usedModules = asNumber(panelObject.usedDinModules, 'panel.usedDinModules');
-  const imbalance = asNumber(panelObject.imbalancePercent, 'panel.imbalancePercent');
-  expect(usedModules > 0, `assemble-panel: занято модулей ${usedModules}`);
-  // Агент пока собирает щит для однофазного ввода, поэтому жёсткий предел
-  // перекоса для трёхфазного эталона не проверяем (KNOWN ISSUE v0.4).
-  expect(imbalance >= 0, `assemble-panel: перекос фаз ${imbalance} % получен`);
+  const usedModules = asNumber(assembled.panel.usedDinModules, 'panel.usedDinModules');
+  const imbalance = asNumber(assembled.panel.imbalancePercent, 'panel.imbalancePercent');
+  expect(usedModules > 0, `${caseName}: сборка щита — ${usedModules} модулей`);
+  if (expected.supply.phases === 3 && BALANCE_CASES.has(caseName)) {
+    expect(
+      imbalance <= 15,
+      `${caseName}: API-перекос щита ${imbalance.toFixed(1)} % ≤ 15 %`,
+    );
+  } else {
+    expect(imbalance >= 0, `${caseName}: перекос фаз ${imbalance.toFixed(1)} % получен`);
+  }
 
   /** @type {ShortCircuitData} */
   const sc = cast((await requestJson(`${API_URL}/projects/${projectId}/short-circuit`, { method: 'POST' })).data);
@@ -226,19 +305,55 @@ async function mainAsync() {
   const upperBound = Math.max(...referenceCurrents) * 1.5;
   expect(
     current >= lowerBound && current <= upperBound,
-    `short-circuit: ток КЗ ${current} А близок к эталону (${Math.round(lowerBound)}–${Math.round(upperBound)} А)`,
+    `${caseName}: ток КЗ ${current} А в диапазоне ${Math.round(lowerBound)}–${Math.round(upperBound)} А`,
   );
 
   /** @type {AuditData} */
   const auditReport = cast((await requestJson(`${API_URL}/projects/${projectId}/ai/audit-pue`, { method: 'POST' })).data);
   const findings = asArray(auditReport.findings, 'audit.findings');
-  expect(findings.length >= 2, 'audit-pue: получено достаточно находок');
+  expect(findings.length >= 2, `${caseName}: аудит ПУЭ вернул ${findings.length} находок`);
   const ruleIds = new Set(findings.map((finding) => asRecord(finding, 'finding')['ruleId']));
   for (const ruleId of ['PUE-1.3.4', 'PUE-SC-1.7-TIME-04']) {
-    expect(ruleIds.has(ruleId), `audit-pue: найдено правило ${ruleId}`);
+    expect(ruleIds.has(ruleId), `${caseName}: найдено правило ${ruleId}`);
   }
+}
 
-  console.log(`SMOKE OK: ${passed.length} проверок пройдено`);
+/**
+ * Проверяет конвертацию тестового DWG в DXF через calc-engine.
+ * @returns {Promise<void>} nothing.
+ */
+async function checkDwgAsync() {
+  const dwgPath = join(FIXTURES_ROOT, 'dwg', 'plan.dwg');
+  const dwg = await readFile(dwgPath);
+  const form = new FormData();
+  form.append('file', new Blob([dwg]), 'plan.dwg');
+  const parsed = asRecord(
+    await requestRawJson(`${CALC_URL}/v1/cad/parse-dxf`, { method: 'POST', body: form }),
+    'dwg.parse',
+  );
+  const entities = asNumber(parsed['entitiesProcessed'], 'dwg.entitiesProcessed');
+  expect(entities > 0, `DWG → DXF: конвертировано сущностей ${entities}`);
+  expect(typeof parsed['units'] === 'string', 'DWG → DXF: определены единицы чертежа');
+  passed.push('DWG → DXF: конвертация и разбор прошли');
+}
+
+/**
+ * Основной сценарий.
+ * @returns {Promise<void>} nothing.
+ */
+async function mainAsync() {
+  console.log(`VoltWireCraft E2E smoke: ${API_URL} / ${CALC_URL}`);
+  await checkHealthAsync('api', `${API_URL}/health`, true);
+  await checkHealthAsync('calc-engine', `${CALC_URL}/health`, false);
+
+  const cases = await discoverCasesAsync();
+  console.log(`Кейсов в датасете: ${cases.length}`);
+  for (const caseDir of cases) {
+    await runCaseAsync(caseDir);
+  }
+  await checkDwgAsync();
+
+  console.log(`SMOKE OK: ${passed.length} проверок пройдено по ${cases.length} кейсам`);
 }
 
 try {

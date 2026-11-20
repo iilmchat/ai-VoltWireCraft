@@ -11,8 +11,9 @@
 
 - Docker Desktop (движок запущен) с Compose v2;
 - Node.js 22+ и pnpm 12+ — только для запуска smoke-скрипта;
-- свободные порты: `5436`, `6381`, `9000`, `9001`, `8000`, `3000`, `5173`
-  (при необходимости измените их в `.env`).
+- свободные порты: `5436`, `6381`, `8000`, `3000`, `5173` (обязательные сервисы);
+  `9000`/`9001` нужны только при включённом профиле `s3` (MinIO).
+  Порты можно изменить в `.env`.
 
 ---
 
@@ -23,7 +24,9 @@ cp .env.example .env
 docker compose config --quiet
 ```
 
-`docker compose config` проверяет итоговую конфигурацию всех шести сервисов.
+`docker compose config` проверяет итоговую конфигурацию. По умолчанию активны
+пять обязательных сервисов (`docker compose config --services`); MinIO вынесен
+в профиль `s3` и поднимается только командой `docker compose --profile s3 up -d`.
 Секреты в `.env.example` — **заглушки**; реальные значения хранятся только в
 `.env` (RULES § 6.2).
 
@@ -41,8 +44,8 @@ docker compose up -d --build
 |---|---|---|---|
 | `postgres` | `pgvector/pgvector:pg17` | 5436 | PostgreSQL 17 + pgvector, граф и RAG |
 | `redis` | `redis:7-alpine` | 6381 | очереди и кэш |
-| `minio` | `minio/minio` | 9000 / 9001 | S3-совместимое хранилище |
-| `calc-engine` | `apps/calc-engine/Dockerfile` | 8000 | детерминированные расчёты, разбор DXF |
+| `minio` (profile `s3`) | `minio/minio` | 9000 / 9001 | опциональное S3-хранилище |
+| `calc-engine` | `apps/calc-engine/Dockerfile` | 8000 | расчёты, разбор DXF и конвертация DWG (`dwg2dxf`) |
 | `api` | `apps/api/Dockerfile` | 3000 | NestJS API, миграции и сиды при старте |
 | `web` | `apps/web/Dockerfile` | 5173 → 80 | статика React, раздаётся nginx |
 
@@ -55,6 +58,12 @@ API стартует только после `service_healthy` у PostgreSQL, Re
 3. `node dist/database/seed-normatives.js` — фрагменты ПУЭ-7 для RAG.
 
 Все шаги идемпотентны, поэтому `docker compose restart api` безопасен.
+
+Конвертация DWG выполняется в `calc-engine` в изолированном процессе с таймаутом
+из `CAD_PARSE_TIMEOUT_SEC` (RULES § 5.5). Переменные `DWG_CONVERTER_TYPE`
+(`auto | oda | libredwg | none`, по умолчанию `auto`) и `ODA_CONVERTER_PATH`
+задаются в `.env`; образ содержит собранный `dwg2dxf`, поэтому ODA не нужен.
+Режим `none` полностью отключает приём DWG.
 
 ---
 
@@ -86,31 +95,31 @@ pnpm smoke:e2e
 Что делает скрипт:
 
 1. проверяет `GET /health` у `api` и `calc-engine`;
-2. читает
-   `fixtures/golden-dataset/02_apartment_3room_400v/project.vwc` и загружает
-   граф через `POST /projects` + `PUT /projects/:id/graph` (создание проекта и
-   загрузка эталона разделены, так как `POST /projects` создаёт пустой граф);
+2. автоматически находит **все полные кейсы** в `fixtures/golden-dataset/`
+   (`project.vwc`, `plan.dxf`, `expected_calc.json`) и для каждого загружает
+   граф через `POST /projects` + `PUT /projects/:id/graph`;
 3. импортирует `plan.dxf` через `POST /projects/:id/import-cad`;
 4. выполняет `POST /projects/:id/calculate`,
    `POST /projects/:id/ai/assemble-panel`,
    `POST /projects/:id/short-circuit` и
    `POST /projects/:id/ai/audit-pue`;
-5. сравнивает результаты с эталоном `expected_calc.json`: количество стен DXF,
-   положительные длины линий, число модулей щита, ток КЗ в широком диапазоне
-   вокруг эталонных значений и обязательные пункты ПУЭ. Точные значения
-   зафиксированы в файле датасета; допуск по току — ±50 % (endpoint использует
-   вводной номинал, а не номинал каждой группы). Перекос фаз для трёхфазного
-   эталона не сравнивается с жёстким пределом: агент пока собирает щит для
-   однофазного ввода.
+5. сравнивает результаты с `expected_calc.json`: стены DXF, длины линий,
+   модули щита, ток КЗ (±50 % от эталонных значений), обязательные пункты ПУЭ,
+   а для трёхфазных кейсов (`02_apartment_3room_400v`,
+   `05_cottages_3phase_15kw`) — перекос фаз ≤ 15 % по данным эталона и по
+   ответу `assemble-panel`;
+6. отдельно проверяет конвертацию `fixtures/golden-dataset/dwg/plan.dwg` через
+   `POST /v1/cad/parse-dxf` расчётного ядра.
 
-Успешный вывод заканчивается строкой `SMOKE OK: N проверок пройдено`.
+Успешный вывод заканчивается строкой `SMOKE OK: N проверок пройдено по M кейсам`.
 При расхождении скрипт печатает `SMOKE FAILED: ...` и завершается с кодом 1.
 
-Переопределение адресов и каталога фикстуры:
+Переопределение адресов, каталога датасета и отдельного кейса:
 
 ```bash
 API_URL=http://localhost:3000 CALC_URL=http://localhost:8000 \
-SMOKE_FIXTURE_DIR=fixtures/golden-dataset/02_apartment_3room_400v \
+SMOKE_FIXTURES_DIR=fixtures/golden-dataset \
+SMOKE_CASE=02_apartment_3room_400v \
 pnpm smoke:e2e
 ```
 
