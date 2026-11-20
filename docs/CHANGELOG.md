@@ -28,6 +28,16 @@
   (IEC 60898-1) для кривых B/C/D, кусочно-аналитическая модель и алгоритм
   расчёта предела селективности $I_s$ с выдержкой $\Delta t = 0{,}1$ с.
 
+### Fixed
+
+- Tauri v2: невалидное разрешение `fs:allow-save` заменено на корректный набор
+  `core:default`, `dialog:default`, `dialog:allow-open`, `dialog:allow-save`,
+  `fs:default`, `fs:allow-read-text-file`, `fs:allow-write-text-file` с областью
+  `**/*.vwc`. Крейты `tauri-plugin-dialog`/`tauri-plugin-fs` и их вызовы в
+  `tauri::Builder` уже были подключены; версия в `Cargo.toml` синхронизирована с
+  `tauri.conf.json` (0.5.0). Устраняет падение workflow Release Desktop на
+  этапе компиляции Rust.
+
 ## [0.5.0] — 2026-11-20
 
 ### Added

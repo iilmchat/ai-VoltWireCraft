@@ -1,19 +1,21 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Разрешения для нативных диалогов и работы с файлами проекта .vwc",
+  "description": "Разрешения окна: работа с файлами .vwc и диалогами выбора",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:default",
     {
-      "identifier": "fs:allow-save",
+      "identifier": "fs:allow-read-text-file",
       "allow": ["**/*.vwc"]
     },
     {
-      "identifier": "fs:allow-read",
+      "identifier": "fs:allow-write-text-file",
       "allow": ["**/*.vwc"]
-    },
-    "fs:default"
+    }
   ]
 }

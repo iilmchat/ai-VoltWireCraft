@@ -1,6 +1,6 @@
 [package]
 name = "voltwirecraft"
-version = "0.1.0"
+version = "0.5.0"
 description = "Десктопное приложение VoltWireCraft (Tauri)"
 authors = ["RuChating (iilmchat)"]
 edition = "2021"
