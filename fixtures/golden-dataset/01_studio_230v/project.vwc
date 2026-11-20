@@ -1,0 +1,420 @@
+{
+  "format": "vwc-project",
+  "schemaVersion": 2,
+  "graph": {
+    "schemaVersion": 2,
+    "id": "e99c8f20-7c30-5f9e-b240-ee4176273956",
+    "name": "Студия 1-комнатная, 230 В",
+    "floorPlan": {
+      "background": null,
+      "scaleMetersPerPx": 0.01,
+      "ceilingHeightM": 2.7
+    },
+    "rooms": [
+      {
+        "id": "15f49352-9663-57d4-9d03-2accd1d77e24",
+        "name": "Свет",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "c2682162-4f1a-5a51-8b44-6fa5fd5d5bf3",
+        "name": "Розетки",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "689f5008-eccf-574c-90f7-2f781e3a1e3d",
+        "name": "Кухня",
+        "type": "kitchen",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "fbd2c948-7702-59d2-b61f-175c91089f22",
+        "name": "Санузел УЗО 30 мА",
+        "type": "wet",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "38249a54-6a9e-5438-a579-610e5b6d3e0c",
+        "name": "Стиральная машина",
+        "type": "wet",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "id": "fc4060dc-63d9-59bd-b1b7-5b3e3009d939",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 6.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "d203e852-15c4-5023-87e5-ee5b577a721d",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 6.0,
+            "y": 0.0
+          },
+          {
+            "x": 6.0,
+            "y": 4.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "f9b7326b-1b2e-5169-8ba9-608b71f59df3",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 6.0,
+            "y": 4.0
+          },
+          {
+            "x": 0.0,
+            "y": 4.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "ad8fc1e0-edf7-5fa9-ac91-3b8b8be4ba89",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 4.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "b36e3543-34f7-5f2e-9c15-1cc83f1c2fa8",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 3.0,
+            "y": 0.0
+          },
+          {
+            "x": 3.0,
+            "y": 4.0
+          }
+        ],
+        "thickness": 0.1
+      }
+    ],
+    "nodes": [
+      {
+        "id": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
+        "kind": "panel",
+        "label": "Щит НКУ",
+        "planPosition": {
+          "x": 0,
+          "y": 0
+        },
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 40,
+          "crossSection": 16,
+          "mountingHeight": 1.5
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "b59c834b-be5d-55ab-81e2-266d83b3e20b",
+        "kind": "light_fixture",
+        "label": "Свет",
+        "planPosition": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "15f49352-9663-57d4-9d03-2accd1d77e24",
+        "specs": {
+          "ratedPower": 200,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "36f0653f-afa8-541b-b8e1-14b9ccaf1096",
+        "kind": "socket",
+        "label": "Розетки",
+        "planPosition": {
+          "x": 2.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "c2682162-4f1a-5a51-8b44-6fa5fd5d5bf3",
+        "specs": {
+          "ratedPower": 1000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "bcfbfbf0-17f1-5349-8717-52712e348ebf",
+        "kind": "socket",
+        "label": "Кухня",
+        "planPosition": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "689f5008-eccf-574c-90f7-2f781e3a1e3d",
+        "specs": {
+          "ratedPower": 2000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "d4c5b404-868b-5ddd-8fa1-f156d96da064",
+        "kind": "socket",
+        "label": "Санузел УЗО 30 мА",
+        "planPosition": {
+          "x": 4.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "fbd2c948-7702-59d2-b61f-175c91089f22",
+        "specs": {
+          "ratedPower": 1500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "99397c9a-3148-5f11-859c-ee31b256a859",
+        "kind": "appliance",
+        "label": "Стиральная машина",
+        "planPosition": {
+          "x": 5.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "38249a54-6a9e-5438-a579-610e5b6d3e0c",
+        "specs": {
+          "ratedPower": 2200,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "4ac8ac1b-e78b-552b-9dcc-8d9739790313",
+        "from": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
+        "to": "b59c834b-be5d-55ab-81e2-266d83b3e20b",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 1.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "56d915d5-2b61-54af-8415-f8623d748abe",
+        "from": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
+        "to": "36f0653f-afa8-541b-b8e1-14b9ccaf1096",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "5fff6b61-ee69-577c-a75c-e16420570d51",
+        "from": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
+        "to": "bcfbfbf0-17f1-5349-8717-52712e348ebf",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "3e1bffa5-d13c-5105-9f22-a66c9389b44f",
+        "from": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
+        "to": "d4c5b404-868b-5ddd-8fa1-f156d96da064",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 4.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "c82d381b-a661-53e9-8c9b-f96032263e51",
+        "from": "e950f7f8-11bb-5d1e-af39-610685eef5a8",
+        "to": "99397c9a-3148-5f11-859c-ee31b256a859",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 5.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      }
+    ],
+    "stampMeta": {
+      "projectCode": "01_studio_230v",
+      "organizationName": "VoltWireCraft",
+      "stage": "РД"
+    }
+  },
+  "savedAt": "2026-11-20T00:00:00.000Z"
+}

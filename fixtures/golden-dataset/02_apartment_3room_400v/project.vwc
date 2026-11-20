@@ -1,0 +1,583 @@
+{
+  "format": "vwc-project",
+  "schemaVersion": 2,
+  "graph": {
+    "schemaVersion": 2,
+    "id": "9347f257-2aea-5145-bc0f-86be9899fb11",
+    "name": "Квартира 3-комнатная, 400 В",
+    "floorPlan": {
+      "background": null,
+      "scaleMetersPerPx": 0.01,
+      "ceilingHeightM": 2.7
+    },
+    "rooms": [
+      {
+        "id": "98c0cba7-439f-5ee5-ab84-c052087689e0",
+        "name": "Варочная панель",
+        "type": "kitchen",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "31ee397e-023a-541a-abb9-d9590f729cd0",
+        "name": "Духовой шкаф",
+        "type": "kitchen",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "f3339c02-c6fd-5cda-b558-4ad86532705f",
+        "name": "Кондиционер 1",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "9756fbb4-d60e-5903-87f4-e8b29b0cd82b",
+        "name": "Кондиционер 2",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "b23cbbe1-7dbb-5014-aa31-bb4371d173a9",
+        "name": "Освещение",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "8c534d64-ed88-5a9f-b109-c48f4380c812",
+        "name": "Розетки",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "1439f07f-1938-51be-b801-8c163bebc3a9",
+        "name": "Холодильник и роутер",
+        "type": "kitchen",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "id": "3f91103f-905b-57e8-ab46-ae2963b70057",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 9.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "45442ecd-622c-590c-aaa5-d8619314c4b3",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 9.0,
+            "y": 0.0
+          },
+          {
+            "x": 9.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "ab4eabdc-cc0e-5ec5-9f1d-f8630c443db5",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 9.0,
+            "y": 6.0
+          },
+          {
+            "x": 0.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "6eb60d03-c91d-56c0-80d3-12f594973a50",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 6.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "e046b59e-e762-50af-b342-dc3bae711850",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 3.0,
+            "y": 0.0
+          },
+          {
+            "x": 3.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "2030f435-c01d-527e-af9e-5fef223d7eeb",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 6.0,
+            "y": 0.0
+          },
+          {
+            "x": 6.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      }
+    ],
+    "nodes": [
+      {
+        "id": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "kind": "panel",
+        "label": "Щит НКУ",
+        "planPosition": {
+          "x": 0,
+          "y": 0
+        },
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 1.5
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "0c17de90-1df4-54e6-a7b3-bddfbbba00d0",
+        "kind": "switch",
+        "label": "Мастер-выключатель",
+        "planPosition": null,
+        "panelSlot": 2,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 10,
+          "mountingHeight": 0
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "41a0f955-2f94-5b98-92f7-66b7824eb3ef",
+        "kind": "contactor",
+        "label": "Контактор (неотключаемые линии)",
+        "planPosition": null,
+        "panelSlot": 3,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 25,
+          "crossSection": 6,
+          "mountingHeight": 0
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "46034930-13ac-51c2-857e-4c3df28bc5d6",
+        "kind": "appliance",
+        "label": "Варочная панель",
+        "planPosition": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "98c0cba7-439f-5ee5-ab84-c052087689e0",
+        "specs": {
+          "ratedPower": 7200,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "8e4a072a-c4b0-50fe-a74f-b8906e15edd6",
+        "kind": "appliance",
+        "label": "Духовой шкаф",
+        "planPosition": {
+          "x": 2.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "31ee397e-023a-541a-abb9-d9590f729cd0",
+        "specs": {
+          "ratedPower": 3500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "f4915354-f531-5654-90fa-6610f5977faa",
+        "kind": "appliance",
+        "label": "Кондиционер 1",
+        "planPosition": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "f3339c02-c6fd-5cda-b558-4ad86532705f",
+        "specs": {
+          "ratedPower": 2000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "b6c099d2-01ff-5dda-b7ee-a1ead29e123b",
+        "kind": "appliance",
+        "label": "Кондиционер 2",
+        "planPosition": {
+          "x": 4.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "9756fbb4-d60e-5903-87f4-e8b29b0cd82b",
+        "specs": {
+          "ratedPower": 2000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "57f8ce29-a3e1-5460-82bc-8194a8d08994",
+        "kind": "light_fixture",
+        "label": "Освещение",
+        "planPosition": {
+          "x": 5.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "b23cbbe1-7dbb-5014-aa31-bb4371d173a9",
+        "specs": {
+          "ratedPower": 400,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "1596528a-ec1a-59e4-9338-181dcf72852c",
+        "kind": "socket",
+        "label": "Розетки",
+        "planPosition": {
+          "x": 6.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "8c534d64-ed88-5a9f-b109-c48f4380c812",
+        "specs": {
+          "ratedPower": 1500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "d53f293f-6d74-5808-b6e1-d6afe15574a5",
+        "kind": "socket",
+        "label": "Холодильник и роутер",
+        "planPosition": {
+          "x": 7.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "1439f07f-1938-51be-b801-8c163bebc3a9",
+        "specs": {
+          "ratedPower": 300,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "d3933fe2-7cea-54f5-aec2-0ca7b5520d2c",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "46034930-13ac-51c2-857e-4c3df28bc5d6",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 15
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 1.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "30f8a358-f8b1-5248-810d-6424f1c5382b",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "8e4a072a-c4b0-50fe-a74f-b8906e15edd6",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "9bcddce4-0b29-5b9b-8220-03c15e49a570",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "f4915354-f531-5654-90fa-6610f5977faa",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "3431feb4-9a55-5c03-a99c-d650f2405278",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "b6c099d2-01ff-5dda-b7ee-a1ead29e123b",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 4.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "31b6fbb4-8447-5a88-b511-d896c445943a",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "57f8ce29-a3e1-5460-82bc-8194a8d08994",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 5.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "51e98679-78dc-56f8-bd34-4f64d8884b6f",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "1596528a-ec1a-59e4-9338-181dcf72852c",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 6.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "2e45cf28-c2d7-5073-bd8c-3215d6bb903b",
+        "from": "0f340d48-4dfa-53f8-837d-46cd93c25b14",
+        "to": "d53f293f-6d74-5808-b6e1-d6afe15574a5",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 8
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 7.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      }
+    ],
+    "stampMeta": {
+      "projectCode": "02_apartment_3room_400v",
+      "organizationName": "VoltWireCraft",
+      "stage": "РД"
+    }
+  },
+  "savedAt": "2026-11-20T00:00:00.000Z"
+}

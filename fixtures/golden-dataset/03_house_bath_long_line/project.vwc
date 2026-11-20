@@ -1,0 +1,360 @@
+{
+  "format": "vwc-project",
+  "schemaVersion": 2,
+  "graph": {
+    "schemaVersion": 2,
+    "id": "01c2e6ef-5db3-5151-82fb-84519bc1a6c1",
+    "name": "Дом ИЖС с баней, линия 80 м",
+    "floorPlan": {
+      "background": null,
+      "scaleMetersPerPx": 0.01,
+      "ceilingHeightM": 2.7
+    },
+    "rooms": [
+      {
+        "id": "84ab06c8-ad5c-5193-a975-d84311aeeeed",
+        "name": "Освещение",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "d6a4c4f7-e82c-5594-ab55-727beb1bd978",
+        "name": "Розетки дома",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "35e117c4-7f2b-5106-9073-940dbe4bfeb0",
+        "name": "Линия бани 80 м",
+        "type": "wet",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "2fe44e0e-8fb6-522e-8bad-4e936f22fe3a",
+        "name": "Линия бани (кривая C)",
+        "type": "wet",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "id": "1a7142a1-db5f-53ea-aeb8-9cff3e790821",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 10.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "27964be8-25c0-5307-a359-cbba3e27528f",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 10.0,
+            "y": 0.0
+          },
+          {
+            "x": 10.0,
+            "y": 7.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "5323199d-1fa2-556f-9ee3-044624f5af85",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 10.0,
+            "y": 7.0
+          },
+          {
+            "x": 0.0,
+            "y": 7.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "1866206d-b2f6-5f70-bee4-080754092eb3",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 7.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "cdaea00f-9e9f-5eb8-a9bc-b5d1e826126c",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 7.0,
+            "y": 0.0
+          },
+          {
+            "x": 7.0,
+            "y": 7.0
+          }
+        ],
+        "thickness": 0.1
+      }
+    ],
+    "nodes": [
+      {
+        "id": "e1679443-7c88-5784-b9ae-d331e28ca89f",
+        "kind": "panel",
+        "label": "Щит НКУ",
+        "planPosition": {
+          "x": 0,
+          "y": 0
+        },
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 1.5
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "d3d31343-710a-530c-b452-6ea3b86ff357",
+        "kind": "light_fixture",
+        "label": "Освещение",
+        "planPosition": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "84ab06c8-ad5c-5193-a975-d84311aeeeed",
+        "specs": {
+          "ratedPower": 300,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "f29f49cf-9c32-5008-a00e-db0962904b89",
+        "kind": "socket",
+        "label": "Розетки дома",
+        "planPosition": {
+          "x": 2.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "d6a4c4f7-e82c-5594-ab55-727beb1bd978",
+        "specs": {
+          "ratedPower": 1000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "b85aabdc-70dc-5960-bc39-7d1e2af71638",
+        "kind": "appliance",
+        "label": "Линия бани 80 м",
+        "planPosition": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "35e117c4-7f2b-5106-9073-940dbe4bfeb0",
+        "specs": {
+          "ratedPower": 6000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "9d144469-b0b6-5898-bcdf-c4f332e1d22c",
+        "kind": "appliance",
+        "label": "Линия бани (кривая C)",
+        "planPosition": {
+          "x": 4.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "2fe44e0e-8fb6-522e-8bad-4e936f22fe3a",
+        "specs": {
+          "ratedPower": 6000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "a8d2ec8a-1dca-5211-aa0b-d66fb0ae7aef",
+        "from": "e1679443-7c88-5784-b9ae-d331e28ca89f",
+        "to": "d3d31343-710a-530c-b452-6ea3b86ff357",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 1.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "787d625d-39b3-568a-bff2-57cc0bc3e462",
+        "from": "e1679443-7c88-5784-b9ae-d331e28ca89f",
+        "to": "f29f49cf-9c32-5008-a00e-db0962904b89",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "14768937-06b8-5189-b1d1-778228cc92a6",
+        "from": "e1679443-7c88-5784-b9ae-d331e28ca89f",
+        "to": "b85aabdc-70dc-5960-bc39-7d1e2af71638",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 80
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "b43c1ceb-04e3-5535-b24f-52febd2e7617",
+        "from": "e1679443-7c88-5784-b9ae-d331e28ca89f",
+        "to": "9d144469-b0b6-5898-bcdf-c4f332e1d22c",
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 80
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 4.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      }
+    ],
+    "stampMeta": {
+      "projectCode": "03_house_bath_long_line",
+      "organizationName": "VoltWireCraft",
+      "stage": "РД"
+    }
+  },
+  "savedAt": "2026-11-20T00:00:00.000Z"
+}

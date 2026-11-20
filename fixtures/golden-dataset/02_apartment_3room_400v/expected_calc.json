@@ -1,0 +1,448 @@
+{
+  "case": "02_apartment_3room_400v",
+  "schemaVersion": 2,
+  "supply": {
+    "voltageV": 400,
+    "phases": 3,
+    "transformerKva": 100,
+    "incomingA": 63
+  },
+  "dxf": {
+    "walls": 6,
+    "units": "mm"
+  },
+  "lines": {
+    "group-01": {
+      "label": "Варочная панель",
+      "powerW": 7200,
+      "lengthM": 15,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "appliance",
+        "roomType": "kitchen",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 10.939,
+        "selectedCrossSectionMm2": 2.5,
+        "permissibleCurrentA": 23.0,
+        "voltageDropPercent": 0.502,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 16,
+        "rcdCurrentMa": 30,
+        "rcdRequired": true,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "Установите УЗО/АВДТ с уставкой 30 мА без задержки срабатывания.",
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S2.5",
+          "PUE-BREAKER-S2.5",
+          "PUE-VDROP-5",
+          "PUE-RCD-WET-30"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.105,
+        "neutralResistanceOhm": 0.105,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.281,
+        "shortCircuitCurrentA": 817.269,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 51.079,
+        "instantaneousTripA": 160.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-02": {
+      "label": "Духовой шкаф",
+      "powerW": 3500,
+      "lengthM": 12,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "appliance",
+        "roomType": "kitchen",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 5.318,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 0.318,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 30,
+        "rcdRequired": true,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "Установите УЗО/АВДТ с уставкой 30 мА без задержки срабатывания.",
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5",
+          "PUE-RCD-WET-30"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.14,
+        "neutralResistanceOhm": 0.14,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.351,
+        "shortCircuitCurrentA": 654.487,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 109.081,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-03": {
+      "label": "Кондиционер 1",
+      "powerW": 2000,
+      "lengthM": 10,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "other",
+        "roomType": "living",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 3.039,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 0.152,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 0,
+        "rcdRequired": false,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.117,
+        "neutralResistanceOhm": 0.117,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.305,
+        "shortCircuitCurrentA": 754.711,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 125.785,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-04": {
+      "label": "Кондиционер 2",
+      "powerW": 2000,
+      "lengthM": 10,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "other",
+        "roomType": "living",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 3.039,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 0.152,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 0,
+        "rcdRequired": false,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.117,
+        "neutralResistanceOhm": 0.117,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.305,
+        "shortCircuitCurrentA": 754.711,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 125.785,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-05": {
+      "label": "Освещение",
+      "powerW": 400,
+      "lengthM": 12,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "light",
+        "roomType": "living",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 0.608,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 0.036,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 0,
+        "rcdRequired": false,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.14,
+        "neutralResistanceOhm": 0.14,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.351,
+        "shortCircuitCurrentA": 654.487,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 109.081,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-06": {
+      "label": "Розетки",
+      "powerW": 1500,
+      "lengthM": 12,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "socket",
+        "roomType": "living",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 2.279,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 0.136,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 30,
+        "rcdRequired": true,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "Установите УЗО/АВДТ с уставкой 30 мА без задержки срабатывания.",
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5",
+          "PUE-RCD-SOCKET-30"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.14,
+        "neutralResistanceOhm": 0.14,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.351,
+        "shortCircuitCurrentA": 654.487,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 109.081,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-07": {
+      "label": "Холодильник и роутер",
+      "powerW": 300,
+      "lengthM": 8,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "socket",
+        "roomType": "kitchen",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100
+      },
+      "lineSizing": {
+        "designCurrentA": 0.456,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 0.018,
+        "voltageDropLimitPercent": 5.0,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 30,
+        "rcdRequired": true,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "Установите УЗО/АВДТ с уставкой 30 мА без задержки срабатывания.",
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5",
+          "PUE-RCD-WET-30"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.093,
+        "neutralResistanceOhm": 0.093,
+        "loopReactanceOhm": 0.001,
+        "loopImpedanceOhm": 0.258,
+        "shortCircuitCurrentA": 891.18,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 148.53,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    }
+  },
+  "totals": {
+    "groups": 7,
+    "powerW": 16900
+  }
+}
