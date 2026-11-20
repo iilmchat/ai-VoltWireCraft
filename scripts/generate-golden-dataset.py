@@ -23,8 +23,13 @@ sys.path.insert(0, str(CALC_ENGINE))
 
 from app.cad_parser import parse_dxf_bytes  # noqa: E402
 from app.line_sizing import calculate_line_sizing  # noqa: E402
-from app.schemas import LineSizingRequest, ShortCircuitRequest  # noqa: E402
+from app.schemas import (  # noqa: E402
+    LineSizingRequest,
+    SelectivityTccRequest,
+    ShortCircuitRequest,
+)
 from app.short_circuit import calculate_short_circuit  # noqa: E402
+from app.tcc_selectivity import calculate_tcc_selectivity  # noqa: E402
 
 SAVED_AT = "2026-11-20T00:00:00.000Z"
 NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
@@ -66,6 +71,7 @@ def line_request(case: dict[str, Any], group: dict[str, Any], cross_section: flo
             "installation_method": group.get("installation", "conduit"),
             "consumer_kind": group["consumerKind"],
             "room_type": group.get("roomType"),
+            "upstream_voltage_drop_percent": 2.0 if case.get("multiPanel") else 0,
         }
     )
 
@@ -112,10 +118,29 @@ def build_graph(case: dict[str, Any], walls: list[dict[str, Any]]) -> dict[str, 
             "label": "Щит НКУ",
             "planPosition": {"x": 0, "y": 0},
             "panelSlot": 2,
-            "specs": {"ratedPower": 0, "ratedCurrent": case["incomingA"], "crossSection": 16, "mountingHeight": 1.5},
+            "specs": {"ratedPower": 0, "ratedCurrent": case["incomingA"], "crossSection": 16, "mountingHeight": 1.5, "breakingCapacityKa": 10},
             "catalogDeviceId": None,
+            **({"panelRole": "main_vru"} if case.get("multiPanel") else {}),
         }
     ]
+
+    downstream_panel_id = uid(case_id, "panel")
+    if case.get("multiPanel"):
+        downstream_panel_id = uid(case_id, "shr-panel")
+        nodes.append(
+            {
+                "id": downstream_panel_id,
+                "kind": "panel",
+                "label": "ЩР-2 (2-й этаж)",
+                "planPosition": {"x": 6, "y": 0},
+                "panelSlot": 3,
+                "specs": {"ratedPower": 0, "ratedCurrent": 40, "crossSection": 6, "mountingHeight": 1.5, "breakingCapacityKa": 6},
+                "catalogDeviceId": None,
+                "panelRole": "sub_shr",
+                "parentPanelId": uid(case_id, "panel"),
+            }
+        )
+
     if case.get("masterSwitch"):
         nodes.extend(
             [
@@ -141,6 +166,21 @@ def build_graph(case: dict[str, Any], walls: list[dict[str, Any]]) -> dict[str, 
         )
 
     edges: list[dict[str, Any]] = []
+    if case.get("multiPanel"):
+        edges.append(
+            {
+                "id": uid(case_id, "feeder"),
+                "from": uid(case_id, "panel"),
+                "to": downstream_panel_id,
+                "cableSpecs": {"crossSection": 6, "conductorCount": 5, "material": "cu", "length": 12},
+                "waypointsM": [
+                    {"x": 0, "y": 0},
+                    {"x": 6, "y": 0},
+                ],
+                "edgeType": "feeder_line",
+                "cableBrand": "ВВГнг(А)-LS",
+            }
+        )
     for index, group in enumerate(case["groups"], start=1):
         node_id = uid(case_id, f"node-{index}")
         nodes.append(
@@ -163,13 +203,15 @@ def build_graph(case: dict[str, Any], walls: list[dict[str, Any]]) -> dict[str, 
         edges.append(
             {
                 "id": uid(case_id, f"edge-{index}"),
-                "from": uid(case_id, "panel"),
+                "from": downstream_panel_id,
                 "to": node_id,
+                **({"upstreamVoltageDropPercent": 2.0} if case.get("multiPanel") else {}),
                 "cableSpecs": {
                     "crossSection": 2.5,
                     "conductorCount": 3,
                     "material": "cu",
                     "length": group["lengthM"],
+                    **({"voltageDropPercent": 2.5} if case.get("multiPanel") else {}),
                 },
                 "waypointsM": [
                     {"x": 0, "y": 0},
@@ -237,12 +279,13 @@ def build_expected(case: dict[str, Any], dxf: bytes) -> dict[str, Any]:
                 "installation": group.get("installation", "conduit"),
                 "tripCurve": group.get("tripCurve", "C"),
                 "transformerKva": case["transformerKva"],
+                "upstreamVoltageDropPercent": 2.0 if case.get("multiPanel") else 0,
             },
             "lineSizing": sizing.model_dump(by_alias=True, mode="json"),
             "shortCircuit": fault.model_dump(by_alias=True, mode="json"),
         }
 
-    return {
+    result: dict[str, Any] = {
         "case": case["id"],
         "schemaVersion": 2,
         "supply": {
@@ -256,8 +299,49 @@ def build_expected(case: dict[str, Any], dxf: bytes) -> dict[str, Any]:
         "totals": {
             "groups": len(case["groups"]),
             "powerW": sum(group["powerW"] for group in case["groups"]),
+            "feederLines": 1 if case.get("multiPanel") else 0,
         },
     }
+
+    if case.get("multiPanel"):
+        group_drop = max(
+            (line["lineSizing"]["voltageDropPercent"] for line in lines.values()),
+            default=0,
+        )
+        tcc = calculate_tcc_selectivity(
+            SelectivityTccRequest.model_validate(
+                {
+                    "devices": [
+                        {
+                            "id": uid(case["id"], "panel"),
+                            "ratedCurrentA": case["incomingA"],
+                            "tripCurve": "C",
+                            "breakingCapacityKa": 10,
+                            "shortCircuitCurrentA": 4000,
+                        },
+                        {
+                            "id": uid(case["id"], "shr-panel"),
+                            "ratedCurrentA": 40,
+                            "tripCurve": "B",
+                            "breakingCapacityKa": 6,
+                            "parentId": uid(case["id"], "panel"),
+                            "shortCircuitCurrentA": 2000,
+                        },
+                    ],
+                    "upstreamVoltageDropPercent": 2.0,
+                    "groupVoltageDropPercent": group_drop,
+                }
+            )
+        )
+        result["cascade"] = {
+            "upstreamVoltageDropPercent": 2.0,
+            "groupVoltageDropPercent": group_drop,
+            "totalVoltageDropPercent": tcc.total_voltage_drop_percent,
+            "voltageDropOk": tcc.voltage_drop_ok,
+        }
+        result["selectivityTcc"] = tcc.model_dump(by_alias=True, mode="json")
+
+    return result
 
 
 CASES: list[dict[str, Any]] = [
@@ -407,6 +491,31 @@ CASES: list[dict[str, Any]] = [
             {"label": "Кухня (газовая плита)", "nodeKind": "socket", "powerW": 1500, "lengthM": 12, "consumerKind": "socket", "roomType": "kitchen"},
             {"label": "Холодильник", "nodeKind": "socket", "powerW": 300, "lengthM": 8, "consumerKind": "socket", "roomType": "kitchen"},
             {"label": "Кондиционер", "nodeKind": "appliance", "powerW": 1800, "lengthM": 12, "consumerKind": "other", "roomType": "living"},
+        ],
+    },
+    {
+        "id": "07_twostory_house_vru_shr",
+        "dir": "07_twostory_house_vru_shr",
+        "title": "Двухэтажный дом: ВРУ → ЩР-2",
+        "voltageV": 400,
+        "phases": 3,
+        "transformerKva": 100,
+        "incomingA": 63,
+        "masterSwitch": False,
+        "multiPanel": True,
+        "walls": [
+            ("WALLS", (0, 0), (8, 0)),
+            ("WALLS", (8, 0), (8, 6)),
+            ("WALLS", (8, 6), (0, 6)),
+            ("WALLS", (0, 6), (0, 0)),
+            ("PARTITIONS", (4, 0), (4, 6)),
+            ("PARTITIONS", (6, 0), (6, 6)),
+        ],
+        "groups": [
+            {"label": "Освещение 2 этажа", "nodeKind": "light_fixture", "powerW": 400, "lengthM": 10, "consumerKind": "light", "roomType": "living"},
+            {"label": "Розетки 2 этажа", "nodeKind": "socket", "powerW": 1500, "lengthM": 14, "consumerKind": "socket", "roomType": "living"},
+            {"label": "Электрокотёл", "nodeKind": "appliance", "powerW": 6000, "lengthM": 12, "consumerKind": "appliance", "roomType": "utility"},
+            {"label": "Бойлер", "nodeKind": "appliance", "powerW": 3000, "lengthM": 12, "consumerKind": "appliance", "roomType": "wet"},
         ],
     },
 ]

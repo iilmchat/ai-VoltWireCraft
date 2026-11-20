@@ -1,0 +1,449 @@
+{
+  "format": "vwc-project",
+  "schemaVersion": 2,
+  "graph": {
+    "schemaVersion": 2,
+    "id": "96dd3fa0-9099-5a26-b344-453ef1b867e4",
+    "name": "Двухэтажный дом: ВРУ → ЩР-2",
+    "floorPlan": {
+      "background": null,
+      "scaleMetersPerPx": 0.01,
+      "ceilingHeightM": 2.7
+    },
+    "rooms": [
+      {
+        "id": "db211422-bebd-5878-b685-e987e1c55ff6",
+        "name": "Освещение 2 этажа",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "d08e7200-c147-584b-a151-39606d177ab6",
+        "name": "Розетки 2 этажа",
+        "type": "living",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "b739db10-1124-58b6-9177-47e4bfdd1e98",
+        "name": "Электрокотёл",
+        "type": "utility",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      },
+      {
+        "id": "2b3bc01a-a8ed-59f1-b15e-f4d58871d5c5",
+        "name": "Бойлер",
+        "type": "wet",
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 0
+          },
+          {
+            "x": 2,
+            "y": 2
+          }
+        ]
+      }
+    ],
+    "walls": [
+      {
+        "id": "eb36c2ee-d2bc-5946-a603-bed5c561a06c",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 8.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "b4725c99-67f8-5929-bd8d-1b67258bf8aa",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 8.0,
+            "y": 0.0
+          },
+          {
+            "x": 8.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "184f14d9-2708-5313-a8b0-d4c1420db3e9",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 8.0,
+            "y": 6.0
+          },
+          {
+            "x": 0.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "7eb041f1-0e44-5257-8189-a911002ba1db",
+        "kind": "wall",
+        "path": [
+          {
+            "x": 0.0,
+            "y": 6.0
+          },
+          {
+            "x": 0.0,
+            "y": 0.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "31f51ab1-c343-5484-afae-f08084ae3990",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 4.0,
+            "y": 0.0
+          },
+          {
+            "x": 4.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      },
+      {
+        "id": "02fdd070-bea7-5605-a324-58e7fee059ad",
+        "kind": "partition",
+        "path": [
+          {
+            "x": 6.0,
+            "y": 0.0
+          },
+          {
+            "x": 6.0,
+            "y": 6.0
+          }
+        ],
+        "thickness": 0.1
+      }
+    ],
+    "nodes": [
+      {
+        "id": "98d9d75f-6ec4-513e-9623-118259765a78",
+        "kind": "input_source",
+        "label": "Ввод 400 В",
+        "planPosition": null,
+        "panelSlot": 1,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 0,
+          "phase": "3P",
+          "voltageV": 400
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "80665bcf-7229-5e35-a14e-879fb66f3cf2",
+        "kind": "panel",
+        "label": "Щит НКУ",
+        "planPosition": {
+          "x": 0,
+          "y": 0
+        },
+        "panelSlot": 2,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 63,
+          "crossSection": 16,
+          "mountingHeight": 1.5,
+          "breakingCapacityKa": 10
+        },
+        "catalogDeviceId": null,
+        "panelRole": "main_vru"
+      },
+      {
+        "id": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "kind": "panel",
+        "label": "ЩР-2 (2-й этаж)",
+        "planPosition": {
+          "x": 6,
+          "y": 0
+        },
+        "panelSlot": 3,
+        "specs": {
+          "ratedPower": 0,
+          "ratedCurrent": 40,
+          "crossSection": 6,
+          "mountingHeight": 1.5,
+          "breakingCapacityKa": 6
+        },
+        "catalogDeviceId": null,
+        "panelRole": "sub_shr",
+        "parentPanelId": "80665bcf-7229-5e35-a14e-879fb66f3cf2"
+      },
+      {
+        "id": "9b6f4b3e-e8a4-5b89-844e-9e4f85898f27",
+        "kind": "light_fixture",
+        "label": "Освещение 2 этажа",
+        "planPosition": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "db211422-bebd-5878-b685-e987e1c55ff6",
+        "specs": {
+          "ratedPower": 400,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "ee4844cf-ec38-5083-a493-55db33045a02",
+        "kind": "socket",
+        "label": "Розетки 2 этажа",
+        "planPosition": {
+          "x": 2.0,
+          "y": 2.0
+        },
+        "panelSlot": null,
+        "roomId": "d08e7200-c147-584b-a151-39606d177ab6",
+        "specs": {
+          "ratedPower": 1500,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "a2f67ae3-15a4-5488-bd40-c428baea24f3",
+        "kind": "appliance",
+        "label": "Электрокотёл",
+        "planPosition": {
+          "x": 3.0,
+          "y": 0.0
+        },
+        "panelSlot": null,
+        "roomId": "b739db10-1124-58b6-9177-47e4bfdd1e98",
+        "specs": {
+          "ratedPower": 6000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      },
+      {
+        "id": "5f6a3181-5087-5ad7-8cb5-77b103b8514c",
+        "kind": "appliance",
+        "label": "Бойлер",
+        "planPosition": {
+          "x": 4.0,
+          "y": 1.0
+        },
+        "panelSlot": null,
+        "roomId": "2b3bc01a-a8ed-59f1-b15e-f4d58871d5c5",
+        "specs": {
+          "ratedPower": 3000,
+          "ratedCurrent": 16,
+          "crossSection": 2.5,
+          "mountingHeight": 0.3
+        },
+        "catalogDeviceId": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "6ff71f4e-fadc-519a-b0ce-3e11b1672b29",
+        "from": "80665bcf-7229-5e35-a14e-879fb66f3cf2",
+        "to": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "cableSpecs": {
+          "crossSection": 6,
+          "conductorCount": 5,
+          "material": "cu",
+          "length": 12
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 6,
+            "y": 0
+          }
+        ],
+        "edgeType": "feeder_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "6e481d7b-c613-599f-b54d-f1ec02922432",
+        "from": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "to": "9b6f4b3e-e8a4-5b89-844e-9e4f85898f27",
+        "upstreamVoltageDropPercent": 2.0,
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 10,
+          "voltageDropPercent": 2.5
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 1.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "98260915-e265-52a4-896c-c658ef04cdb1",
+        "from": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "to": "ee4844cf-ec38-5083-a493-55db33045a02",
+        "upstreamVoltageDropPercent": 2.0,
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 14,
+          "voltageDropPercent": 2.5
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 2.0,
+            "y": 2.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "275c0ca8-0053-5502-a13e-40c90873d984",
+        "from": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "to": "a2f67ae3-15a4-5488-bd40-c428baea24f3",
+        "upstreamVoltageDropPercent": 2.0,
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12,
+          "voltageDropPercent": 2.5
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 3.0,
+            "y": 0.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      },
+      {
+        "id": "d92e5872-f137-530d-81d9-a9c83a712710",
+        "from": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "to": "5f6a3181-5087-5ad7-8cb5-77b103b8514c",
+        "upstreamVoltageDropPercent": 2.0,
+        "cableSpecs": {
+          "crossSection": 2.5,
+          "conductorCount": 3,
+          "material": "cu",
+          "length": 12,
+          "voltageDropPercent": 2.5
+        },
+        "waypointsM": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 4.0,
+            "y": 1.0
+          }
+        ],
+        "edgeType": "cable_line",
+        "cableBrand": "ВВГнг(А)-LS"
+      }
+    ],
+    "meta": {
+      "networkSystem": "tn-s",
+      "supplyTopology": "3P_400V",
+      "panelPoles": 4
+    },
+    "stampMeta": {
+      "projectCode": "07_twostory_house_vru_shr",
+      "organizationName": "VoltWireCraft",
+      "stage": "РД"
+    }
+  },
+  "savedAt": "2026-11-20T00:00:00.000Z"
+}

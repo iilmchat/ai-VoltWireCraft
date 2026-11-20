@@ -44,6 +44,16 @@
   «Однолинейная схема щита» и «Компоновка щита» для каждого щита, с единой
   нумерацией и штампом по ГОСТ Р 21.101.
 
+- Серверная интеграция ВТХ: `CalcEngineClient.checkSelectivityTccAsync` с
+  таймаутом и Zod-валидацией ответа, ручка `POST /projects/:id/selectivity-tcc`
+  и сборка запроса из графа (`buildSelectivityRequest`): аппараты цепочки,
+  каскадная и групповая потери напряжения. Числа приходят только из
+  `calc-engine` (RULES § 5.1).
+- `scripts/e2e-smoke.mjs` прогоняет седьмой многощитовой кейс
+  `07_twostory_house_vru_shr`: проверяет каскадное $\Delta U \le 5\%$, вызывает
+  `POST /projects/:id/selectivity-tcc` и сверяет протокол ВТХ с эталоном.
+  Успешный прогон — 379 проверок по 7 кейсам.
+
 ### Changed
 
 - Дополнительные вкладки (однолинейная схема, спецификация), форма выпуска РД
@@ -56,6 +66,29 @@
   `tauri::Builder` уже были подключены; версия в `Cargo.toml` синхронизирована с
   `tauri.conf.json` (0.5.0). Устраняет падение workflow Release Desktop на
   этапе компиляции Rust.
+
+### Added (бэкенд v0.6.0)
+
+- `packages/shared`: обратно совместимое расширение v2 — `panelRole`,
+  `parentPanelId`, `breakingCapacityKa` у узлов, `feeder_line` и
+  `upstreamVoltageDropPercent` у рёбер; контракты `SelectivityTccRequest/Response`
+  со статусом `full | partial | none`, пределами Is и точками кривых ВТХ.
+- `apps/calc-engine`: детерминированный модуль `tcc_selectivity.py` и эндпоинт
+  `POST /v1/calc/selectivity-tcc` — кусочно-аналитические кривые B/C/D
+  (1,13 / 1,45 / 2,55 In и 3–5 / 5–10 / 10–20 In), предел селективности Is
+  с Δt = 0,1 с, проверка I_cn ≥ I_кз, точки кривых и каскадное ΔU.
+- Каскадный расчёт: `line_sizing.py` учитывает потерю на магистрали ВРУ → ЩР
+  (ΣΔU ≤ 5 %), `short_circuit.py` добавляет сопротивление вышестоящей петли
+  при расчёте тока КЗ в конце линии.
+- `apps/api`: инструмент `check_tcc_selectivity_tool` в `ToolRegistry`, его вызов
+  в `PueAuditorAgent` (новое замечание `PUE-SELECT-TCC` и цитаты справочника
+  `TCC_SELECTIVITY_V06.md`), поддержка `targetPanelId` в `PanelArchitectAgent`
+  и клиентский метод `checkSelectivityTccAsync`.
+- Золотой датасет расширен до семи кейсов: `07_twostory_house_vru_shr` содержит
+  ВРУ, ЩР-2, фидер ВВГнг(А)-LS 5×6 мм², каскадное ΔU и эталон результата ВТХ;
+  регрессионные тесты pytest/Vitest обновлены.
+- Тесты: 16 новых `pytest` на ВТХ/каскад и 4 новых Vitest на инструмент,
+  клиент, аудит и сборку выбранного щита.
 
 ## [0.5.0] — 2026-11-20
 

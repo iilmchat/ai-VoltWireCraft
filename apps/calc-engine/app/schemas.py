@@ -88,6 +88,8 @@ class LineSizingRequest(_ContractModel):
     consumer_kind: ConsumerKind = "other"
     room_type: RoomType | None = None
     max_voltage_drop_percent: float = Field(default=5, gt=0, le=100)
+    # Каскад ВРУ → ЩР: потеря на питающей магистрали, %.
+    upstream_voltage_drop_percent: float = Field(default=0, ge=0)
 
 
 class LineSizingResponse(_ContractModel):
@@ -98,6 +100,8 @@ class LineSizingResponse(_ContractModel):
     permissible_current_a: float = Field(gt=0)
     voltage_drop_percent: float = Field(ge=0)
     voltage_drop_limit_percent: float = Field(gt=0)
+    # Суммарная потеря: магистраль + групповая линия, %.
+    total_voltage_drop_percent: float = Field(ge=0)
     breaker_rating_a: int = Field(gt=0)
     rcd_current_ma: int = Field(ge=0)
     rcd_required: bool
@@ -116,6 +120,7 @@ class NodeSpecsInput(_ContractModel):
     mounting_height: float = Field(ge=0)
     phase: Literal["1P", "3P"] | None = None
     voltage_v: VoltageV | None = None
+    breaking_capacity_ka: float | None = Field(default=None, gt=0)
 
 
 class AutoPanelNode(_ContractModel):
@@ -130,6 +135,9 @@ class AutoPanelNode(_ContractModel):
     room_id: str | None = None
     # Ссылка на позицию каталога из ProjectGraphSchema v2.
     catalog_device_id: str | None = None
+    # Многощитовая иерархия ВРУ → ЩР (ProjectGraphSchema v0.6).
+    panel_role: str | None = None
+    parent_panel_id: str | None = None
 
 
 class AutoPanelRoom(_ContractModel):
@@ -156,6 +164,7 @@ class AutoPanelRequest(_ContractModel):
     nodes: list[AutoPanelNode] = Field(default_factory=list)
     rooms: list[AutoPanelRoom] = Field(default_factory=list)
     supply: AutoPanelSupply = Field(default_factory=AutoPanelSupply)
+    target_panel_id: str | None = None
     preferred_brand: Brand | None = None
 
 
@@ -235,6 +244,8 @@ class ShortCircuitRequest(_ContractModel):
     resistance_ohm_mm2_per_m: float = Field(default=0.0175, gt=0)
     reactance_ohm_per_km: float = Field(default=0.08, ge=0)
     transformer_impedance_ohm: float | None = Field(default=None, ge=0)
+    # Суммарное сопротивление петли вышестоящей магистрали, Ом.
+    upstream_impedance_ohm: float = Field(default=0, ge=0)
 
 
 class ShortCircuitResponse(_ContractModel):
@@ -281,4 +292,59 @@ class CadParseResponse(_ContractModel):
     units: str
     entities_processed: int = Field(ge=0)
     warnings: list[str]
+    rules_version: str
+
+
+# --- Контракты релиза v0.6.0 (ВТХ и многощитовые цепочки) ---
+
+
+class TccDeviceInput(_ContractModel):
+    """Аппарат защиты в цепочке ВРУ → ЩР → линия."""
+
+    id: str = Field(min_length=1)
+    rated_current_a: float = Field(gt=0)
+    trip_curve: Literal["B", "C", "D"]
+    breaking_capacity_ka: float | None = Field(default=None, gt=0)
+    parent_id: str | None = None
+    short_circuit_current_a: float | None = Field(default=None, gt=0)
+
+
+class SelectivityTccRequest(_ContractModel):
+    """Запрос расчёта время-токовых характеристик и каскадного ΔU."""
+
+    devices: list[TccDeviceInput] = Field(min_length=1)
+    upstream_voltage_drop_percent: float = Field(default=0, ge=0)
+    group_voltage_drop_percent: float = Field(default=0, ge=0)
+    voltage_drop_limit_percent: float = Field(default=5, gt=0, le=100)
+
+
+class TccPoint(_ContractModel):
+    """Точка время-токовой характеристики."""
+
+    current_a: float = Field(gt=0)
+    time_s: float = Field(ge=0)
+
+
+class TccPairResult(_ContractModel):
+    """Результат проверки пары аппаратов."""
+
+    downstream_id: str
+    upstream_id: str
+    selectivity_limit_a: float = Field(ge=0)
+    selective: bool
+
+
+class SelectivityTccResponse(_ContractModel):
+    """Детерминированный результат расчёта ВТХ и каскадной сети."""
+
+    status: Literal["full", "partial", "none"]
+    selectivity_limit_a: float = Field(ge=0)
+    breaking_capacity_ok: bool
+    total_voltage_drop_percent: float = Field(ge=0)
+    voltage_drop_ok: bool
+    pairs: list[TccPairResult]
+    upstream_curve: list[TccPoint]
+    downstream_curve: list[TccPoint]
+    warnings: list[str]
+    references: list[str]
     rules_version: str

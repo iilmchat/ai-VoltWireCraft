@@ -167,6 +167,19 @@ describe('PueAuditorAgent: проверка КЗ через инструмент
     it('вызывает check_short_circuit_tool и добавляет находку', async () => {
         const calc = {
             checkShortCircuitAsync: vi.fn(async () => shortCircuitResponse),
+            checkSelectivityTccAsync: vi.fn(async () => ({
+                status: 'full' as const,
+                selectivityLimitA: 100,
+                breakingCapacityOk: true,
+                totalVoltageDropPercent: 3.5,
+                voltageDropOk: true,
+                pairs: [],
+                upstreamCurve: [],
+                downstreamCurve: [],
+                warnings: [],
+                references: ['TCC-113'],
+                rulesVersion: '0.1',
+            })),
             calculateLineSizingAsync: vi.fn(async () => ({
                 designCurrentA: 9.15,
                 selectedCrossSectionMm2: 2.5 as const,

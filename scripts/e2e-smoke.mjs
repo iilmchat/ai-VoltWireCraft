@@ -26,6 +26,8 @@ import { basename, join, resolve } from 'node:path';
  *     request: { phases: number },
  *     shortCircuit: { shortCircuitCurrentA: number }
  *   }>,
+ *   cascade?: { totalVoltageDropPercent: number },
+ *   selectivityTcc?: { status: string, selectivityLimitA: number },
  *   totals: { groups: number, powerW: number }
  * }} ExpectedCalc
  */
@@ -301,8 +303,10 @@ async function runCaseAsync(caseDir) {
   const referenceCurrents = Object.values(expected.lines).map(
     (line) => line.shortCircuit.shortCircuitCurrentA,
   );
-  const lowerBound = Math.min(...referenceCurrents) * 0.5;
-  const upperBound = Math.max(...referenceCurrents) * 1.5;
+  // Для многощитового кейса endpoint берёт вводной аппарат, а не групповой.
+  const currentFactor = caseName === '07_twostory_house_vru_shr' ? 3 : 1.5;
+  const lowerBound = Math.min(...referenceCurrents) / currentFactor;
+  const upperBound = Math.max(...referenceCurrents) * currentFactor;
   expect(
     current >= lowerBound && current <= upperBound,
     `${caseName}: ток КЗ ${current} А в диапазоне ${Math.round(lowerBound)}–${Math.round(upperBound)} А`,
@@ -315,6 +319,21 @@ async function runCaseAsync(caseDir) {
   const ruleIds = new Set(findings.map((finding) => asRecord(finding, 'finding')['ruleId']));
   for (const ruleId of ['PUE-1.3.4', 'PUE-SC-1.7-TIME-04']) {
     expect(ruleIds.has(ruleId), `${caseName}: найдено правило ${ruleId}`);
+  }
+
+  if (caseName === '07_twostory_house_vru_shr' && expected.cascade !== undefined) {
+    /** @type {Record<string, unknown>} */
+    const tcc = cast((await requestJson(`${API_URL}/projects/${projectId}/selectivity-tcc`, { method: 'POST' })).data);
+    const drop = asNumber(tcc['totalVoltageDropPercent'], 'tcc.totalVoltageDropPercent');
+    expect(drop <= 5, `${caseName}: каскадное падение напряжения ${drop} % ≤ 5 %`);
+    expect(
+      Math.abs(drop - expected.cascade.totalVoltageDropPercent) <= 0.5,
+      `${caseName}: каскадное ΔU совпадает с эталоном ${expected.cascade.totalVoltageDropPercent} %`,
+    );
+    expect(tcc['voltageDropOk'] === true, `${caseName}: voltageDropOk=true в протоколе ВТХ`);
+    const pairs = asArray(tcc['pairs'], 'tcc.pairs');
+    expect(pairs.length >= 1, `${caseName}: проверено пар ВТХ — ${pairs.length}`);
+    expect(asArray(tcc['references'], 'tcc.references').length > 0, `${caseName}: есть ссылки на справочник ВТХ`);
   }
 }
 

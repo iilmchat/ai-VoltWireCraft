@@ -22,7 +22,7 @@ function loadExpected(caseName: string): Record<string, unknown> {
 }
 
 describe('golden dataset', () => {
-    it('содержит шесть эталонных кейсов с полным комплектом файлов', () => {
+    it('содержит семь эталонных кейсов с полным комплектом файлов', () => {
         expect(CASES).toEqual([
             '01_studio_230v',
             '02_apartment_3room_400v',
@@ -30,6 +30,7 @@ describe('golden dataset', () => {
             '04_commercial_office_400v',
             '05_cottages_3phase_15kw',
             '06_apartment_2room_gas',
+            '07_twostory_house_vru_shr',
         ]);
         for (const caseName of CASES) {
             for (const file of ['plan.dxf', 'project.vwc', 'expected_calc.json']) {
@@ -47,7 +48,9 @@ describe('golden dataset', () => {
         expect(file.graph.stampMeta?.projectCode).toBe(caseName);
         const expected = loadExpected(caseName);
         const totals = expected['totals'] as Record<string, number>;
-        expect(file.graph.edges).toHaveLength(totals['groups'] as number);
+        const groupEdges = file.graph.edges.filter((edge) => edge.edgeType !== 'feeder_line');
+        expect(groupEdges).toHaveLength(totals['groups'] as number);
+        expect(file.graph.edges.length - groupEdges.length).toBe(totals['feederLines'] as number);
         expect(file.graph.walls).toHaveLength((expected['dxf'] as Record<string, number>)['walls'] as number);
     });
 

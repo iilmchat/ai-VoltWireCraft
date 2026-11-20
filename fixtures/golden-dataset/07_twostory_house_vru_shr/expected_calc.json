@@ -1,0 +1,547 @@
+{
+  "case": "07_twostory_house_vru_shr",
+  "schemaVersion": 2,
+  "supply": {
+    "voltageV": 400,
+    "phases": 3,
+    "transformerKva": 100,
+    "incomingA": 63
+  },
+  "dxf": {
+    "walls": 6,
+    "units": "mm"
+  },
+  "lines": {
+    "group-01": {
+      "label": "Освещение 2 этажа",
+      "powerW": 400,
+      "lengthM": 10,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "light",
+        "roomType": "living",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 2.0
+      },
+      "lineSizing": {
+        "designCurrentA": 0.608,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 2.03,
+        "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 4.03,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 0,
+        "rcdRequired": false,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.117,
+        "neutralResistanceOhm": 0.117,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.305,
+        "shortCircuitCurrentA": 754.711,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 125.785,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-02": {
+      "label": "Розетки 2 этажа",
+      "powerW": 1500,
+      "lengthM": 14,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "socket",
+        "roomType": "living",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 2.0
+      },
+      "lineSizing": {
+        "designCurrentA": 2.279,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 2.159,
+        "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 4.159,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 30,
+        "rcdRequired": true,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "Установите УЗО/АВДТ с уставкой 30 мА без задержки срабатывания.",
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5",
+          "PUE-RCD-SOCKET-30"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.163,
+        "neutralResistanceOhm": 0.163,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.398,
+        "shortCircuitCurrentA": 577.762,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 96.294,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-03": {
+      "label": "Электрокотёл",
+      "powerW": 6000,
+      "lengthM": 12,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "appliance",
+        "roomType": "utility",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 2.0
+      },
+      "lineSizing": {
+        "designCurrentA": 9.116,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 2.546,
+        "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 4.546,
+        "breakerRatingA": 10,
+        "rcdCurrentMa": 0,
+        "rcdRequired": false,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.14,
+        "neutralResistanceOhm": 0.14,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.351,
+        "shortCircuitCurrentA": 654.487,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 65.449,
+        "instantaneousTripA": 100.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    },
+    "group-04": {
+      "label": "Бойлер",
+      "powerW": 3000,
+      "lengthM": 12,
+      "request": {
+        "voltageV": 400,
+        "phases": 3,
+        "powerFactor": 0.95,
+        "consumerKind": "appliance",
+        "roomType": "wet",
+        "installation": "conduit",
+        "tripCurve": "C",
+        "transformerKva": 100,
+        "upstreamVoltageDropPercent": 2.0
+      },
+      "lineSizing": {
+        "designCurrentA": 4.558,
+        "selectedCrossSectionMm2": 1.5,
+        "permissibleCurrentA": 17.0,
+        "voltageDropPercent": 2.273,
+        "voltageDropLimitPercent": 5.0,
+        "totalVoltageDropPercent": 4.273,
+        "breakerRatingA": 6,
+        "rcdCurrentMa": 10,
+        "rcdRequired": true,
+        "cableType": "ВВГнг(А)-LS",
+        "recommendations": [
+          "Установите УЗО/АВДТ с уставкой 10 мА без задержки срабатывания.",
+          "На вводе здания предусмотрите противопожарное УЗО 100/300 мА с выдержкой времени (селективность по времени выше, чем у групповых УЗО)."
+        ],
+        "references": [
+          "PUE-1.3.4-T1-S1.5",
+          "PUE-BREAKER-S1.5",
+          "PUE-VDROP-5",
+          "PUE-RCD-WET-10"
+        ],
+        "rulesVersion": "0.1"
+      },
+      "shortCircuit": {
+        "transformerImpedanceOhm": 0.071,
+        "phaseResistanceOhm": 0.14,
+        "neutralResistanceOhm": 0.14,
+        "loopReactanceOhm": 0.002,
+        "loopImpedanceOhm": 0.351,
+        "shortCircuitCurrentA": 654.487,
+        "requiredMultiplicity": 10.0,
+        "minimumMultiplicity": 5.0,
+        "actualMultiplicity": 109.081,
+        "instantaneousTripA": 60.0,
+        "disconnectComplies": true,
+        "selectivityOk": false,
+        "upstreamToDownstreamRatio": 0.0,
+        "tripTimeS": 0.1,
+        "warnings": [],
+        "references": [
+          "PUE-SC-1.7-VOLTAGE",
+          "PUE-SC-1.7-LOOP-R",
+          "PUE-SC-1.7-TIME-04",
+          "PUE-SC-TRIP-C",
+          "PUE-SC-SELECT-TIME"
+        ],
+        "rulesVersion": "0.1"
+      }
+    }
+  },
+  "totals": {
+    "groups": 4,
+    "powerW": 10900,
+    "feederLines": 1
+  },
+  "cascade": {
+    "upstreamVoltageDropPercent": 2.0,
+    "groupVoltageDropPercent": 2.546,
+    "totalVoltageDropPercent": 4.546,
+    "voltageDropOk": true
+  },
+  "selectivityTcc": {
+    "status": "none",
+    "selectivityLimitA": 613.804,
+    "breakingCapacityOk": true,
+    "totalVoltageDropPercent": 4.546,
+    "voltageDropOk": true,
+    "pairs": [
+      {
+        "downstreamId": "a63944ee-a657-5838-9dd0-cd6a9d2a490e",
+        "upstreamId": "80665bcf-7229-5e35-a14e-879fb66f3cf2",
+        "selectivityLimitA": 613.804,
+        "selective": false
+      }
+    ],
+    "upstreamCurve": [
+      {
+        "currentA": 40.0,
+        "timeS": 3600.0
+      },
+      {
+        "currentA": 44.353,
+        "timeS": 3600.0
+      },
+      {
+        "currentA": 49.18,
+        "timeS": 127.793
+      },
+      {
+        "currentA": 54.532,
+        "timeS": 51.576
+      },
+      {
+        "currentA": 60.466,
+        "timeS": 29.756
+      },
+      {
+        "currentA": 67.046,
+        "timeS": 19.574
+      },
+      {
+        "currentA": 74.343,
+        "timeS": 13.778
+      },
+      {
+        "currentA": 82.433,
+        "timeS": 10.101
+      },
+      {
+        "currentA": 91.404,
+        "timeS": 7.605
+      },
+      {
+        "currentA": 101.351,
+        "timeS": 5.833
+      },
+      {
+        "currentA": 112.381,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 124.61,
+        "timeS": 5.416
+      },
+      {
+        "currentA": 138.171,
+        "timeS": 4.46
+      },
+      {
+        "currentA": 153.208,
+        "timeS": 3.399
+      },
+      {
+        "currentA": 169.88,
+        "timeS": 2.224
+      },
+      {
+        "currentA": 188.368,
+        "timeS": 0.92
+      },
+      {
+        "currentA": 208.867,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 231.597,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 256.8,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 284.747,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 315.735,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 350.094,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 388.194,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 430.439,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 477.281,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 529.222,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 586.814,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 650.674,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 721.484,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 800.0,
+        "timeS": 0.1
+      }
+    ],
+    "downstreamCurve": [
+      {
+        "currentA": 63.0,
+        "timeS": 3600.0
+      },
+      {
+        "currentA": 69.856,
+        "timeS": 3600.0
+      },
+      {
+        "currentA": 77.458,
+        "timeS": 127.793
+      },
+      {
+        "currentA": 85.887,
+        "timeS": 51.576
+      },
+      {
+        "currentA": 95.234,
+        "timeS": 29.756
+      },
+      {
+        "currentA": 105.598,
+        "timeS": 19.574
+      },
+      {
+        "currentA": 117.09,
+        "timeS": 13.778
+      },
+      {
+        "currentA": 129.832,
+        "timeS": 10.101
+      },
+      {
+        "currentA": 143.961,
+        "timeS": 7.605
+      },
+      {
+        "currentA": 159.628,
+        "timeS": 5.833
+      },
+      {
+        "currentA": 176.999,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 196.261,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 217.619,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 241.302,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 267.562,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 296.679,
+        "timeS": 5.741
+      },
+      {
+        "currentA": 328.965,
+        "timeS": 5.491
+      },
+      {
+        "currentA": 364.765,
+        "timeS": 4.85
+      },
+      {
+        "currentA": 404.461,
+        "timeS": 4.139
+      },
+      {
+        "currentA": 448.476,
+        "timeS": 3.351
+      },
+      {
+        "currentA": 497.282,
+        "timeS": 2.477
+      },
+      {
+        "currentA": 551.399,
+        "timeS": 1.508
+      },
+      {
+        "currentA": 611.405,
+        "timeS": 0.433
+      },
+      {
+        "currentA": 677.941,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 751.718,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 833.524,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 924.232,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 1024.812,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 1136.338,
+        "timeS": 0.1
+      },
+      {
+        "currentA": 1260.0,
+        "timeS": 0.1
+      }
+    ],
+    "warnings": [],
+    "references": [
+      "TCC-113",
+      "TCC-145",
+      "TCC-255-32",
+      "TCC-C-HIGH",
+      "TCC-ICN-45"
+    ],
+    "rulesVersion": "0.1"
+  }
+}

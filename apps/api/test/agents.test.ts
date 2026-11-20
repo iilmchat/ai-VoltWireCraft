@@ -111,6 +111,19 @@ describe('ИИ-агенты', () => {
         calculateCableLengthAsync: vi.fn(),
         calculateLineSizingAsync: vi.fn(async () => lineResponse),
         autoAssemblePanelAsync: vi.fn(async () => panelResponse),
+        checkSelectivityTccAsync: vi.fn(async () => ({
+            status: 'full' as const,
+            selectivityLimitA: 100,
+            breakingCapacityOk: true,
+            totalVoltageDropPercent: 3.5,
+            voltageDropOk: true,
+            pairs: [],
+            upstreamCurve: [],
+            downstreamCurve: [],
+            warnings: [],
+            references: ['TCC-113'],
+            rulesVersion: '0.1',
+        })),
         checkShortCircuitAsync: vi.fn(async () => ({
             transformerImpedanceOhm: 0.07,
             phaseResistanceOhm: 0.14,
@@ -219,15 +232,31 @@ describe('ИИ-агенты', () => {
         );
     });
 
+    it('PanelArchitect собирает выбранный щит targetPanelId', async () => {
+        const graph = makeGraph();
+
+        const result = await architect.assembleAsync(graph, {
+            preferredBrand: 'IEK',
+            targetPanelId: BREAKER,
+        });
+
+        expect(calc.autoAssemblePanelAsync).toHaveBeenCalledWith(
+            expect.objectContaining({ targetPanelId: BREAKER }),
+        );
+        expect(result.graph.nodes.some((node) => node.parentPanelId === BREAKER)).toBe(true);
+    });
+
     it('PueAuditor находит нарушения и цитирует справочник', async () => {
         const report = await auditor.auditAsync(PROJECT_ID, makeGraph());
 
         expect(calc.calculateLineSizingAsync).toHaveBeenCalledTimes(1);
+        expect(calc.checkSelectivityTccAsync).toHaveBeenCalled();
         expect(normative.searchAsync).toHaveBeenCalledTimes(1);
         expect(report.projectId).toBe(PROJECT_ID);
         expect(report.summary.errors).toBeGreaterThanOrEqual(2);
         expect(report.findings.some((item) => item.ruleId.startsWith('PUE-BREAKER-S'))).toBe(true);
         expect(report.findings.some((item) => item.ruleId === 'PUE-RCD-WET-30')).toBe(true);
+        expect(report.findings.some((item) => item.ruleId === 'PUE-SELECT-TCC')).toBe(true);
         expect(report.citations.some((item) => item.ruleId === 'PUE-1.3.4-T1-S2.5')).toBe(true);
         expect(report.rulesVersion).toBe('0.1');
         expect(report.explanation).toBe('Пояснение агентов');

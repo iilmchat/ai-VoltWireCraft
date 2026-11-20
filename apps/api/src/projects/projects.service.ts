@@ -9,6 +9,7 @@ import {
     FloorPlanUploadDtoSchema,
     ProjectDtoSchema,
     ProjectGraphSchema,
+    SelectivityTccRequestSchema,
     ShortCircuitRequestSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
 import type {
@@ -16,6 +17,7 @@ import type {
     FloorPlanUploadDto,
     ProjectDto,
     ProjectGraph,
+    SelectivityTccResponse,
     ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
@@ -24,6 +26,7 @@ import type { Database } from '../database/drizzle.provider.js';
 import { floorPlans, projects } from '../database/schema.js';
 import { buildCableRequest, ProjectCalculationDtoSchema } from './calculation.js';
 import type { CalculationEdge, ProjectCalculationDto } from './calculation.js';
+import { buildSelectivityRequest } from './selectivity.js';
 import { detectCadFile, detectFloorPlanType } from './file-signature.js';
 import type { UploadedFloorPlanFile } from './file-signature.js';
 import { FLOOR_PLAN_STORAGE } from './storage/floor-plan-storage.js';
@@ -249,6 +252,20 @@ export class ProjectsService {
         tripCurve: 'C',
       }),
     );
+  }
+
+  /**
+   * Проверяет селективность цепочки ВРУ → ЩР по ВТХ в расчётном ядре.
+   * Все числа приходят из calc-engine (RULES § 5.1).
+   *
+   * @param id — идентификатор проекта.
+   * @returns протокол ВТХ с пределами селективности и каскадной потерей напряжения.
+   * @throws {NotFoundException} если проект не найден.
+   */
+  public async checkSelectivityTccAsync(id: string): Promise<SelectivityTccResponse> {
+    const project = await this.getByIdAsync(id);
+    const request = SelectivityTccRequestSchema.parse(buildSelectivityRequest(project.graph));
+    return this.calcClient.checkSelectivityTccAsync(request);
   }
 
   /**

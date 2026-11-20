@@ -12,6 +12,8 @@ import {
   CadParseResponseSchema,
   LineSizingRequestSchema,
   LineSizingResponseSchema,
+  SelectivityTccRequestSchema,
+  SelectivityTccResponseSchema,
   ShortCircuitRequestSchema,
   ShortCircuitResponseSchema,
 } from '@voltwirecraft/shared/graph.schema.js';
@@ -23,6 +25,8 @@ import type {
   CadParseResponse,
   LineSizingRequest,
   LineSizingResponse,
+  SelectivityTccRequest,
+  SelectivityTccResponse,
   ShortCircuitRequest,
   ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
@@ -40,6 +44,8 @@ const AUTO_PANEL_PATH = '/v1/calc/auto-panel';
 const SHORT_CIRCUIT_PATH = '/v1/calc/short-circuit';
 /** Путь разбора CAD-плана. */
 const CAD_PARSE_PATH = '/v1/cad/parse-dxf';
+/** Путь расчёта селективности по время-токовым характеристикам. */
+const SELECTIVITY_TCC_PATH = '/v1/calc/selectivity-tcc';
 
 /** Параметры одного вызова расчётного ядра. */
 interface CalculationCall<TPayload, TResult> {
@@ -126,6 +132,23 @@ export class CalcEngineClient {
       path: SHORT_CIRCUIT_PATH,
       payload: ShortCircuitRequestSchema.parse(request),
       responseSchema: ShortCircuitResponseSchema,
+    });
+  }
+
+  /**
+   * Проверяет селективность цепочки аппаратов по время-токовым характеристикам.
+   *
+   * @param request — аппараты цепочки и потери напряжения.
+   * @returns провалидированный протокол ВТХ от расчётного ядра.
+   * @throws {BadGatewayException|GatewayTimeoutException} при ошибке вызова.
+   */
+  public async checkSelectivityTccAsync(
+    request: SelectivityTccRequest,
+  ): Promise<SelectivityTccResponse> {
+    return this.postAsync({
+      path: SELECTIVITY_TCC_PATH,
+      payload: SelectivityTccRequestSchema.parse(request),
+      responseSchema: SelectivityTccResponseSchema,
     });
   }
 

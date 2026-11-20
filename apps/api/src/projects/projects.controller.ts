@@ -20,6 +20,7 @@ import type {
   CopilotChatRequest,
   CopilotChatResponse,
   PueAuditReport,
+  SelectivityTccResponse,
   ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
 import { AssemblePanelRequestSchema } from '../agents/agents.schemas.js';
@@ -142,6 +143,20 @@ export class ProjectsController {
   ): Promise<ApiResponse<ShortCircuitResponse>> {
     const data = await this.service.calculateShortCircuitAsync(id);
     return { success: true, data, message: 'Расчёт тока КЗ выполнен' };
+  }
+
+  /**
+   * Проверяет селективность цепочки аппаратов по ВТХ через расчётное ядро.
+   *
+   * @param id — UUID проекта.
+   * @returns протокол ВТХ в единой обёртке `ApiResponse`.
+   */
+  @Post(':id/selectivity-tcc')
+  public async checkSelectivityTccAsync(
+    @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
+  ): Promise<ApiResponse<SelectivityTccResponse>> {
+    const data = await this.service.checkSelectivityTccAsync(id);
+    return { success: true, data, message: 'Селективность ВТХ проверена' };
   }
 
   /**
