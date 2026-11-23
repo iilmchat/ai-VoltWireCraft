@@ -1,5 +1,5 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
-/** Модуль авторизации, глобальных guards и RBAC проекта. */
+/** Модуль авторизации, глобального guards и RBAC проекта. */
 
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -11,14 +11,16 @@ import { JwtAuthGuard } from './auth.guard.js';
 import { JwtService } from './jwt.service.js';
 import { ProjectAccessController } from './project-access.controller.js';
 import { ProjectAccessService } from './project-access.service.js';
+import { SecurityGuard } from './security.guard.js';
 
 /**
- * Порядок APP_GUARD детерминирован порядком регистрации в providers:
- * 1) JwtAuthGuard — аутентификация и @Public;
- * 2) GraphEditGuard — защита путей записи графа (мост этапа 0).
+ * Единственный APP_GUARD — `SecurityGuard`, внутри него жёсткий порядок:
+ * JwtAuthGuard → ProjectAccessGuard. Это устраняет зависимость от порядка
+ * регистрации guards в разных модулях (PolicyModule импортируется раньше).
  *
- * В этапе 3 между ними встанет ProjectAccessGuard с @ProjectScoped.
- * Ни один контроллер не использует class-level @UseGuards.
+ * `GraphEditGuard` сохранён как провайдер для совместимости этапа 0, но
+ * больше не регистрируется глобально: его заменил `@ProjectScoped({role:'write'})`
+ * из PR #2 на всех трёх путях записи графа.
  */
 @Module({
   controllers: [AuthController, ProjectAccessController],
@@ -29,8 +31,8 @@ import { ProjectAccessService } from './project-access.service.js';
     ProjectAccessService,
     JwtAuthGuard,
     GraphEditGuard,
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: GraphEditGuard },
+    SecurityGuard,
+    { provide: APP_GUARD, useClass: SecurityGuard },
   ],
   exports: [
     JwtService,
@@ -38,6 +40,7 @@ import { ProjectAccessService } from './project-access.service.js';
     ProjectAccessService,
     JwtAuthGuard,
     GraphEditGuard,
+    SecurityGuard,
   ],
 })
 export class AuthModule {}

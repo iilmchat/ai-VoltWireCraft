@@ -216,16 +216,20 @@ export type Env = z.infer<typeof EnvSchema>;
 export function validateEnv(config: Record<string, unknown>): Env {
   // SEC-01: поддержка Docker/Kubernetes secrets через `*_FILE`.
   // Файл читается до валидации; содержимое никогда не попадает в текст ошибки.
-  let resolved: Record<string, unknown> = config;
-  if (
-    typeof config['JWT_SECRET_FILE'] === 'string' &&
-    config['JWT_SECRET'] === undefined
-  ) {
+  let resolved: Record<string, unknown> = { ...config };
+  if (typeof resolved['JWT_SECRET_FILE'] === 'string') {
+    // Взаимоисключение проверяется на СЫРЫХ переменных, до подстановки
+    // значения из файла. Иначе подстановка создавала бы JWT_SECRET и
+    // новую проверка всегда отвергала file-путь (дефект v0.9.1).
+    if (resolved['JWT_SECRET'] !== undefined) {
+      throw new Error(
+        'Некорректная конфигурация окружения: нельзя задавать JWT_SECRET и JWT_SECRET_FILE одновременно',
+      );
+    }
     try {
-      resolved = {
-        ...resolved,
-        JWT_SECRET: readFileSync(config['JWT_SECRET_FILE'], 'utf8').trim(),
-      };
+      const fromFile = readFileSync(resolved['JWT_SECRET_FILE'], 'utf8').trim();
+      resolved = { ...resolved, JWT_SECRET: fromFile };
+      delete resolved['JWT_SECRET_FILE'];
     } catch {
       throw new Error('Некорректная конфигурация окружения: не удалось прочитать JWT_SECRET_FILE');
     }

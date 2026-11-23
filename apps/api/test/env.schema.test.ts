@@ -1,3 +1,6 @@
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { validateEnv } from '../src/config/env.schema.js';
 
@@ -46,6 +49,29 @@ describe('validateEnv — SEC-01', () => {
     ]) {
       expect(() => validateEnv({ ...baseEnv, JWT_SECRET: value })).toThrow(/JWT_SECRET/);
     }
+  });
+
+  it('JWT_SECRET_FILE читается, если прямой JWT_SECRET не задан', () => {
+    const { JWT_SECRET: _secret, ...withoutSecret } = baseEnv;
+    const path = join(tmpdir(), `vwc-jwt-${process.pid}.txt`);
+    writeFileSync(path, `${SECRET}\n`, 'utf8');
+
+    const env = validateEnv({ ...withoutSecret, JWT_SECRET_FILE: path });
+    expect(env.JWT_SECRET).toBe(SECRET);
+  });
+
+  it('JWT_SECRET и JWT_SECRET_FILE одновременно — fail-fast', () => {
+    const path = join(tmpdir(), `vwc-jwt-${process.pid}.txt`);
+    writeFileSync(path, SECRET, 'utf8');
+    expect(() => validateEnv({ ...baseEnv, JWT_SECRET_FILE: path })).toThrow(
+      /одновременно/,
+    );
+  });
+
+  it('нечитаемый JWT_SECRET_FILE — fail-fast без утечки значения', () => {
+    expect(() =>
+      validateEnv({ ...baseEnv, JWT_SECRET_FILE: join(tmpdir(), 'vwc-missing-secret.txt') }),
+    ).toThrow(/JWT_SECRET_FILE/);
   });
 
   it('production требует secret, pepper, HITL key и internal token', () => {

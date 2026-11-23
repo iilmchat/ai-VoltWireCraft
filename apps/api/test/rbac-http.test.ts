@@ -1,7 +1,8 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
 /**
- * HTTP-level проверка цепочки: fake auth guard (аналог APP_GUARD #1 Security
- * Architect) → ProjectAccessGuard (APP_GUARD #2, Agent 3) → контроллер.
+ * HTTP-level проверка цепочки: подменённый JwtAuthGuard внутри единого
+ * SecurityGuard → ProjectAccessGuard → контроллер. Порядок фиксируется
+ * композитным guard'ом, а не регистрацией в разных модулях.
  * Не дублирует реализацию JWT: проверяется только корректность project
  * authorization, metadata и все 4 write-path через реальные HTTP-маршруты.
  */
@@ -20,6 +21,8 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import type { AuthUser } from '../src/auth/auth.service.js';
+import { JwtAuthGuard } from '../src/auth/auth.guard.js';
+import { SecurityGuard } from '../src/auth/security.guard.js';
 import { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
 import { CopilotChatAgent } from '../src/agents/copilot-chat.agent.js';
@@ -88,7 +91,8 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
       controllers: [ProjectsController],
       providers: [
         { provide: ProjectsService, useValue: service },
-        { provide: APP_GUARD, useClass: FakeAuthGuard },
+        { provide: JwtAuthGuard, useClass: FakeAuthGuard },
+        { provide: APP_GUARD, useClass: SecurityGuard },
         { provide: PanelArchitectAgent, useValue: {} },
         { provide: PueAuditorAgent, useValue: {} },
         { provide: CopilotChatAgent, useValue: {} },

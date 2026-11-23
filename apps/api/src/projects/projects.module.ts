@@ -15,7 +15,7 @@ import { ProjectsService } from './projects.service.js';
 /**
  * Модуль хранения проектов и подложек.
  *
- * Защита реализована глобальными `APP_GUARD` из `AuthModule` (этап 0),
+ * Защита реализована единым `SecurityGuard` (APP_GUARD) из `AuthModule`,
  * class-level `@UseGuards` удалены. Явный импорт `AuthModule` сохранён
  * после DI-фикса Backend Architect: он делает зависимости auth-провайдеров
  * доступными в этом module scope и не создаёт цикла (`AuthModule` не

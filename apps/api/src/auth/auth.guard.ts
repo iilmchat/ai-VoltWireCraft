@@ -27,8 +27,8 @@ export interface AuthenticatedRequest {
 /**
  * Аутентификация по access-токену.
  *
- * Зарегистрирован как первый `APP_GUARD` в `AuthModule`. Поддерживает
- * `@Public()` через `Reflector`; на уровне приложения действует fail-closed:
+ * Вызывается первым внутри единого `SecurityGuard` (APP_GUARD в AuthModule).
+ * Поддерживает `@Public()` через `Reflector`; на уровне приложения fail-closed:
  * при отсутствии метаданных токен.required.
  */
 @Injectable()

@@ -1,10 +1,9 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
 /**
- * Защита путей записи графа. Зарегистрирован как второй APP_GUARD
- * (этап 0). Работает только на маршрутах с `@RequireGraphWrite()`,
- * поэтому не мешает публичным/непроектным endpoint'ам.
- *
- * В этапе 3 заменяется единым ProjectAccessGuard с @ProjectScoped({ role: 'write' }).
+ * Legacy-guard этапа 0. Сейчас НЕ регистрируется как APP_GUARD:
+ * защита записи графа выполняется ProjectAccessGuard через
+ * `@ProjectScoped({ param: 'id', role: 'write' })` (PR #2).
+ * Класс оставлен провайдером для совместимости, но в цепочке не участвует.
  */
 
 import {

@@ -101,7 +101,7 @@ describe('SEC-01 / этап 0 — глобальные guards', () => {
     expect(request.user?.displayName).toBe('Owner');
   });
 
-  it('APP_GUARD зарегистрированы в порядке JWT → GraphEdit', () => {
+  it('зарегистрирован ровно один APP_GUARD — SecurityGuard', () => {
     const providers = Reflect.getMetadata('providers', AuthModule) as unknown as Array<{
       provide?: unknown;
       useClass?: { name: string };
@@ -110,7 +110,20 @@ describe('SEC-01 / этап 0 — глобальные guards', () => {
       .filter((provider) => provider !== undefined && provider.provide === APP_GUARD)
       .map((provider) => provider.useClass?.name);
 
-    expect(guards).toEqual(['JwtAuthGuard', 'GraphEditGuard']);
+    expect(guards).toEqual(['SecurityGuard']);
+  });
+
+  it('SecurityGuard вызывает JWT до ProjectAccessGuard', async () => {
+    const { SecurityGuard } = await import('../../src/auth/security.guard.js');
+    const source = (await import('node:fs')).readFileSync(
+      new URL('../../src/auth/security.guard.ts', import.meta.url),
+      'utf8',
+    );
+    const jwtIndex = source.indexOf('this.jwt.canActivate');
+    const accessIndex = source.indexOf('this.projectAccess.canActivate');
+    expect(jwtIndex).toBeGreaterThan(-1);
+    expect(accessIndex).toBeGreaterThan(jwtIndex);
+    expect(SecurityGuard.name).toBe('SecurityGuard');
   });
 
   it('логи не содержат JWT и присваиваний секретов', () => {
