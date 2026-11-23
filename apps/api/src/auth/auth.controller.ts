@@ -1,13 +1,13 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.0
 /** Эндпоинты регистрации, входа и текущего пользователя. */
 
-import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
 import { LoginDtoSchema, RegisterDtoSchema } from '@voltwirecraft/shared/graph.schema.js';
 import type { LoginDto, RegisterDto } from '@voltwirecraft/shared/graph.schema.js';
 import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { AuthService, type AuthUser } from './auth.service.js';
-import { CurrentUser, JwtAuthGuard } from './auth.guard.js';
+import { CurrentUser } from './auth.guard.js';
 
 /** Публичные и защищённые эндпоинты авторизации. */
 @Controller('auth')
@@ -52,7 +52,6 @@ export class AuthController {
    * @returns данные пользователя.
    */
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   public async meAsync(@CurrentUser() user: AuthUser): Promise<ApiResponse<AuthUser>> {
     const data = await this.auth.meAsync(user.id);
     return { success: true, data, message: 'Пользователь получен' };

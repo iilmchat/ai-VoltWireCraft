@@ -101,9 +101,113 @@ jobs:
         run: python -m pytest
         working-directory: apps/calc-engine
 
+  security:
+    name: Security (SEC-01/SEC-02 QA gates)
+    runs-on: ubuntu-latest
+    needs: []
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: vwc
+          POSTGRES_PASSWORD: vwc
+          POSTGRES_DB: voltwirecraft
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vwc -d voltwirecraft"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://vwc:vwc@localhost:5432/voltwirecraft
+      REDIS_URL: redis://localhost:6379/0
+      CALC_ENGINE_URL: http://localhost:8000
+      JWT_SECRET: ci-only-jwt-key-0123456789abcdefghijklmnopqr
+      JWT_REFRESH_HASH_PEPPER: ci-only-pepper-0123456789abcdefghijklmnop
+      HITL_SIGNING_KEY: ci-only-hitl-0123456789abcdefghijklmnop
+      INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared contracts
+        run: pnpm --filter @voltwirecraft/shared build
+
+      - name: Secret scanning (CI gate)
+        run: node scripts/check-secrets.mjs $(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || true)
+
+      - name: Dependency audit (CI gate)
+        run: pnpm audit --audit-level=high
+
+      - name: Apply migrations on real PostgreSQL 17 + pgvector
+        run: pnpm --filter api db:migrate
+
+      - name: AppModule bootstrap gate
+        run: pnpm --filter api exec vitest run test/security/s2-bootstrap.test.ts --reporter=junit --outputFile=../../artifacts/junit-bootstrap.xml
+
+      - name: Security test suite (JUnit + coverage)
+        working-directory: apps/api
+        run: >-
+          pnpm exec vitest run test/security
+          --reporter=junit --outputFile=../../artifacts/junit-security.xml
+          --coverage.enabled --coverage.reporter=json --coverage.reporter=text
+
+      - name: Upload JUnit/coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            artifacts/**/*.xml
+            apps/api/coverage/**
+
+  smoke:
+    name: E2E smoke (Bearer)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.11.2
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Start stack
+        run: docker compose up -d --build
+      - name: Run smoke with Bearer
+        run: pnpm smoke:e2e
+
   compose:
     name: Docker Compose config
     runs-on: ubuntu-latest
+    env:
+      # Dummy значения только для валидации синтаксиса compose (SEC-01).
+      JWT_SECRET: ci-only-jwt-key-0123456789abcdefghijklmnopqr
+      JWT_REFRESH_HASH_PEPPER: ci-only-pepper-0123456789abcdefghijklmnop
+      HITL_SIGNING_KEY: ci-only-hitl-0123456789abcdefghijklmnop
+      INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
     steps:
       - name: Checkout
         uses: actions/checkout@v7

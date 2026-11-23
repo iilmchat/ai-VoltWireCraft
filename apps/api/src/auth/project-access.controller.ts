@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.0
 /** Эндпоинты списка проектов, участников и комментариев. */
 
-import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
 import {
     AddProjectMemberDtoSchema,
     CreateCommentDtoSchema,
@@ -13,13 +13,12 @@ import {
 import type { AddProjectMemberDto, CreateCommentDto } from '@voltwirecraft/shared/graph.schema.js';
 import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
-import { CurrentUser, JwtAuthGuard } from './auth.guard.js';
+import { CurrentUser } from './auth.guard.js';
 import type { AuthUser } from './auth.service.js';
 import { ProjectAccessService } from './project-access.service.js';
 
 /** Проекты пользователя, участники и согласование. */
 @Controller('projects')
-@UseGuards(JwtAuthGuard)
 export class ProjectAccessController {
   /**
    * @param access — сервис прав доступа.

@@ -96,6 +96,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-voltwirecraft}:${POSTGRES_PASSWORD:-replace-with-local-dev-password}@postgres:5432/${POSTGRES_DB:-voltwirecraft}
       REDIS_URL: redis://redis:6379/0
       CALC_ENGINE_URL: http://calc-engine:8000
+      # SEC-01: секреты обязательны. Никаких статических дефолтов.
+      # Доставка через Docker secrets (JWT_SECRET_FILE) будет подключена DevOps (TEC-06).
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required (SEC-01)}
+      JWT_KID: ${JWT_KID:-v1}
+      JWT_REFRESH_HASH_PEPPER: ${JWT_REFRESH_HASH_PEPPER:?JWT_REFRESH_HASH_PEPPER is required (TEC-07)}
+      HITL_SIGNING_KEY: ${HITL_SIGNING_KEY:?HITL_SIGNING_KEY is required (TEC-05)}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required (TEC-06)}
       STORAGE_DRIVER: local
       LOCAL_STORAGE_DIR: /app/apps/api/storage
     depends_on:

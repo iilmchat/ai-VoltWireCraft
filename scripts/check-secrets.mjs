@@ -21,6 +21,11 @@ const rules = [
     name: 'жёстко заданный секрет',
     pattern: /\b(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*["'][^"']{8,}["']/i,
   },
+  {
+    // SEC-01: ловит именно тот класс дефекта, который был найден в env.schema.ts.
+    name: 'статический JWT-секрет по умолчанию',
+    pattern: /JWT_SECRET[^\n]{0,120}\.default\(/i,
+  },
 ];
 
 const files = process.argv.slice(2).filter((file) => {
