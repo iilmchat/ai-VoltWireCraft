@@ -21,7 +21,8 @@ import {
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import { DRIZZLE_DB } from '../src/database/drizzle.provider.js';
 import type { Database } from '../src/database/drizzle.provider.js';
-import { schema } from '../src/database/schema.js';
+import { schema, users } from '../src/database/schema.js';
+import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
 import { MAX_FLOOR_PLAN_SIZE_BYTES } from '../src/projects/file-signature.js';
 import { FLOOR_PLAN_STORAGE } from '../src/projects/storage/floor-plan-storage.js';
 import type { FloorPlanStorage } from '../src/projects/storage/floor-plan-storage.js';
@@ -86,6 +87,9 @@ async function applyMigrationsAsync(client: PGlite): Promise<void> {
   }
 }
 
+/** Тестовый пользователь: политика в этом файле мокится, проверки прав — в rbac-project-access.test.ts. */
+const USER_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
 describe('ProjectsService (интеграционные тесты)', () => {
   let client: PGlite;
   let service: ProjectsService;
@@ -97,12 +101,28 @@ describe('ProjectsService (интеграционные тесты)', () => {
 
     storage = new FakeStorage();
     const db = drizzle(client, { schema });
+    // Владелец проектов обязан существовать: owner_id теперь обязателен (SEC-02).
+    await db.insert(users).values({
+      id: USER_ID,
+      email: 'owner-rbac@example.test',
+      passwordHash: 'salt:hash',
+      fullName: 'Owner',
+    });
     const module = await Test.createTestingModule({
       providers: [
         ProjectsService,
         { provide: DRIZZLE_DB, useValue: db as unknown as Database },
         { provide: FLOOR_PLAN_STORAGE, useValue: storage },
         { provide: CalcEngineClient, useValue: { calculateCableLengthAsync: async () => ({ lengthM: 1 }) } },
+        {
+          provide: ProjectPolicyService,
+          useValue: {
+            requireReadAsync: async () => 'owner',
+            requireEditorAsync: async () => 'owner',
+            requireOwnerAsync: async () => 'owner',
+            roleForAsync: async () => 'owner',
+          },
+        },
       ],
     }).compile();
 
@@ -128,7 +148,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
   });
 
   it('создаёт проект с пустым валидным графом', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
 
     expect(created.title).toBe(DTO.title);
     expect(created.objectType).toBe(DTO.objectType);
@@ -143,25 +163,25 @@ describe('ProjectsService (интеграционные тесты)', () => {
   });
 
   it('возвращает сохранённый проект по идентификатору', async () => {
-    const created = await service.createAsync(DTO);
-    const loaded = await service.getByIdAsync(created.id);
+    const created = await service.createAsync(DTO, USER_ID);
+    const loaded = await service.getByIdAsync(created.id, USER_ID);
 
     expect(loaded).toEqual(created);
   });
 
   it('выбрасывает NotFoundException для несуществующего проекта', async () => {
-    await expect(service.getByIdAsync(randomUUID())).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getByIdAsync(randomUUID(), USER_ID)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('выбрасывает ZodError, если граф в БД повреждён', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     await client.query("UPDATE projects SET graph_json = '{}'::jsonb WHERE id = $1", [created.id]);
 
-    await expect(service.getByIdAsync(created.id)).rejects.toBeInstanceOf(ZodError);
+    await expect(service.getByIdAsync(created.id, USER_ID)).rejects.toBeInstanceOf(ZodError);
   });
 
   it('сохраняет обновлённый граф и поднимает updated_at', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     const graph: ProjectGraph = {
       ...createEmptyProjectGraph(DTO.title, created.id),
       floorPlan: {
@@ -181,8 +201,8 @@ describe('ProjectsService (интеграционные тесты)', () => {
       ],
     };
 
-    const updated = await service.updateGraphAsync(created.id, graph);
-    const loaded = await service.getByIdAsync(created.id);
+    const updated = await service.updateGraphAsync(created.id, graph, USER_ID);
+    const loaded = await service.getByIdAsync(created.id, USER_ID);
 
     expect(updated.graph.nodes).toHaveLength(1);
     expect(loaded.graph).toEqual(graph);
@@ -192,7 +212,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
   });
 
   it('отвергает граф со ссылкой на несуществующий узел', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     const graph: ProjectGraph = {
       ...createEmptyProjectGraph(DTO.title, created.id),
       edges: [
@@ -209,16 +229,16 @@ describe('ProjectsService (интеграционные тесты)', () => {
       ],
     };
 
-    await expect(service.updateGraphAsync(created.id, graph)).rejects.toBeInstanceOf(
+    await expect(service.updateGraphAsync(created.id, graph, USER_ID)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
 
   it('отвергает граф с чужим идентификатором', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
 
     await expect(
-      service.updateGraphAsync(created.id, createEmptyProjectGraph(DTO.title)),
+      service.updateGraphAsync(created.id, createEmptyProjectGraph(DTO.title), USER_ID),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -227,14 +247,14 @@ describe('ProjectsService (интеграционные тесты)', () => {
     ['PNG', PNG_BYTES, 'png', 'image/png'],
     ['JPG', JPG_BYTES, 'jpg', 'image/jpeg'],
   ])('загружает подложку %s по magic bytes', async (_name, bytes, kind, mimeType) => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     storage.saved.length = 0;
 
     const result = await service.uploadFloorPlanAsync(created.id, {
       buffer: bytes,
       originalname: `plan.${kind === 'jpg' ? 'jpg' : kind}`,
       size: bytes.length,
-    });
+    }, USER_ID);
 
     expect(result.kind).toBe(kind);
     expect(result.mimeType).toBe(mimeType);
@@ -250,7 +270,7 @@ describe('ProjectsService (интеграционные тесты)', () => {
   });
 
   it('отвергает файл с неизвестной сигнатурой', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     storage.saved.length = 0;
 
     await expect(
@@ -258,13 +278,13 @@ describe('ProjectsService (интеграционные тесты)', () => {
         buffer: Buffer.from('GIF89a.........'),
         originalname: 'plan.gif',
         size: 15,
-      }),
+      }, USER_ID),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(storage.saved).toHaveLength(0);
   });
 
   it('отвергает файл больше 25 МБ', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     const bytes = Buffer.alloc(MAX_FLOOR_PLAN_SIZE_BYTES + 1, 0x25);
 
     await expect(
@@ -272,25 +292,25 @@ describe('ProjectsService (интеграционные тесты)', () => {
         buffer: bytes,
         originalname: 'huge.pdf',
         size: bytes.length,
-      }),
+      }, USER_ID),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('отвергает запрос без файла', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
 
-    await expect(service.uploadFloorPlanAsync(created.id, undefined)).rejects.toBeInstanceOf(
+    await expect(service.uploadFloorPlanAsync(created.id, undefined, USER_ID)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
 
   it('каскадно удаляет подложки при удалении проекта', async () => {
-    const created = await service.createAsync(DTO);
+    const created = await service.createAsync(DTO, USER_ID);
     await service.uploadFloorPlanAsync(created.id, {
       buffer: PDF_BYTES,
       originalname: 'plan.pdf',
       size: PDF_BYTES.length,
-    });
+    }, USER_ID);
     await client.query('DELETE FROM projects WHERE id = $1', [created.id]);
 
     const rows = await dbSelectFloorPlans(client, created.id);

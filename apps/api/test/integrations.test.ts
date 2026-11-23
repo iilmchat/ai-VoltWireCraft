@@ -15,9 +15,17 @@ import { ErpMcpService } from '../src/integrations/erp-mcp.service.js';
 import { IntegrationService } from '../src/integrations/integration.service.js';
 import { IntegrationsController } from '../src/integrations/integrations.controller.js';
 import { ProjectsService } from '../src/projects/projects.service.js';
+import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
+import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const ROOM_ID = '11111111-1111-4111-8111-111111111111';
+const USER: AuthUser = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  email: 'owner@example.test',
+  displayName: 'Owner',
+  role: 'user',
+};
 
 /** Граф с комнатой для расчёта освещённости. */
 function makeGraph(): ProjectGraph {
@@ -84,7 +92,14 @@ describe('IntegrationService', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
         const module = await Test.createTestingModule({
-            providers: [IntegrationService, { provide: ErpMcpService, useValue: mcp }],
+            providers: [
+            IntegrationService,
+            { provide: ErpMcpService, useValue: mcp },
+            {
+              provide: ProjectPolicyService,
+              useValue: { requireReadAsync: vi.fn(async () => 'owner') },
+            },
+          ],
         }).compile();
         service = module.get(IntegrationService);
     });
@@ -122,7 +137,7 @@ describe('IntegrationService', () => {
             target: 'moysklad',
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             confirmationToken: 'confirm-123',
-        });
+        }, USER.id);
 
         expect(mcp.callToolAsync).toHaveBeenCalledWith(
             'moysklad',
@@ -168,7 +183,7 @@ describe('IntegrationsController', () => {
             roomId: ROOM_ID,
             luminaireFluxLm: 1200,
             luminairePowerW: 14,
-        });
+        }, USER);
 
         expect(lighting.calculateLightingAsync).toHaveBeenCalledWith(
             expect.objectContaining({ zoneType: 'living', polygonM: expect.any(Array) }),
@@ -177,7 +192,7 @@ describe('IntegrationsController', () => {
     });
 
     it('проверяет остатки, собирая позиции из графа', async () => {
-        const response = await controller.checkStockAsync(PROJECT_ID, {});
+        const response = await controller.checkStockAsync(PROJECT_ID, {}, USER);
 
         expect(integrations.buildBomFromGraph).toHaveBeenCalled();
         expect(response.data.allAvailable).toBe(true);
@@ -187,7 +202,7 @@ describe('IntegrationsController', () => {
         const response = await controller.createOrderAsync(PROJECT_ID, {
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             confirmationToken: 'confirm-123',
-        });
+        }, USER);
 
         expect(integrations.createOrderAsync).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -195,6 +210,7 @@ describe('IntegrationsController', () => {
                 target: 'moysklad',
                 confirmationToken: 'confirm-123',
             }),
+            USER.id,
         );
         expect(response.data.externalId).toBe('order-42');
     });
@@ -204,10 +220,11 @@ describe('IntegrationsController', () => {
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             dealId: 'deal-7',
             confirmationToken: 'confirm-456',
-        });
+        }, USER);
 
         expect(integrations.sendEstimateAsync).toHaveBeenCalledWith(
             expect.objectContaining({ target: 'bitrix24', dealId: 'deal-7', confirmationToken: 'confirm-456' }),
+            USER.id,
         );
         expect(response.data.externalId).toBe('deal-7');
     });

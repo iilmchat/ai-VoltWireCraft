@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.0
 /** Эндпоинты списка проектов, участников и комментариев. */
 
-import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
 import {
     AddProjectMemberDtoSchema,
     CreateCommentDtoSchema,
@@ -13,13 +13,13 @@ import {
 import type { AddProjectMemberDto, CreateCommentDto } from '@voltwirecraft/shared/graph.schema.js';
 import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
-import { CurrentUser, JwtAuthGuard } from './auth.guard.js';
+import { CurrentUser } from './auth.guard.js';
 import type { AuthUser } from './auth.service.js';
+import { ProjectScoped } from './project-scoped.decorator.js';
 import { ProjectAccessService } from './project-access.service.js';
 
 /** Проекты пользователя, участники и согласование. */
 @Controller('projects')
-@UseGuards(JwtAuthGuard)
 export class ProjectAccessController {
   /**
    * @param access — сервис прав доступа.
@@ -47,6 +47,7 @@ export class ProjectAccessController {
    * @returns участник.
    */
   @Post(':id/members')
+  @ProjectScoped({ param: 'id', role: 'owner' })
   public async addMemberAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @CurrentUser() user: AuthUser,
@@ -64,6 +65,7 @@ export class ProjectAccessController {
    * @returns комментарии.
    */
   @Get(':id/comments')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async listCommentsAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @CurrentUser() user: AuthUser,
@@ -81,6 +83,7 @@ export class ProjectAccessController {
    * @returns комментарий.
    */
   @Post(':id/comments')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async addCommentAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @CurrentUser() user: AuthUser,
@@ -99,6 +102,7 @@ export class ProjectAccessController {
    * @returns обновлённый комментарий.
    */
   @Patch(':id/comments/:commentId')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async resolveCommentAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Param('commentId', new ZodValidationPipe(UuidSchema)) commentId: string,

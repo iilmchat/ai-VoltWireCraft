@@ -11,6 +11,9 @@ import {
     type LightingCalcResponse,
     type StockCheckResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
+import { CurrentUser } from '../auth/auth.guard.js';
+import type { AuthUser } from '../auth/auth.service.js';
+import { ProjectScoped } from '../auth/project-scoped.decorator.js';
 import { CalcEngineClient } from '../calc-engine/calc-engine.client.js';
 import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
@@ -62,11 +65,13 @@ export class IntegrationsController {
    * @returns результат расчёта.
    */
   @Post('projects/:id/lighting/calculate')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async calculateLightingAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(LightingCalculateRequestSchema)) dto: LightingCalculateRequest,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponse<LightingCalcResponse>> {
-    const project = await this.projects.getByIdAsync(id);
+    const project = await this.projects.getByIdAsync(id, user.id);
     const room = project.graph.rooms.find((item) => item.id === dto.roomId);
     if (room === undefined) {
       throw new Error('Помещение не найдено в графе проекта');
@@ -91,13 +96,16 @@ export class IntegrationsController {
    * @returns результат проверки остатков.
    */
   @Post('projects/:id/integrations/moysklad/check-stock')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async checkStockAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(CheckStockRequestSchema)) dto: CheckStockRequest,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponse<StockCheckResponse>> {
+    // Членство проверяется всегда — даже если позиции переданы явно в теле.
+    const project = await this.projects.getByIdAsync(id, user.id);
     let items = dto.items;
     if (items === undefined) {
-      const project = await this.projects.getByIdAsync(id);
       items = this.integrations.buildBomFromGraph(project.graph);
     }
     const data = await this.integrations.checkStockAsync(items);
@@ -112,9 +120,11 @@ export class IntegrationsController {
    * @returns результат выгрузки.
    */
   @Post('projects/:id/integrations/moysklad/create-order')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async createOrderAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(CreateOrderRequestSchema)) dto: CreateOrderRequest,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponse<ExportToErpResponse>> {
     const request: ExportToErpRequest = {
       projectId: id,
@@ -122,7 +132,9 @@ export class IntegrationsController {
       items: dto.items,
       confirmationToken: dto.confirmationToken,
     };
-    const data = ExportToErpResponseSchema.parse(await this.integrations.createOrderAsync(request));
+    const data = ExportToErpResponseSchema.parse(
+      await this.integrations.createOrderAsync(request, user.id),
+    );
     return { success: true, data, message: 'Заказ создан в МойСклад' };
   }
 
@@ -134,9 +146,11 @@ export class IntegrationsController {
    * @returns результат выгрузки.
    */
   @Post('projects/:id/integrations/bitrix24/send-estimate')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async sendEstimateAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(SendEstimateRequestSchema)) dto: SendEstimateRequest,
+    @CurrentUser() user: AuthUser,
   ): Promise<ApiResponse<ExportToErpResponse>> {
     const request: ExportToErpRequest = {
       projectId: id,
@@ -145,7 +159,9 @@ export class IntegrationsController {
       dealId: dto.dealId,
       confirmationToken: dto.confirmationToken,
     };
-    const data = ExportToErpResponseSchema.parse(await this.integrations.sendEstimateAsync(request));
+    const data = ExportToErpResponseSchema.parse(
+      await this.integrations.sendEstimateAsync(request, user.id),
+    );
     return { success: true, data, message: 'Смета отправлена в Битрикс24' };
   }
 }

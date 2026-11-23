@@ -26,8 +26,22 @@ import { ProjectsController } from '../src/projects/projects.controller.js';
 import { ProjectsService } from '../src/projects/projects.service.js';
 import type { FloorPlanStorage } from '../src/projects/storage/floor-plan-storage.js';
 import type { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
+import type { ProjectPolicyService } from '../src/policy/project-policy.service.js';
+import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const USER: AuthUser = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  email: 'owner@example.test',
+  displayName: 'Owner',
+  role: 'user',
+};
+const POLICY = {
+  requireReadAsync: async () => 'owner',
+  requireEditorAsync: async () => 'owner',
+  requireOwnerAsync: async () => 'owner',
+  roleForAsync: async () => 'owner',
+} as unknown as ProjectPolicyService;
 const BREAKER_ID = '11111111-1111-4111-8111-111111111111';
 const SOCKET_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -253,6 +267,7 @@ describe('ProjectsService.importCadAsync', () => {
             {} as Database,
             {} as FloorPlanStorage,
             calcClient as unknown as CalcEngineClient,
+            POLICY,
         );
         vi.spyOn(service, 'getByIdAsync').mockResolvedValue(projectDto(graph));
         const update = vi
@@ -263,7 +278,7 @@ describe('ProjectsService.importCadAsync', () => {
             buffer: Buffer.from('  0\nSECTION\n'),
             originalname: 'plan.dxf',
             size: 15,
-        });
+        }, USER.id);
 
         expect(calcClient.parseDxfAsync).toHaveBeenCalledTimes(1);
         expect(result.graph.walls).toHaveLength(1);
@@ -278,6 +293,7 @@ describe('ProjectsService.importCadAsync', () => {
             {} as Database,
             {} as FloorPlanStorage,
             calcClient as unknown as CalcEngineClient,
+            POLICY,
         );
         vi.spyOn(service, 'getByIdAsync').mockResolvedValue(projectDto(graph));
         vi.spyOn(service, 'updateGraphAsync').mockImplementation(async (_id, nextGraph) => projectDto(nextGraph));
@@ -286,7 +302,7 @@ describe('ProjectsService.importCadAsync', () => {
             buffer: Buffer.from('AC1015'),
             originalname: 'plan.dwg',
             size: 6,
-        });
+        }, USER.id);
 
         expect(calcClient.parseDxfAsync).toHaveBeenCalledWith(
             expect.objectContaining({ fileName: 'plan.dwg' }),
@@ -311,7 +327,7 @@ describe('ProjectsController.importCadAsync', () => {
             buffer: Buffer.from('  0\nSECTION\n'),
             originalname: 'plan.dxf',
             size: 15,
-        });
+        }, USER);
 
         expect(response.success).toBe(true);
         expect(service.importCadAsync).toHaveBeenCalledTimes(1);

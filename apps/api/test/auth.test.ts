@@ -18,6 +18,7 @@ import type { Env } from '../src/config/env.schema.js';
 import { DRIZZLE_DB } from '../src/database/drizzle.provider.js';
 import type { Database } from '../src/database/drizzle.provider.js';
 import { projects, schema } from '../src/database/schema.js';
+import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
 import { drizzle } from 'drizzle-orm/pglite';
 
 /** Журнал Drizzle. */
@@ -75,6 +76,7 @@ describe('Auth и RBAC (PGlite)', () => {
         { provide: ConfigService, useValue: config },
         JwtService,
         AuthService,
+        ProjectPolicyService,
         ProjectAccessService,
       ],
     }).compile();
