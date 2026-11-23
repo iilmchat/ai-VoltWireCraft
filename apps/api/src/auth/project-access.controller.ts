@@ -15,6 +15,7 @@ import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { CurrentUser } from './auth.guard.js';
 import type { AuthUser } from './auth.service.js';
+import { ProjectScoped } from './project-scoped.decorator.js';
 import { ProjectAccessService } from './project-access.service.js';
 
 /** Проекты пользователя, участники и согласование. */
@@ -46,6 +47,7 @@ export class ProjectAccessController {
    * @returns участник.
    */
   @Post(':id/members')
+  @ProjectScoped({ param: 'id', role: 'owner' })
   public async addMemberAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @CurrentUser() user: AuthUser,
@@ -63,6 +65,7 @@ export class ProjectAccessController {
    * @returns комментарии.
    */
   @Get(':id/comments')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async listCommentsAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @CurrentUser() user: AuthUser,
@@ -80,6 +83,7 @@ export class ProjectAccessController {
    * @returns комментарий.
    */
   @Post(':id/comments')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async addCommentAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @CurrentUser() user: AuthUser,
@@ -98,6 +102,7 @@ export class ProjectAccessController {
    * @returns обновлённый комментарий.
    */
   @Patch(':id/comments/:commentId')
+  @ProjectScoped({ param: 'id', role: 'read' })
   public async resolveCommentAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Param('commentId', new ZodValidationPipe(UuidSchema)) commentId: string,

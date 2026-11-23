@@ -14,6 +14,7 @@ import {
 import { DRIZZLE_DB } from '../database/drizzle.provider.js';
 import type { Database } from '../database/drizzle.provider.js';
 import { projectComments, projectMembers, projects, users } from '../database/schema.js';
+import { ProjectPolicyService } from '../policy/project-policy.service.js';
 import { AuthService } from './auth.service.js';
 
 /**
@@ -25,10 +26,12 @@ export class ProjectAccessService {
   /**
    * @param db — типизированный Drizzle-клиент.
    * @param auth — сервис авторизации.
+   * @param policy — единая политика проектного доступа (SEC-02).
    */
   public constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(ProjectPolicyService) private readonly policy: ProjectPolicyService,
   ) {}
 
   /**
@@ -40,27 +43,7 @@ export class ProjectAccessService {
    * @throws {ForbiddenException} если доступа нет.
    */
   public async roleForAsync(projectId: string, userId: string): Promise<ProjectRole> {
-    const [project] = await this.db
-      .select({ ownerId: projects.ownerId })
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .limit(1);
-    if (project === undefined) {
-      throw new NotFoundException('Проект не найден');
-    }
-    if (project.ownerId === userId) {
-      return 'owner';
-    }
-
-    const [member] = await this.db
-      .select({ role: projectMembers.role })
-      .from(projectMembers)
-      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
-      .limit(1);
-    if (member === undefined) {
-      throw new ForbiddenException('Пользователь не является участником проекта');
-    }
-    return member.role;
+    return this.policy.roleForAsync(projectId, userId);
   }
 
   /**
@@ -72,11 +55,7 @@ export class ProjectAccessService {
    * @throws {ForbiddenException} если роль `client`.
    */
   public async requireEditorAsync(projectId: string, userId: string): Promise<ProjectRole> {
-    const role = await this.roleForAsync(projectId, userId);
-    if (role === 'client') {
-      throw new ForbiddenException('Роль client не может редактировать граф проекта');
-    }
-    return role;
+    return this.policy.requireEditorAsync(projectId, userId);
   }
 
   /**
@@ -125,10 +104,7 @@ export class ProjectAccessService {
     ownerId: string,
     dto: AddProjectMemberDto,
   ): Promise<ProjectMemberDto> {
-    const role = await this.roleForAsync(projectId, ownerId);
-    if (role !== 'owner') {
-      throw new ForbiddenException('Только владелец может добавлять участников');
-    }
+    await this.policy.requireOwnerAsync(projectId, ownerId);
     const user = await this.auth.findByEmailAsync(dto.email);
     if (user === undefined) {
       throw new NotFoundException('Пользователь с таким email не зарегистрирован');
@@ -158,7 +134,7 @@ export class ProjectAccessService {
    * @returns список комментариев.
    */
   public async listCommentsAsync(projectId: string, userId: string): Promise<ProjectCommentDto[]> {
-    await this.roleForAsync(projectId, userId);
+    await this.policy.requireReadAsync(projectId, userId);
     const rows = await this.db
       .select({ comment: projectComments, authorEmail: users.email })
       .from(projectComments)
@@ -190,6 +166,8 @@ export class ProjectAccessService {
     userId: string,
     dto: CreateCommentDto,
   ): Promise<ProjectCommentDto> {
+    // SEC-02 B-06: до любой записи проверяем членство (404 для outsider).
+    await this.policy.requireReadAsync(projectId, userId);
     const author = await this.auth.meAsync(userId);
     const [row] = await this.db
       .insert(projectComments)
@@ -228,7 +206,8 @@ export class ProjectAccessService {
     commentId: string,
     userId: string,
   ): Promise<ProjectCommentDto> {
-    await this.roleForAsync(projectId, userId);
+    // SEC-02: outsider получает 404; комментарий ищется только внутри проекта.
+    await this.policy.requireReadAsync(projectId, userId);
     const author = await this.auth.meAsync(userId);
     const [row] = await this.db
       .update(projectComments)

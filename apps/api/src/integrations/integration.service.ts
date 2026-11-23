@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.8.0
 /** Высокоуровневые операции integrations: остатки, заказы, сметы (HITL). */
 
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import {
     ExportToErpRequestSchema,
     ExportToErpResponseSchema,
@@ -13,6 +13,7 @@ import {
     type StockCheckItem,
     type StockCheckResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
+import { ProjectPolicyService } from '../policy/project-policy.service.js';
 import { ErpMcpService } from './erp-mcp.service.js';
 
 /**
@@ -23,8 +24,12 @@ import { ErpMcpService } from './erp-mcp.service.js';
 export class IntegrationService {
   /**
    * @param mcp — шлюз к MCP-серверам.
+   * @param policy — политика проектного доступа (проверка membership).
    */
-  public constructor(@Inject(ErpMcpService) private readonly mcp: ErpMcpService) {}
+  public constructor(
+    @Inject(ErpMcpService) private readonly mcp: ErpMcpService,
+    @Inject(ProjectPolicyService) private readonly policy: ProjectPolicyService,
+  ) {}
 
   /**
    * Возвращает статусы подключений.
@@ -57,7 +62,11 @@ export class IntegrationService {
    * @param request — запрос с `confirmationToken`.
    * @returns результат выгрузки.
    */
-  public async createOrderAsync(request: ExportToErpRequest): Promise<ExportToErpResponse> {
+  public async createOrderAsync(request: ExportToErpRequest, userId: string): Promise<ExportToErpResponse> {
+    this.assertUserContext(userId);
+    // PO-D05/D14a: роли ERP/CRM и полномочия HITL ещё не утверждены —
+    // проверяем только членство (404 для outsider), без расширения прав.
+    await this.policy.requireReadAsync(request.projectId, userId);
     const payload = ExportToErpRequestSchema.parse(request);
     const response = await this.mcp.callToolAsync(
       'moysklad',
@@ -75,7 +84,9 @@ export class IntegrationService {
    * @param request — запрос с `confirmationToken` и `dealId`.
    * @returns результат выгрузки.
    */
-  public async sendEstimateAsync(request: ExportToErpRequest): Promise<ExportToErpResponse> {
+  public async sendEstimateAsync(request: ExportToErpRequest, userId: string): Promise<ExportToErpResponse> {
+    this.assertUserContext(userId);
+    await this.policy.requireReadAsync(request.projectId, userId);
     const payload = ExportToErpRequestSchema.parse(request);
     if (payload.dealId === undefined) {
       throw new Error('Для отправки сметы в Битрикс24 необходим dealId');
@@ -88,6 +99,18 @@ export class IntegrationService {
       payload.confirmationToken,
     );
     return response.data;
+  }
+
+  /**
+   * Проверяет, что передан идентификатор пользователя.
+   *
+   * @param userId — идентификатор пользователя из аутентифицированного запроса.
+   * @throws {ForbiddenException} если контекст пользователя отсутствует.
+   */
+  private assertUserContext(userId: string): void {
+    if (userId === '') {
+      throw new ForbiddenException('Операция требует контекста пользователя');
+    }
   }
 
   /**

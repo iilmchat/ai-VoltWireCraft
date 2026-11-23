@@ -13,8 +13,15 @@ import { NormativeService } from '../src/agents/normative.service.js';
 import { ToolRegistry } from '../src/agents/tools.js';
 import { IntegrationService } from '../src/integrations/integration.service.js';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
+import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const USER: AuthUser = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  email: 'owner@example.test',
+  displayName: 'Owner',
+  role: 'user',
+};
 const PANEL_ID = '11111111-1111-4111-8111-111111111111';
 const SOCKET_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -209,7 +216,7 @@ describe('Эндпоинт чата', () => {
             copilot as never,
         );
 
-        const result = await controller.chatAsync(PROJECT_ID, { message: 'Привет' });
+        const result = await controller.chatAsync(PROJECT_ID, { message: 'Привет' }, USER);
 
         expect(result.success).toBe(true);
         expect(result.data).toEqual(response);
