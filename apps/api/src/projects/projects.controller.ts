@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.1.0
 /** REST-контроллер проектов: единый формат ответа `ApiResponse` (RULES § 1.6). */
 
-import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Put, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Put, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import multer from 'multer';
 import {
@@ -23,9 +23,9 @@ import type {
   SelectivityTccResponse,
   ShortCircuitResponse,
 } from '@voltwirecraft/shared/graph.schema.js';
-import { CurrentUser, JwtAuthGuard } from '../auth/auth.guard.js';
+import { CurrentUser } from '../auth/auth.guard.js';
 import type { AuthUser } from '../auth/auth.service.js';
-import { GraphEditGuard } from '../auth/graph-edit.guard.js';
+import { RequireGraphWrite } from '../auth/graph-write.decorator.js';
 import { AssemblePanelRequestSchema } from '../agents/agents.schemas.js';
 import { CopilotChatAgent } from '../agents/copilot-chat.agent.js';
 import type { AssemblePanelRequest, AssemblePanelResult } from '../agents/agents.schemas.js';
@@ -61,7 +61,6 @@ export class ProjectsController {
    * @returns созданный проект в обёртке `ApiResponse`.
    */
   @Post()
-  @UseGuards(JwtAuthGuard)
   public async createAsync(
     @Body(new ZodValidationPipe(CreateProjectDtoSchema)) dto: CreateProjectDto,
     @CurrentUser() user?: AuthUser,
@@ -92,7 +91,7 @@ export class ProjectsController {
    * @returns обновлённый проект в обёртке `ApiResponse`.
    */
   @Put(':id/graph')
-  @UseGuards(JwtAuthGuard, GraphEditGuard)
+  @RequireGraphWrite()
   public async updateGraphAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(UpdateProjectGraphDtoSchema)) dto: UpdateProjectGraphDto,
@@ -173,6 +172,7 @@ export class ProjectsController {
    * @returns проект с обновлёнными стенами.
    */
   @Post(':id/import-cad')
+  @RequireGraphWrite()
   @UseInterceptors(
     FileInterceptor('file', {
       storage: multer.memoryStorage(),
@@ -216,6 +216,7 @@ export class ProjectsController {
    * @returns обновлённый граф и пояснение агента.
    */
   @Post(':id/ai/assemble-panel')
+  @RequireGraphWrite()
   public async assemblePanelAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(AssemblePanelRequestSchema)) dto: AssemblePanelRequest,

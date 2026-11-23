@@ -15,11 +15,12 @@ import { ProjectsService } from './projects.service.js';
 /**
  * Модуль хранения проектов и подложек.
  *
- * `AuthModule` импортирован явно: контроллеры модуля используют классовые
- * `JwtAuthGuard`/`GraphEditGuard`, а Nest разрешает зависимости таких guards
- * строго в модуле контроллера. Без импорта `AppModule` не собирается
- * (`JwtService` и `ProjectAccessService` для `ProjectsModule` недоступны).
- * Импорт не создаёт цикла: `AuthModule` не импортирует проектные модули.
+ * Защита реализована глобальными `APP_GUARD` из `AuthModule` (этап 0),
+ * class-level `@UseGuards` удалены. Явный импорт `AuthModule` сохранён
+ * после DI-фикса Backend Architect: он делает зависимости auth-провайдеров
+ * доступными в этом module scope и не создаёт цикла (`AuthModule` не
+ * импортирует проектные модули). Meta-тест проверяет отсутствие
+ * локальных class-level guard декораторов в исходниках.
  */
 @Module({
   imports: [ConfigModule, AuthModule, CalcEngineModule, AgentsModule],

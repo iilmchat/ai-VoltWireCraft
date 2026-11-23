@@ -142,10 +142,11 @@ export class AuthService {
    * @returns провалидированный ответ.
    */
   private async issueAsync(user: AuthUser): Promise<AuthResponse> {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // SEC-02-A: разные типы и audience; email/role не попадают в JWT (D-05).
+    // Сессии и проверка refresh-токена относятся к этапу 2 (PO-D13 — блокер).
     return AuthResponseSchema.parse({
-      accessToken: this.jwt.sign(payload),
-      refreshToken: this.jwt.sign(payload, '30d'),
+      accessToken: this.jwt.signAccess(user.id),
+      refreshToken: this.jwt.signRefresh(user.id),
       user: {
         id: user.id,
         email: user.email,

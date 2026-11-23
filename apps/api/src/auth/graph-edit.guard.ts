@@ -14,6 +14,8 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+// Импорт нужен как значение: emitDecoratorMetadata использует его для DI.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Reflector } from '@nestjs/core';
 import type { AuthenticatedRequest } from './auth.guard.js';
 import { GRAPH_WRITE_KEY } from './graph-write.decorator.js';
