@@ -157,8 +157,11 @@ export class AuthService {
    */
   private async issueAsync(user: AuthUser): Promise<AuthResponse> {
     // SEC-02-A: разные типы и audience; email/role не попадают в JWT (D-05).
-    // SEC-02 Stage 2: сессия и первая refresh-запись создаются транзакционно.
-    const tokens = await this.sessions.issueAsync(user.id);
+    // F-02: при login сессия и первая refresh-запись создаются в одной
+    // транзакции — отказ второго INSERT не оставляет orphan-сессию.
+    const tokens = await this.db.transaction((tx) =>
+      this.sessions.issueAsync(user.id, tx as unknown as Pick<Database, 'insert'>),
+    );
     return AuthResponseSchema.parse({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

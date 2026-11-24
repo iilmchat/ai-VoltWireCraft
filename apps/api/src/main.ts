@@ -9,6 +9,13 @@ import type { Env } from './config/env.schema.js';
 async function bootstrapAsync(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
+  // F-03: X-Forwarded-For не доверяется по умолчанию — иначе клиент мог бы
+  // обойти rate limit подменой заголовка. За доверенным прокси — отдельное PO-решение.
+  const httpInstance = app.getHttpAdapter().getInstance() as {
+    set?: (name: string, value: unknown) => void;
+  };
+  httpInstance.set?.('trust proxy', false);
+
   // Входные данные проверяются ZodValidationPipe на каждом маршруте (RULES § 1.12).
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();

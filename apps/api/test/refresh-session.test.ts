@@ -80,7 +80,12 @@ function validClaims(overrides: Partial<JwtPayload> = {}): JwtPayload {
  * Тестовый DB-adapter: внутри реальной транзакции вызывает ошибку после
  * указанного по счёту insert/update (fault injection mid-transaction).
  */
-function failingAfter(realDb: Database, operation: 'insert' | 'update', nth: number): Database {
+function failingAfter(
+  realDb: Database,
+  operation: 'insert' | 'update',
+  nth: number,
+  onInsertedRow?: (row: Record<string, unknown>) => void,
+): Database {
   return new Proxy(realDb, {
     get(target, property, receiver) {
       if (property === 'transaction') {
@@ -106,7 +111,45 @@ function failingAfter(realDb: Database, operation: 'insert' | 'update', nth: num
                     const method = Reflect.get(txTarget, txProperty, txReceiver) as (
                       ...a: unknown[]
                     ) => unknown;
-                    return method.call(txTarget, ...args);
+                    const builder = method.call(txTarget, ...args);
+                    if (onInsertedRow === undefined || txProperty !== 'insert' || builder === null) {
+                      return builder;
+                    }
+                    const wrapBuilder = (query: object): object =>
+                      new Proxy(query, {
+                        get(queryTarget, queryProperty, queryReceiver) {
+                          const value = Reflect.get(queryTarget, queryProperty, queryReceiver);
+                          if (typeof value !== 'function') {
+                            return value;
+                          }
+                          if (queryProperty === 'values') {
+                            return (...chainArgs: unknown[]) => {
+                              const next = value.call(queryTarget, ...chainArgs);
+                              return next !== null && typeof next === 'object'
+                                ? wrapBuilder(next)
+                                : next;
+                            };
+                          }
+                          if (queryProperty !== 'returning') {
+                            return value.bind(queryTarget);
+                          }
+                          return (...returningArgs: unknown[]) => {
+                            const result = value.call(queryTarget, ...returningArgs) as
+                              | Promise<Record<string, unknown>[]>
+                              | unknown;
+                            if (result === null || typeof result !== 'object' || !('then' in result)) {
+                              return result;
+                            }
+                            return Promise.resolve(result).then((rows) => {
+                              for (const row of rows as Record<string, unknown>[]) {
+                                onInsertedRow(row);
+                              }
+                              return rows;
+                            });
+                          };
+                        },
+                      });
+                    return wrapBuilder(builder as object);
                   };
                 }
                 const value = Reflect.get(txTarget, txProperty, txReceiver);
@@ -497,10 +540,18 @@ describe('SEC-02 Stage 2 — refresh session lifecycle', () => {
     });
   });
 
-  describe('S2-04 — атомарная регистрация', () => {
-    it('сбой после вставки пользователя оставляет БД без пользователя и сессии', async () => {
+  describe('F-01/F-02 — атомарность register и login', () => {
+    it('F-01: сбой после вставки пользователя откатывает его UUID, сессию и refresh', async () => {
       const email = 'failed-registration@example.test';
-      const failingDb = failingAfter(db, 'insert', 2);
+      const sessionsBefore = await db.select().from(authSessions);
+      const refreshBefore = await db.select().from(authRefreshTokens);
+      let createdUserId: string | undefined;
+
+      const failingDb = failingAfter(db, 'insert', 2, (row) => {
+        if (typeof row['id'] === 'string') {
+          createdUserId = row['id'];
+        }
+      });
       const failingSessions = new RefreshSessionService(failingDb, jwt, {
         get: (key: string) => (key === 'JWT_REFRESH_HASH_PEPPER' ? PEPPER : undefined),
       } as never);
@@ -510,10 +561,43 @@ describe('SEC-02 Stage 2 — refresh session lifecycle', () => {
         failingAuth.registerAsync({ email, password: TEST_PASSWORD, displayName: 'Failed' }),
       ).rejects.toThrow(/injected/);
 
-      const rows = await db.select().from(users).where(eq(users.email, email));
-      expect(rows).toHaveLength(0);
-      const sessionsRows = await db.select().from(authSessions);
-      expect(sessionsRows.some((row) => row.userId === 'failed-user')).toBe(false);
+      // Фиксируем реальный UUID, который был создан внутри откаченной транзакции.
+      expect(createdUserId).toMatch(/^[0-9a-f-]{36}$/);
+      const userId = createdUserId as string;
+      expect(await db.select().from(users).where(eq(users.id, userId))).toHaveLength(0);
+      expect(await db.select().from(users).where(eq(users.email, email))).toHaveLength(0);
+      expect((await db.select().from(authSessions)).filter((row) => row.userId === userId)).toHaveLength(0);
+      expect(await db.select().from(authSessions)).toHaveLength(sessionsBefore.length);
+      expect(await db.select().from(authRefreshTokens)).toHaveLength(refreshBefore.length);
+    });
+
+    it('F-02: сбой после создания сессии при login не оставляет orphan-сессию', async () => {
+      const registered = await auth.registerAsync({
+        email: 'login-fault@example.test',
+        password: TEST_PASSWORD,
+        displayName: 'Login Fault',
+      });
+      const userId = registered.user.id;
+      const sessionsBefore = await db.select().from(authSessions);
+      const refreshBefore = await db.select().from(authRefreshTokens);
+
+      // При login первый INSERT — это auth_sessions; отказ оставляет user без сессии.
+      const failingDb = failingAfter(db, 'insert', 1);
+      const failingSessions = new RefreshSessionService(failingDb, jwt, {
+        get: (key: string) => (key === 'JWT_REFRESH_HASH_PEPPER' ? PEPPER : undefined),
+      } as never);
+      const failingAuth = new AuthService(failingDb, failingSessions);
+
+      await expect(
+        failingAuth.loginAsync({ email: 'login-fault@example.test', password: TEST_PASSWORD }),
+      ).rejects.toThrow(/injected/);
+
+      expect(await db.select().from(users).where(eq(users.id, userId))).toHaveLength(1);
+      expect((await db.select().from(authSessions)).filter((row) => row.userId === userId)).toHaveLength(
+        sessionsBefore.filter((row) => row.userId === userId).length,
+      );
+      expect(await db.select().from(authSessions)).toHaveLength(sessionsBefore.length);
+      expect(await db.select().from(authRefreshTokens)).toHaveLength(refreshBefore.length);
     });
   });
 

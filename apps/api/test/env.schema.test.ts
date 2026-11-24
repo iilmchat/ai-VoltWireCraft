@@ -21,6 +21,7 @@ const prodEnv = {
   JWT_REFRESH_HASH_PEPPER: OTHER_SECRET,
   HITL_SIGNING_KEY: 'Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6',
   INTERNAL_SERVICE_TOKEN: 'L1k2J3h4G5f6D7s8A9p0O1i2U3y4T5r6',
+  AUTH_ALLOWED_ORIGINS: 'https://app.example.com',
 };
 
 describe('validateEnv — SEC-01', () => {
@@ -79,6 +80,17 @@ describe('validateEnv — SEC-01', () => {
       /JWT_REFRESH_HASH_PEPPER/,
     );
     expect(() => validateEnv(prodEnv)).not.toThrow();
+  });
+
+  it('F-04: production требует явный AUTH_ALLOWED_ORIGINS без wildcard', () => {
+    const { AUTH_ALLOWED_ORIGINS: _origins, ...withoutOrigins } = prodEnv;
+    expect(() => validateEnv(withoutOrigins)).toThrow(/AUTH_ALLOWED_ORIGINS/);
+    expect(() => validateEnv({ ...prodEnv, AUTH_ALLOWED_ORIGINS: '*' })).toThrow(
+      /AUTH_ALLOWED_ORIGINS/,
+    );
+    expect(() =>
+      validateEnv({ ...prodEnv, AUTH_ALLOWED_ORIGINS: 'https://a.example.com,https://b.example.com' }),
+    ).not.toThrow();
   });
 
   it('production требует ровно 15m/30d', () => {

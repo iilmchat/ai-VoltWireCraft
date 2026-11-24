@@ -38,6 +38,11 @@ const FIXTURES_ROOT = resolve(
   process.env['SMOKE_FIXTURES_DIR'] ?? 'fixtures/golden-dataset',
 );
 const CASE_FILTER = process.env['SMOKE_CASE'] ?? '';
+// SEC-02: smoke требует реальную учётку в тестовом стеке; production-секреты не используются.
+const SMOKE_EMAIL = process.env['SMOKE_EMAIL'] ?? '';
+const SMOKE_PASSWORD = process.env['SMOKE_PASSWORD'] ?? '';
+/** @type {string} */
+let ACCESS_TOKEN = '';
 // Кейсы с нормируемым трёхфазным балансом (остальные 3P-кейсы проверяются мягко).
 const BALANCE_CASES = new Set(['02_apartment_3room_400v', '05_cottages_3phase_15kw']);
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -125,7 +130,13 @@ async function requestRawJson(url, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    const headers = {
+      ...cast(init.headers ?? {}),
+      ...(url.startsWith(API_URL) && ACCESS_TOKEN.length > 0
+        ? { authorization: `Bearer ${ACCESS_TOKEN}` }
+        : {}),
+    };
+    const response = await fetch(url, { ...init, headers, signal: controller.signal });
     const text = await response.text();
     /** @type {unknown} */
     let body;
@@ -368,6 +379,61 @@ async function checkDwgAsync() {
 }
 
 /**
+ * Проверяет точный HTTP-статус без разбора обёртки.
+ * @param {string} url — адрес.
+ * @param {RequestInit} init — параметры запроса.
+ * @param {number} expected — ожидаемый статус.
+ * @returns {Promise<void>} nothing.
+ */
+async function expectStatusAsync(url, init, expected) {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  expect(response.status === expected, `${url}: ожидался HTTP ${expected}, получен ${response.status}`);
+}
+
+/**
+ * Логин и проверка refresh-flow smoke-пользователя.
+ * @returns {Promise<void>} nothing.
+ */
+async function authenticateAsync() {
+  expect(SMOKE_EMAIL.length > 0 && SMOKE_PASSWORD.length > 0,
+    'SMOKE_EMAIL и SMOKE_PASSWORD обязательны для авторизованного smoke');
+
+  // Fail-closed: защищённые маршруты недоступны без Bearer.
+  await expectStatusAsync(`${API_URL}/projects`, {}, 401);
+
+  const login = asRecord(
+    await requestRawJson(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: SMOKE_EMAIL, password: SMOKE_PASSWORD }),
+    }),
+    'auth.login',
+  );
+  const data = asRecord(login['data'], 'auth.login.data');
+  ACCESS_TOKEN = typeof data['accessToken'] === 'string' ? data['accessToken'] : '';
+  const refreshToken = typeof data['refreshToken'] === 'string' ? data['refreshToken'] : '';
+  expect(ACCESS_TOKEN.length > 0 && refreshToken.length > 0, 'auth.login: токены не выданы');
+  passed.push('auth/login: выдана пара access/refresh');
+
+  const refreshed = asRecord(
+    await requestRawJson(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    }),
+    'auth.refresh',
+  );
+  const refreshedData = asRecord(refreshed['data'], 'auth.refresh.data');
+  const nextAccess = typeof refreshedData['accessToken'] === 'string' ? refreshedData['accessToken'] : '';
+  expect(nextAccess.length > 0, 'auth/refresh: новый access-token не выдан');
+  ACCESS_TOKEN = nextAccess;
+  passed.push('auth/refresh: ротация прошла');
+
+  await requestJson(`${API_URL}/auth/me`, {});
+  passed.push('auth/me: Bearer-token принят');
+}
+
+/**
  * Основной сценарий.
  * @returns {Promise<void>} nothing.
  */
@@ -376,6 +442,7 @@ async function mainAsync() {
   await checkHealthAsync('api', `${API_URL}/health`, true);
   await checkHealthAsync('calc-engine', `${CALC_URL}/health`, false);
   await checkPublicCatalogAsync();
+  await authenticateAsync();
 
   const cases = await discoverCasesAsync();
   console.log(`Кейсов в датасете: ${cases.length}`);

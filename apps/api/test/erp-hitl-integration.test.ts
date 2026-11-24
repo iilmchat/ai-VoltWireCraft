@@ -27,6 +27,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import type { AuthUser } from '../src/auth/auth.service.js';
 import { JwtAuthGuard } from '../src/auth/auth.guard.js';
+import { AuthRateLimitService } from '../src/auth/auth-rate-limit.service.js';
 import { ProjectAccessGuard } from '../src/auth/project-access.guard.js';
 import { RefreshGuard } from '../src/auth/refresh.guard.js';
 import { SecurityGuard } from '../src/auth/security.guard.js';
@@ -184,6 +185,7 @@ describe('P0 remediation — ERP write fail-closed + HITL integration', () => {
         { provide: JwtAuthGuard, useClass: FakeAuthGuard },
         { provide: ProjectAccessGuard, useClass: ProjectAccessGuard },
         { provide: RefreshGuard, useValue: { canActivate: async () => true } },
+        { provide: AuthRateLimitService, useValue: { checkAsync: vi.fn(async () => undefined) } },
         { provide: APP_GUARD, useClass: SecurityGuard },
       ],
     }).compile();

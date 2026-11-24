@@ -4,6 +4,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { drizzleProvider } from '../database/drizzle.provider.js';
+import { AuthRateLimitService } from './auth-rate-limit.service.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { GraphEditGuard } from './graph-edit.guard.js';
@@ -36,6 +37,7 @@ import { SecurityGuard } from './security.guard.js';
     GraphEditGuard,
     RefreshGuard,
     SecurityGuard,
+    AuthRateLimitService,
     { provide: APP_GUARD, useClass: SecurityGuard },
   ],
   exports: [
@@ -47,6 +49,7 @@ import { SecurityGuard } from './security.guard.js';
     GraphEditGuard,
     RefreshGuard,
     SecurityGuard,
+    AuthRateLimitService,
   ],
 })
 export class AuthModule {}

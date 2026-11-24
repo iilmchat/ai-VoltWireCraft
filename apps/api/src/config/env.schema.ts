@@ -82,6 +82,13 @@ export const EnvSchema = z.object({
   JWT_REFRESH_HASH_PEPPER: requiredSecret.optional(),
   /** TEC-02: разрешённые Origin для cookie-транспорта refresh (через запятую). */
   AUTH_ALLOWED_ORIGINS: z.string().optional(),
+  /** F-03: лимиты auth-операций; раздельные bucket'ы на операцию. */
+  AUTH_RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().max(100_000).default(5),
+  AUTH_RATE_LIMIT_LOGIN_WINDOW_SECONDS: z.coerce.number().int().positive().max(86_400).default(900),
+  AUTH_RATE_LIMIT_REFRESH_MAX: z.coerce.number().int().positive().max(100_000).default(10),
+  AUTH_RATE_LIMIT_REFRESH_WINDOW_SECONDS: z.coerce.number().int().positive().max(86_400).default(300),
+  AUTH_RATE_LIMIT_LOGOUT_MAX: z.coerce.number().int().positive().max(100_000).default(10),
+  AUTH_RATE_LIMIT_LOGOUT_WINDOW_SECONDS: z.coerce.number().int().positive().max(86_400).default(300),
   /** TEC-05: ключ подписи HITL-токенов. */
   HITL_SIGNING_KEY: requiredSecret.optional(),
   /** TEC-06: токен для service-to-service вызовов. */
@@ -188,6 +195,24 @@ export const EnvSchema = z.object({
           message: `${name} обязателен в production`,
         });
       }
+    }
+    // F-04: cookie-CSRF требует явного списка Origin; wildcard и дефолты запрещены.
+    const origins = (env.AUTH_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    if (origins.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_ALLOWED_ORIGINS'],
+        message: 'AUTH_ALLOWED_ORIGINS обязателен в production',
+      });
+    } else if (origins.some((origin) => origin.includes('*') || !/^https?:\/\//.test(origin))) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_ALLOWED_ORIGINS'],
+        message: 'AUTH_ALLOWED_ORIGINS: wildcard и не-HTTP(S) Origin запрещены',
+      });
     }
   }
 

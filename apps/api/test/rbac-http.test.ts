@@ -22,6 +22,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import type { AuthUser } from '../src/auth/auth.service.js';
 import { JwtAuthGuard } from '../src/auth/auth.guard.js';
+import { AuthRateLimitService } from '../src/auth/auth-rate-limit.service.js';
 import { SecurityGuard } from '../src/auth/security.guard.js';
 import { RefreshGuard } from '../src/auth/refresh.guard.js';
 import { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
@@ -98,6 +99,7 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
         { provide: ProjectsService, useValue: service },
         { provide: JwtAuthGuard, useClass: FakeAuthGuard },
         { provide: RefreshGuard, useValue: { canActivate: async () => true } },
+        { provide: AuthRateLimitService, useValue: { checkAsync: vi.fn(async () => undefined) } },
         { provide: APP_GUARD, useClass: SecurityGuard },
         { provide: PanelArchitectAgent, useValue: { assembleAsync: assembleSpy } },
         { provide: PueAuditorAgent, useValue: {} },
