@@ -33,6 +33,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createEmptyProjectGraph, type ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import { AuthService, type AuthUser } from '../src/auth/auth.service.js';
 import { JwtService } from '../src/auth/jwt.service.js';
+import { RefreshSessionService } from '../src/auth/refresh-session.service.js';
 import { ProjectAccessGuard } from '../src/auth/project-access.guard.js';
 import { PROJECT_SCOPE_KEY, ProjectScoped } from '../src/auth/project-scoped.decorator.js';
 import { ProjectAccessService } from '../src/auth/project-access.service.js';
@@ -142,6 +143,8 @@ describe('Agent 3 — SEC-02 project authorization (read-only review + hardening
       get: (key: string): unknown => {
         if (key === 'JWT_SECRET') return 'a'.repeat(40);
         if (key === 'JWT_EXPIRES_IN') return '7d';
+        if (key === 'JWT_REFRESH_EXPIRES_IN') return '30d';
+        if (key === 'JWT_REFRESH_HASH_PEPPER') return 'p'.repeat(40);
         if (key === 'HITL_SIGNING_KEY') return 'b'.repeat(40);
         return undefined;
       },
@@ -173,6 +176,7 @@ describe('Agent 3 — SEC-02 project authorization (read-only review + hardening
           useValue: { callToolAsync: spy.erpCall, statusAsync: vi.fn(async () => []) },
         },
         JwtService,
+        RefreshSessionService,
         AuthService,
         ProjectPolicyService,
         ProjectAccessService,

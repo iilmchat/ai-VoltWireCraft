@@ -28,6 +28,7 @@ import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import type { AuthUser } from '../src/auth/auth.service.js';
 import { JwtAuthGuard } from '../src/auth/auth.guard.js';
 import { ProjectAccessGuard } from '../src/auth/project-access.guard.js';
+import { RefreshGuard } from '../src/auth/refresh.guard.js';
 import { SecurityGuard } from '../src/auth/security.guard.js';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import { DRIZZLE_DB, type Database } from '../src/database/drizzle.provider.js';
@@ -182,6 +183,7 @@ describe('P0 remediation — ERP write fail-closed + HITL integration', () => {
         { provide: CalcEngineClient, useValue: { calculateLightingAsync: calcCall } },
         { provide: JwtAuthGuard, useClass: FakeAuthGuard },
         { provide: ProjectAccessGuard, useClass: ProjectAccessGuard },
+        { provide: RefreshGuard, useValue: { canActivate: async () => true } },
         { provide: APP_GUARD, useClass: SecurityGuard },
       ],
     }).compile();

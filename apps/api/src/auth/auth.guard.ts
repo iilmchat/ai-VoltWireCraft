@@ -16,12 +16,13 @@ import { IS_PUBLIC_KEY } from './public.decorator.js';
 import type { AuthUser } from './auth.service.js';
 import { AuthService } from './auth.service.js';
 import { JwtService } from './jwt.service.js';
+import { RefreshSessionService } from './refresh-session.service.js';
 
 /** Данные авторизованного запроса. */
 export interface AuthenticatedRequest {
   readonly headers: Record<string, string | string[] | undefined>;
   user?: AuthUser;
-  auth?: { readonly sub: string; readonly jti: string };
+  auth?: { readonly sub: string; readonly jti: string; readonly sid: string };
 }
 
 /**
@@ -37,6 +38,7 @@ export class JwtAuthGuard implements CanActivate {
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(AuthService) private readonly auth: AuthService,
     private readonly reflector: Reflector,
+    @Inject(RefreshSessionService) private readonly sessions: RefreshSessionService,
   ) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -56,10 +58,17 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const payload = this.jwt.verify(raw.slice('Bearer '.length), 'access');
+    // SEC-02 Stage 2: access-токен обязан ссылаться на активную сессию.
+    // Ошибка БД не должна разрешать доступ — guard fail-closed.
+    try {
+      await this.sessions.assertSessionActiveAsync(payload.sid);
+    } catch {
+      throw new UnauthorizedException('Сессия неактивна или недоступна');
+    }
     // SEC-02: роль и отображаемое имя берутся из БД, а не из payload.
     const user = await this.auth.meAsync(payload.sub);
     request.user = user;
-    request.auth = { sub: payload.sub, jti: payload.jti };
+    request.auth = { sub: payload.sub, jti: payload.jti, sid: payload.sid };
     return true;
   }
 }

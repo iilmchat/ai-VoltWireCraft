@@ -14,17 +14,20 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import { DRIZZLE_DB } from '../src/database/drizzle.provider.js';
 import { projectMembers, projects, schema, users } from '../src/database/schema.js';
-import { JwtService } from '../src/auth/jwt.service.js';
+import { RefreshSessionService } from '../src/auth/refresh-session.service.js';
 import { ProjectAccessGuard } from '../src/auth/project-access.guard.js';
 import { ProjectScoped } from '../src/auth/project-scoped.decorator.js';
 import { UnauthorizedException } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../src/auth/public.decorator.js';
+import { REFRESH_AUTH_KEY } from '../src/auth/refresh-auth.decorator.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const ENGINEER = '22222222-2222-4222-8222-222222222222';
 const CLIENT = '33333333-3333-4333-8333-333333333333';
 const OUTSIDER = '44444444-4444-4444-8444-444444444444';
+/** Access-токены, привязанные к реальным сессиям (SEC-02 Stage 2). */
+const accessTokens = new Map<string, string>();
 
 const JWT_KEY = ['B1x2C3v4', 'B5n6M7q8', 'W9e0R1t2', 'Y3u4I5o6'].join('');
 const OTHER_KEY = ['C1x2C3v4', 'C5n6M7q8', 'W9e0R1t2', 'Y3u4I5o6'].join('');
@@ -36,7 +39,6 @@ interface Journal {
 describe('Integration: AppModule, guard order и RBAC', () => {
   let app: INestApplication;
   let url: string;
-  let jwt: JwtService;
   let projectGuard: ProjectAccessGuard;
   let client: PGlite;
 
@@ -105,8 +107,12 @@ describe('Integration: AppModule, guard order и RBAC', () => {
     app = moduleRef.createNestApplication();
     await app.listen(0);
     url = (await app.getUrl()).replace('[::1]', '127.0.0.1');
-    jwt = moduleRef.get(JwtService, { strict: false });
     projectGuard = moduleRef.get(ProjectAccessGuard, { strict: false });
+    const sessions = moduleRef.get(RefreshSessionService, { strict: false });
+    for (const id of [OWNER, ENGINEER, CLIENT, OUTSIDER]) {
+      const issued = await sessions.issueAsync(id);
+      accessTokens.set(id, issued.accessToken);
+    }
   });
 
   afterAll(async () => {
@@ -114,7 +120,13 @@ describe('Integration: AppModule, guard order и RBAC', () => {
     await client?.close();
   });
 
-  const tokenFor = (id: string): string => jwt.signAccess(id);
+  const tokenFor = (id: string): string => {
+    const token = accessTokens.get(id);
+    if (token === undefined) {
+      throw new Error(`Нет access-токена для ${id}`);
+    }
+    return token;
+  };
 
   async function req(
     method: string,
@@ -164,7 +176,8 @@ describe('Integration: AppModule, guard order и RBAC', () => {
     expect(await req('POST', `/projects/${PROJECT_ID}/integrations/moysklad/check-stock`)).toBe(401);
     expect(await req('POST', `/projects/${PROJECT_ID}/integrations/moysklad/create-order`)).toBe(401);
     expect(await req('POST', `/projects/${PROJECT_ID}/integrations/bitrix24/send-estimate`)).toBe(401);
-    // В этом SHA маршрут /auth/refresh отсутствует: отказ = 404, логика не изменялась.
+    // refresh НЕ публичный: без refresh-токена отказ 401 (не 404, не 200).
+    expect(await req('POST', '/auth/refresh')).toBe(401);
     expect(await req('GET', '/auth/refresh')).toBe(404);
   });
 
@@ -173,6 +186,7 @@ describe('Integration: AppModule, guard order и RBAC', () => {
     const scanner = new MetadataScanner();
     const reflector = new Reflector();
     const publicRoutes: string[] = [];
+    const refreshRoutes: string[] = [];
 
     for (const wrapper of discovery.getControllers()) {
       const metatype = wrapper.metatype as (new (...args: never[]) => object) | undefined;
@@ -190,7 +204,10 @@ describe('Integration: AppModule, guard order и RBAC', () => {
           continue;
         }
         const isPublic = classPublic || reflector.get<boolean>(IS_PUBLIC_KEY, handler) === true;
-        if (!isPublic) {
+        const isRefresh =
+          reflector.get<boolean>(REFRESH_AUTH_KEY, metatype) === true ||
+          reflector.get<boolean>(REFRESH_AUTH_KEY, handler) === true;
+        if (!isPublic && !isRefresh) {
           continue;
         }
         const handlerPath = (Reflect.getMetadata('path', handler) as string | string[] | undefined) ?? '';
@@ -199,7 +216,12 @@ describe('Integration: AppModule, guard order и RBAC', () => {
         for (const prefix of prefixes) {
           for (const segment of Array.isArray(handlerPath) ? handlerPath : [handlerPath]) {
             const route = `/${prefix}/${segment}`.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
-            publicRoutes.push(`${verbName} ${route}`);
+            if (isPublic) {
+              publicRoutes.push(`${verbName} ${route}`);
+            }
+            if (isRefresh) {
+              refreshRoutes.push(`${verbName} ${route}`);
+            }
           }
         }
       }
@@ -215,6 +237,8 @@ describe('Integration: AppModule, guard order и RBAC', () => {
     expect(publicRoutes).toHaveLength(4);
     expect(publicRoutes).not.toContain('GET /auth/me');
     expect(publicRoutes).not.toContain('GET /integrations/status');
+    expect(publicRoutes).not.toContain('POST /auth/refresh');
+    expect(refreshRoutes.sort()).toEqual(['POST /auth/refresh']);
   });
 
   it('outsider с валидным JWT → 404 (доказывает JWT до ProjectAccessGuard)', async () => {

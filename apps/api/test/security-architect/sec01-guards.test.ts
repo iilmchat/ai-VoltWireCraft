@@ -59,6 +59,7 @@ describe('SEC-01 / этап 0 — глобальные guards', () => {
       {} as JwtService,
       {} as never,
       new Reflector(),
+      {} as never,
     );
     const request: AuthenticatedRequest = { headers: {} };
 
@@ -72,6 +73,7 @@ describe('SEC-01 / этап 0 — глобальные guards', () => {
       {} as JwtService,
       {} as never,
       new Reflector(),
+      {} as never,
     );
     const request: AuthenticatedRequest = { headers: {} };
 
@@ -81,14 +83,19 @@ describe('SEC-01 / этап 0 — глобальные guards', () => {
   });
 
   it('пользователь и role загружаются из БД, а не из payload', async () => {
+    const sid = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     const jwt = {
-      verify: vi.fn(() => ({ sub: user.id, jti: 'jti-1', typ: 'access' })),
+      verify: vi.fn(() => ({ sub: user.id, sid, jti: 'jti-1', typ: 'access' })),
     } as unknown as JwtService;
     const auth = { meAsync: vi.fn(async () => user) } as unknown as never;
+    const sessions = {
+      assertSessionActiveAsync: vi.fn(async () => undefined),
+    } as unknown as never;
     const guard = new JwtAuthGuard(
       jwt,
       auth,
       new Reflector(),
+      sessions,
     );
     const request: AuthenticatedRequest = {
       headers: { authorization: 'Bearer test-access-token' },
@@ -97,7 +104,7 @@ describe('SEC-01 / этап 0 — глобальные guards', () => {
     await guard.canActivate(contextFor(FakeController.prototype.protectedRoute, request));
 
     expect(request.user).toEqual(user);
-    expect(request.auth).toEqual({ sub: user.id, jti: 'jti-1' });
+    expect(request.auth).toEqual({ sub: user.id, jti: 'jti-1', sid });
     expect(request.user?.displayName).toBe('Owner');
   });
 

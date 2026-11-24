@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   uuid,
   vector,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import type { ProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 
@@ -239,9 +240,63 @@ export const normativeChunks = pgTable(
   ],
 );
 
+/** Сессия аутентификации (SEC-02 Stage 2, PO-D13-01). */
+export const authSessions = pgTable('auth_sessions', {
+  /** Идентификатор сессии — claim `sid` access/refresh JWT. */
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Владелец сессии. */
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Время создания. */
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Последнее использование (refresh). */
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Время отзыва; NULL — сессия активна. */
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  /** Причина отзыва: logout / logout_all / replay. */
+  revokeReason: text('revoke_reason'),
+});
+
+/** Refresh-токены: только хеши, история использованных записей сохраняется. */
+export const authRefreshTokens = pgTable(
+  'auth_refresh_tokens',
+  {
+    /** Идентификатор записи — claim `jti` refresh JWT. */
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Сессия. */
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => authSessions.id, { onDelete: 'cascade' }),
+    /** HMAC-SHA256 от подписанного refresh JWT (сырой токен не хранится). */
+    tokenHash: text('token_hash').notNull().unique(),
+    /** Время выдачи. */
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Серверный TTL. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Время потребления токена ротацией. */
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    /** Ссылка на токен, выданый вместо этого. */
+    replacedByTokenId: uuid('replaced_by_token_id').references(
+      (): AnyPgColumn => authRefreshTokens.id,
+      { onDelete: 'set null' },
+    ),
+    /** Отзыв отдельной записи (family revoke идёт через auth_sessions). */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('auth_refresh_tokens_session_id_idx').on(table.sessionId),
+    uniqueIndex('auth_refresh_tokens_active_per_session')
+      .on(table.sessionId)
+      .where(sql`${table.consumedAt} is null and ${table.revokedAt} is null`),
+  ],
+);
+
 /** Объекты схемы для передачи Drizzle. */
 export const schema = {
   users,
+  authSessions,
+  authRefreshTokens,
   projects,
   floorPlans,
   projectMembers,

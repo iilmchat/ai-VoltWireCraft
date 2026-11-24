@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { JwtService } from '../src/auth/jwt.service.js';
+import { RefreshSessionService } from '../src/auth/refresh-session.service.js';
 import { ProjectAccessService } from '../src/auth/project-access.service.js';
 import type { Env } from '../src/config/env.schema.js';
 import { DRIZZLE_DB } from '../src/database/drizzle.provider.js';
@@ -64,6 +65,7 @@ describe('Auth и RBAC (PGlite)', () => {
       if (key === 'JWT_KID') return 'test-kid';
       if (key === 'JWT_EXPIRES_IN') return '15m';
       if (key === 'JWT_REFRESH_EXPIRES_IN') return '30d';
+      if (key === 'JWT_REFRESH_HASH_PEPPER') return 'p'.repeat(40);
       return undefined;
     },
   } as unknown as ConfigService<Env, true>;
@@ -77,6 +79,7 @@ describe('Auth и RBAC (PGlite)', () => {
         { provide: DRIZZLE_DB, useValue: db as unknown as Database },
         { provide: ConfigService, useValue: config },
         JwtService,
+        RefreshSessionService,
         AuthService,
         ProjectPolicyService,
         ProjectAccessService,

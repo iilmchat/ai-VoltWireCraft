@@ -13,7 +13,7 @@ import {
 import { DRIZZLE_DB } from '../database/drizzle.provider.js';
 import type { Database } from '../database/drizzle.provider.js';
 import { users } from '../database/schema.js';
-import { JwtService } from './jwt.service.js';
+import { RefreshSessionService } from './refresh-session.service.js';
 
 /** Данные пользователя, необходимые остальным сервисам. */
 export interface AuthUser {
@@ -34,11 +34,11 @@ export interface AuthUser {
 export class AuthService {
   /**
    * @param db — типизированный Drizzle-клиент.
-   * @param jwt — сервис подписи JWT.
+   * @param sessions — сервис refresh-сессий (SEC-02 Stage 2).
    */
   public constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
-    @Inject(JwtService) private readonly jwt: JwtService,
+    @Inject(RefreshSessionService) private readonly sessions: RefreshSessionService,
   ) {}
 
   /**
@@ -143,10 +143,11 @@ export class AuthService {
    */
   private async issueAsync(user: AuthUser): Promise<AuthResponse> {
     // SEC-02-A: разные типы и audience; email/role не попадают в JWT (D-05).
-    // Сессии и проверка refresh-токена относятся к этапу 2 (PO-D13 — блокер).
+    // SEC-02 Stage 2: сессия и первая refresh-запись создаются транзакционно.
+    const tokens = await this.sessions.issueAsync(user.id);
     return AuthResponseSchema.parse({
-      accessToken: this.jwt.signAccess(user.id),
-      refreshToken: this.jwt.signRefresh(user.id),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         email: user.email,

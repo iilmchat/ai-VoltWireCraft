@@ -11,6 +11,8 @@ import { JwtAuthGuard } from './auth.guard.js';
 import { JwtService } from './jwt.service.js';
 import { ProjectAccessController } from './project-access.controller.js';
 import { ProjectAccessService } from './project-access.service.js';
+import { RefreshGuard } from './refresh.guard.js';
+import { RefreshSessionService } from './refresh-session.service.js';
 import { SecurityGuard } from './security.guard.js';
 
 /**
@@ -27,19 +29,23 @@ import { SecurityGuard } from './security.guard.js';
   providers: [
     drizzleProvider,
     JwtService,
+    RefreshSessionService,
     AuthService,
     ProjectAccessService,
     JwtAuthGuard,
     GraphEditGuard,
+    RefreshGuard,
     SecurityGuard,
     { provide: APP_GUARD, useClass: SecurityGuard },
   ],
   exports: [
     JwtService,
+    RefreshSessionService,
     AuthService,
     ProjectAccessService,
     JwtAuthGuard,
     GraphEditGuard,
+    RefreshGuard,
     SecurityGuard,
   ],
 })

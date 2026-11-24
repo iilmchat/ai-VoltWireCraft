@@ -26,6 +26,8 @@ const CLOCK_TOLERANCE_SECONDS = 30;
 /** Структура полезной нагрузки. email и role намеренно отсутствуют (D-05). */
 export interface JwtPayload {
   readonly sub: string;
+  /** Идентификатор активной сессии (SEC-02 Stage 2). */
+  readonly sid: string;
   readonly typ: TokenType;
   readonly aud: string;
   readonly iss: string;
@@ -38,6 +40,7 @@ export interface JwtPayload {
 /** Схема валидации payload на границе входа. */
 const JwtPayloadSchema = z.object({
   sub: z.string().uuid(),
+  sid: z.string().uuid(),
   typ: z.enum(['access', 'refresh']),
   aud: z.string().min(1),
   iss: z.string().min(1),
@@ -81,14 +84,23 @@ export class JwtService {
     this.kid = this.config.get('JWT_KID', { infer: true });
   }
 
-  /** Выдаёт access-токен (15 минут). */
-  public signAccess(userId: string): string {
-    return this.sign(userId, 'access', this.config.get('JWT_EXPIRES_IN', { infer: true }));
+  /** Выдаёт access-токен (15 минут), привязанный к сессии. */
+  public signAccess(userId: string, sid: string): string {
+    return this.sign(userId, sid, 'access', this.config.get('JWT_EXPIRES_IN', { infer: true }));
   }
 
-  /** Выдаёт refresh-токен (30 дней). */
-  public signRefresh(userId: string): string {
-    return this.sign(userId, 'refresh', this.config.get('JWT_REFRESH_EXPIRES_IN', { infer: true }));
+  /**
+   * Выдаёт refresh-токен (30 дней), привязанный к сессии и записи БД.
+   * @param jti — идентификатор записи `auth_refresh_tokens`; по умолчанию новый UUID.
+   */
+  public signRefresh(userId: string, sid: string, jti: string = randomUUID()): string {
+    return this.sign(
+      userId,
+      sid,
+      'refresh',
+      this.config.get('JWT_REFRESH_EXPIRES_IN', { infer: true }),
+      jti,
+    );
   }
 
   /**
@@ -149,7 +161,13 @@ export class JwtService {
   }
 
   /** Подписывает payload с вычислением TTL. */
-  private sign(userId: string, type: TokenType, expiresIn: string): string {
+  private sign(
+    userId: string,
+    sid: string,
+    type: TokenType,
+    expiresIn: string,
+    jti: string = randomUUID(),
+  ): string {
     const lifetime = parseDurationSeconds(expiresIn);
     if (!Number.isFinite(lifetime) || lifetime <= 0) {
       throw new Error('Некорректный TTL токена');
@@ -157,10 +175,11 @@ export class JwtService {
     const now = Math.floor(Date.now() / 1000);
     const body: JwtPayload = {
       sub: userId,
+      sid,
       typ: type,
+      jti,
       aud: TOKEN_AUDIENCE[type],
       iss: TOKEN_ISSUER,
-      jti: randomUUID(),
       iat: now,
       nbf: now,
       exp: now + lifetime,

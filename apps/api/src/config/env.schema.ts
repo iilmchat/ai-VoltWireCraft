@@ -80,6 +80,8 @@ export const EnvSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: ttlSchema.default('30d'),
   /** TEC-07: отдельный pepper для хеширования refresh-токенов. */
   JWT_REFRESH_HASH_PEPPER: requiredSecret.optional(),
+  /** TEC-02: разрешённые Origin для cookie-транспорта refresh (через запятую). */
+  AUTH_ALLOWED_ORIGINS: z.string().optional(),
   /** TEC-05: ключ подписи HITL-токенов. */
   HITL_SIGNING_KEY: requiredSecret.optional(),
   /** TEC-06: токен для service-to-service вызовов. */

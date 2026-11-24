@@ -23,6 +23,7 @@ import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import type { AuthUser } from '../src/auth/auth.service.js';
 import { JwtAuthGuard } from '../src/auth/auth.guard.js';
 import { SecurityGuard } from '../src/auth/security.guard.js';
+import { RefreshGuard } from '../src/auth/refresh.guard.js';
 import { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
 import { CopilotChatAgent } from '../src/agents/copilot-chat.agent.js';
@@ -96,6 +97,7 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
       providers: [
         { provide: ProjectsService, useValue: service },
         { provide: JwtAuthGuard, useClass: FakeAuthGuard },
+        { provide: RefreshGuard, useValue: { canActivate: async () => true } },
         { provide: APP_GUARD, useClass: SecurityGuard },
         { provide: PanelArchitectAgent, useValue: { assembleAsync: assembleSpy } },
         { provide: PueAuditorAgent, useValue: {} },
