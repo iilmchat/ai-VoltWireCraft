@@ -1,6 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.8.0
 /** Шлюз к MCP-серверам МойСклад и Битрикс24 (RULES § 4.14–4.15, 6.1). */
 
+import { randomUUID } from 'node:crypto';
 import { BadGatewayException, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
@@ -85,13 +86,15 @@ export class ErpMcpService {
     responseSchema: z.ZodType<TResult>,
     confirmationToken?: string,
   ): Promise<McpCall<TResult>> {
-    const url = new URL(`/tools/${encodeURIComponent(tool)}`, this.baseUrl(server));
+    // Реальный FastAPI register: /mcp/tools/{tool_name}; payload — плоский,
+    // аргументы передаются в корне, а не под ключом `arguments`.
+    const url = new URL(`/mcp/tools/${encodeURIComponent(tool)}`, this.baseUrl(server));
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          arguments: args,
+          ...args,
           ...(confirmationToken !== undefined ? { confirmationToken } : {}),
         }),
         signal: this.abortSignal(),
@@ -100,11 +103,21 @@ export class ErpMcpService {
         throw new BadGatewayException(`MCP ${server}/${tool}: HTTP ${response.status}`);
       }
       const payload: unknown = await response.json();
-      const wrapper = z.object({
-        result: z.unknown(),
-        operationId: z.string().min(1).default(`op-${Date.now()}`),
-      }).parse(payload);
-      return { data: responseSchema.parse(wrapper.result), operationId: wrapper.operationId };
+      const envelope = z
+        .object({
+          success: z.boolean(),
+          tool: z.string().min(1),
+          data: z.unknown(),
+          message: z.string(),
+        })
+        .parse(payload);
+      if (!envelope.success || envelope.tool !== tool) {
+        throw new BadGatewayException(`MCP ${server}/${tool}: ${envelope.message}`);
+      }
+      return {
+        data: responseSchema.parse(envelope.data),
+        operationId: `op-${randomUUID()}`,
+      };
     } catch (error: unknown) {
       if (error instanceof BadGatewayException) {
         throw error;

@@ -45,6 +45,9 @@ import { IntegrationService } from '../src/integrations/integration.service.js';
 import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
 import { ProjectsService } from '../src/projects/projects.service.js';
 import { FLOOR_PLAN_STORAGE } from '../src/projects/storage/floor-plan-storage.js';
+import { HitlService } from '../src/security/hitl.service.js';
+import { HITL_REPLAY_STORE } from '../src/security/security.module.js';
+import { InMemoryReplayStore } from '../src/security/replay-store.js';
 import type { FloorPlanStorage } from '../src/projects/storage/floor-plan-storage.js';
 
 interface Journal {
@@ -139,6 +142,7 @@ describe('Agent 3 — SEC-02 project authorization (read-only review + hardening
       get: (key: string): unknown => {
         if (key === 'JWT_SECRET') return 'a'.repeat(40);
         if (key === 'JWT_EXPIRES_IN') return '7d';
+        if (key === 'HITL_SIGNING_KEY') return 'b'.repeat(40);
         return undefined;
       },
     } as unknown as ConfigService<Env, true>;
@@ -175,6 +179,8 @@ describe('Agent 3 — SEC-02 project authorization (read-only review + hardening
         ProjectsService,
         IntegrationService,
         ProjectAccessGuard,
+        HitlService,
+        { provide: HITL_REPLAY_STORE, useClass: InMemoryReplayStore },
       ],
     }).compile();
 

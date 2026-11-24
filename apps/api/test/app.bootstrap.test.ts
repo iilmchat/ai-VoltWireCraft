@@ -20,6 +20,7 @@ describe('AppModule bootstrap (v0.9.1)', () => {
     process.env.REDIS_URL ??= 'redis://localhost:6379/0';
     process.env.CALC_ENGINE_URL ??= 'http://localhost:8000';
     process.env.JWT_SECRET ??= 'Z'.repeat(48);
+    process.env.HITL_SIGNING_KEY ??= 'Y'.repeat(48);
 
     const { AppModule } = await import('../src/app.module.js');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();

@@ -3,6 +3,7 @@
 
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
+import { UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -16,6 +17,7 @@ import { IntegrationService } from '../src/integrations/integration.service.js';
 import { IntegrationsController } from '../src/integrations/integrations.controller.js';
 import { ProjectsService } from '../src/projects/projects.service.js';
 import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
+import { HitlService } from '../src/security/hitl.service.js';
 import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -97,7 +99,14 @@ describe('IntegrationService', () => {
             { provide: ErpMcpService, useValue: mcp },
             {
               provide: ProjectPolicyService,
-              useValue: { requireReadAsync: vi.fn(async () => 'owner') },
+              useValue: {
+                requireReadAsync: vi.fn(async () => 'owner'),
+                requireEditorAsync: vi.fn(async () => 'owner'),
+              },
+            },
+            {
+              provide: HitlService,
+              useValue: { verifyAsync: vi.fn(async () => { throw new UnauthorizedException('HITL'); }) },
             },
           ],
         }).compile();
@@ -111,13 +120,13 @@ describe('IntegrationService', () => {
         expect(statuses.some((item) => item.server === 'moysklad' && item.available)).toBe(true);
     });
 
-    it('проверяет остатки через MCP get_stock', async () => {
+    it('проверяет остатки через MCP moysklad_check_stock', async () => {
         const result = await service.checkStockAsync([{ sku: 'IEK-VA47-29-C16', quantity: 1 }]);
 
         expect(mcp.callToolAsync).toHaveBeenCalledWith(
             'moysklad',
-            'get_stock',
-            expect.objectContaining({ items: expect.any(Array) }),
+            'moysklad_check_stock',
+            expect.objectContaining({ skus: expect.any(Array) }),
             expect.anything(),
         );
         expect(result.allAvailable).toBe(true);
@@ -129,23 +138,17 @@ describe('IntegrationService', () => {
         expect(items.some((item) => item.sku === 'IEK-VA47-29-C16')).toBe(true);
     });
 
-    it('передаёт HITL-токен при создании заказа', async () => {
-        mcp.callToolAsync.mockResolvedValueOnce({ data: exportResponse, operationId: 'op-order-1' });
+    it('произвольный HITL-токен не достигает MCP при создании заказа', async () => {
+        mcp.callToolAsync.mockClear();
 
-        await service.createOrderAsync({
+        await expect(service.createOrderAsync({
             projectId: PROJECT_ID,
             target: 'moysklad',
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             confirmationToken: 'confirm-123',
-        }, USER.id);
+        }, USER.id)).rejects.toBeInstanceOf(UnauthorizedException);
 
-        expect(mcp.callToolAsync).toHaveBeenCalledWith(
-            'moysklad',
-            'create_order',
-            expect.anything(),
-            expect.anything(),
-            'confirm-123',
-        );
+        expect(mcp.callToolAsync).not.toHaveBeenCalled();
     });
 });
 

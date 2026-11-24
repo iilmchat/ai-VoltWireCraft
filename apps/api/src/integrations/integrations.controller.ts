@@ -120,7 +120,7 @@ export class IntegrationsController {
    * @returns результат выгрузки.
    */
   @Post('projects/:id/integrations/moysklad/create-order')
-  @ProjectScoped({ param: 'id', role: 'read' })
+  @ProjectScoped({ param: 'id', role: 'write' })
   public async createOrderAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(CreateOrderRequestSchema)) dto: CreateOrderRequest,
@@ -146,7 +146,7 @@ export class IntegrationsController {
    * @returns результат выгрузки.
    */
   @Post('projects/:id/integrations/bitrix24/send-estimate')
-  @ProjectScoped({ param: 'id', role: 'read' })
+  @ProjectScoped({ param: 'id', role: 'write' })
   public async sendEstimateAsync(
     @Param('id', new ZodValidationPipe(UuidSchema)) id: string,
     @Body(new ZodValidationPipe(SendEstimateRequestSchema)) dto: SendEstimateRequest,
