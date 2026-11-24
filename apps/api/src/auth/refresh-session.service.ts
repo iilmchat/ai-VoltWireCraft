@@ -56,29 +56,32 @@ export class RefreshSessionService {
    * Создаёт сессию и первую пару токенов в одной транзакции.
    *
    * @param userId — идентификатор пользователя.
+   * @param executor — выполняющий запросы клиент; при регистрации передаётся
+   *   транзакция, чтобы user + session + refresh были атомарны (S2-04).
    * @returns токены и идентификатор сессии.
    */
-  public async issueAsync(userId: string): Promise<IssuedTokens> {
+  public async issueAsync(
+    userId: string,
+    executor: Pick<Database, 'insert'> = this.db,
+  ): Promise<IssuedTokens> {
     const sid = randomUUID();
     const jti = randomUUID();
     const refreshToken = this.jwt.signRefresh(userId, sid, jti);
     const refreshPayload = this.jwt.verify(refreshToken, 'refresh');
     const accessToken = this.jwt.signAccess(userId, sid);
 
-    await this.db.transaction(async (tx) => {
-      await tx.insert(authSessions).values({
-        id: sid,
-        userId,
-        createdAt: new Date(refreshPayload.iat * 1000),
-        lastUsedAt: new Date(refreshPayload.iat * 1000),
-      });
-      await tx.insert(authRefreshTokens).values({
-        id: jti,
-        sessionId: sid,
-        tokenHash: this.hash(refreshToken),
-        issuedAt: new Date(refreshPayload.iat * 1000),
-        expiresAt: new Date(refreshPayload.exp * 1000),
-      });
+    await executor.insert(authSessions).values({
+      id: sid,
+      userId,
+      createdAt: new Date(refreshPayload.iat * 1000),
+      lastUsedAt: new Date(refreshPayload.iat * 1000),
+    });
+    await executor.insert(authRefreshTokens).values({
+      id: jti,
+      sessionId: sid,
+      tokenHash: this.hash(refreshToken),
+      issuedAt: new Date(refreshPayload.iat * 1000),
+      expiresAt: new Date(refreshPayload.exp * 1000),
     });
 
     return { accessToken, refreshToken, sid };

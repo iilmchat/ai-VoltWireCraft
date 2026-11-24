@@ -3,8 +3,12 @@
 
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LoginDtoSchema, RegisterDtoSchema } from '@voltwirecraft/shared/graph.schema.js';
-import type { LoginDto, RegisterDto } from '@voltwirecraft/shared/graph.schema.js';
+import {
+  AuthResponseSchema,
+  LoginDtoSchema,
+  RegisterDtoSchema,
+} from '@voltwirecraft/shared/graph.schema.js';
+import type { AuthResponse, LoginDto, RegisterDto } from '@voltwirecraft/shared/graph.schema.js';
 import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { parseDurationSeconds } from '../config/env.schema.js';
@@ -86,18 +90,29 @@ export class AuthController {
   public async refreshAsync(
     @Req() request: RefreshRequest,
     @Res({ passthrough: true }) response: CookieResponse,
-  ): Promise<ApiResponse<{ accessToken: string; refreshToken: string }>> {
+  ): Promise<ApiResponse<AuthResponse>> {
     const token = request.refreshToken;
     if (token === undefined) {
       throw new UnauthorizedException('Refresh-токен не предоставлен');
     }
     const tokens = await this.sessions.rotateAsync(token);
+    const sub = request.auth?.sub;
+    if (sub === undefined) {
+      throw new UnauthorizedException('Refresh-контекст отсутствует');
+    }
+    const user = await this.auth.meAsync(sub);
+    const data = AuthResponseSchema.parse({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+      },
+    });
     this.setRefreshCookie(response, tokens.refreshToken);
-    return {
-      success: true,
-      data: { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken },
-      message: 'Токены обновлены',
-    };
+    return { success: true, data, message: 'Токены обновлены' };
   }
 
   /**

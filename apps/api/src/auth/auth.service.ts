@@ -55,22 +55,36 @@ export class AuthService {
       throw new ConflictException('Пользователь с таким email уже существует');
     }
 
-    const [row] = await this.db
-      .insert(users)
-      .values({
-        email,
-        passwordHash: this.hashPassword(dto.password),
-        fullName: dto.displayName,
-      })
-      .returning();
-    if (row === undefined) {
-      throw new Error('Не удалось создать пользователя');
-    }
-    return this.issueAsync({
-      id: row.id,
-      email: row.email,
-      displayName: row.fullName,
-      role: row.globalRole,
+    // S2-04: user + session + первая refresh-запись создаются в одной
+    // транзакции. Отказ на любом шаге оставляет БД без частичных записей.
+    const { row, tokens } = await this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(users)
+        .values({
+          email,
+          passwordHash: this.hashPassword(dto.password),
+          fullName: dto.displayName,
+        })
+        .returning();
+      if (created === undefined) {
+        throw new Error('Не удалось создать пользователя');
+      }
+      const issued = await this.sessions.issueAsync(
+        created.id,
+        tx as unknown as Pick<Database, 'insert'>,
+      );
+      return { row: created, tokens: issued };
+    });
+
+    return AuthResponseSchema.parse({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: row.id,
+        email: row.email,
+        displayName: row.fullName,
+        role: row.globalRole,
+      },
     });
   }
 
