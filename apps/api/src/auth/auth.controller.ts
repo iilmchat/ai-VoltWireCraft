@@ -8,6 +8,7 @@ import type { ApiResponse } from '../common/api-response.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { AuthService, type AuthUser } from './auth.service.js';
 import { CurrentUser } from './auth.guard.js';
+import { Public } from './public.decorator.js';
 
 /** Публичные и защищённые эндпоинты авторизации. */
 @Controller('auth')
@@ -24,6 +25,7 @@ export class AuthController {
    * @returns токены и данные пользователя.
    */
   @Post('register')
+  @Public()
   public async registerAsync(
     @Body(new ZodValidationPipe(RegisterDtoSchema)) dto: RegisterDto,
   ): Promise<ApiResponse<Awaited<ReturnType<AuthService['registerAsync']>>>> {
@@ -38,6 +40,7 @@ export class AuthController {
    * @returns токены и данные пользователя.
    */
   @Post('login')
+  @Public()
   public async loginAsync(
     @Body(new ZodValidationPipe(LoginDtoSchema)) dto: LoginDto,
   ): Promise<ApiResponse<Awaited<ReturnType<AuthService['loginAsync']>>>> {

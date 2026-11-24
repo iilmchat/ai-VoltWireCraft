@@ -157,6 +157,17 @@ async function checkHealthAsync(name, url, enveloped) {
 }
 
 /**
+ * PO-D01: catalog/devices — публичный маршрут, доступен без Bearer.
+ * @returns {Promise<void>} nothing.
+ */
+async function checkPublicCatalogAsync() {
+  const response = await fetch(`${API_URL}/catalog/devices`, {
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(response.ok, `GET /catalog/devices без JWT вернул HTTP ${response.status}`);
+}
+
+/**
  * Читает JSON-файл фикстуры.
  * @param {string} caseDir — каталог кейса.
  * @param {string} fileName — имя файла.
@@ -364,6 +375,7 @@ async function mainAsync() {
   console.log(`VoltWireCraft E2E smoke: ${API_URL} / ${CALC_URL}`);
   await checkHealthAsync('api', `${API_URL}/health`, true);
   await checkHealthAsync('calc-engine', `${CALC_URL}/health`, false);
+  await checkPublicCatalogAsync();
 
   const cases = await discoverCasesAsync();
   console.log(`Кейсов в датасете: ${cases.length}`);

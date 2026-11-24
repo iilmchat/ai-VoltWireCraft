@@ -5,7 +5,8 @@ import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import { RequestMethod, type ExecutionContext, type INestApplication } from '@nestjs/common';
+import { DiscoveryService, MetadataScanner, ModulesContainer, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -17,6 +18,7 @@ import { JwtService } from '../src/auth/jwt.service.js';
 import { ProjectAccessGuard } from '../src/auth/project-access.guard.js';
 import { ProjectScoped } from '../src/auth/project-scoped.decorator.js';
 import { UnauthorizedException } from '@nestjs/common';
+import { IS_PUBLIC_KEY } from '../src/auth/public.decorator.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OWNER = '11111111-1111-4111-8111-111111111111';
@@ -143,17 +145,76 @@ describe('Integration: AppModule, guard order и RBAC', () => {
     expect(await req('GET', `/projects/${PROJECT_ID}`, 'garbage')).toBe(401);
   });
 
-  it('PO-D01 остаётся открытым: кандидаты в публичные маршруты тоже дают 401', async () => {
-    const candidates: readonly [string, string][] = [
-      ['POST', '/auth/register'],
-      ['POST', '/auth/login'],
-      ['GET', '/health'],
-      ['GET', '/catalog/devices'],
-      ['GET', '/integrations/status'],
-    ];
-    for (const [method, path] of candidates) {
-      expect(await req(method, path), `${method} ${path}`).toBe(401);
+  it('PO-D01: ровно четыре разрешённых маршрута доступны без JWT', async () => {
+    // POST без тела доходит до ZodValidationPipe → 400 (не 401):
+    // значит JwtAuthGuard пропустил запрос как @Public.
+    expect(await req('POST', '/auth/register')).toBe(400);
+    expect(await req('POST', '/auth/login')).toBe(400);
+    expect(await req('GET', '/health')).toBe(200);
+    expect(await req('GET', '/catalog/devices')).toBe(200);
+
+    // Остальные кандидаты остаются закрытыми.
+    expect(await req('GET', '/auth/me')).toBe(401);
+    expect(await req('GET', '/integrations/status')).toBe(401);
+    expect(await req('POST', '/projects')).toBe(401);
+    expect(await req('GET', `/projects/${PROJECT_ID}`)).toBe(401);
+    expect(await req('POST', `/projects/${PROJECT_ID}/ai/chat`)).toBe(401);
+    expect(await req('POST', `/projects/${PROJECT_ID}/ai/assemble-panel`)).toBe(401);
+    expect(await req('POST', `/projects/${PROJECT_ID}/ai/audit-pue`)).toBe(401);
+    expect(await req('POST', `/projects/${PROJECT_ID}/integrations/moysklad/check-stock`)).toBe(401);
+    expect(await req('POST', `/projects/${PROJECT_ID}/integrations/moysklad/create-order`)).toBe(401);
+    expect(await req('POST', `/projects/${PROJECT_ID}/integrations/bitrix24/send-estimate`)).toBe(401);
+    // В этом SHA маршрут /auth/refresh отсутствует: отказ = 404, логика не изменялась.
+    expect(await req('GET', '/auth/refresh')).toBe(404);
+  });
+
+  it('PO-D01 meta: публичная метка ровно на четырёх handler-ах, без наследования', () => {
+    const discovery = new DiscoveryService(app.get(ModulesContainer));
+    const scanner = new MetadataScanner();
+    const reflector = new Reflector();
+    const publicRoutes: string[] = [];
+
+    for (const wrapper of discovery.getControllers()) {
+      const metatype = wrapper.metatype as (new (...args: never[]) => object) | undefined;
+      if (metatype === undefined) {
+        continue;
+      }
+      const classPath = (Reflect.getMetadata('path', metatype) as string | string[] | undefined) ?? '';
+      const prefixes = Array.isArray(classPath) ? classPath : [classPath];
+      const prototype = metatype.prototype as Record<string, unknown>;
+      const classPublic = reflector.get<boolean>(IS_PUBLIC_KEY, metatype) === true;
+
+      for (const methodName of scanner.getAllMethodNames(prototype)) {
+        const handler = prototype[methodName];
+        if (typeof handler !== 'function') {
+          continue;
+        }
+        const isPublic = classPublic || reflector.get<boolean>(IS_PUBLIC_KEY, handler) === true;
+        if (!isPublic) {
+          continue;
+        }
+        const handlerPath = (Reflect.getMetadata('path', handler) as string | string[] | undefined) ?? '';
+        const verb = Reflect.getMetadata('method', handler) as RequestMethod | undefined;
+        const verbName = verb === undefined ? 'UNKNOWN' : RequestMethod[verb];
+        for (const prefix of prefixes) {
+          for (const segment of Array.isArray(handlerPath) ? handlerPath : [handlerPath]) {
+            const route = `/${prefix}/${segment}`.replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+            publicRoutes.push(`${verbName} ${route}`);
+          }
+        }
+      }
     }
+
+    const expected = [
+      'POST /auth/login',
+      'POST /auth/register',
+      'GET /health',
+      'GET /catalog/devices',
+    ].sort();
+    expect(publicRoutes.sort()).toEqual(expected);
+    expect(publicRoutes).toHaveLength(4);
+    expect(publicRoutes).not.toContain('GET /auth/me');
+    expect(publicRoutes).not.toContain('GET /integrations/status');
   });
 
   it('outsider с валидным JWT → 404 (доказывает JWT до ProjectAccessGuard)', async () => {

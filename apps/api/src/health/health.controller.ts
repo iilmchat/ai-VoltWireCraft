@@ -4,6 +4,7 @@ import type { HealthReport } from './health.types.js';
 // Импорт нужен как значение: emitDecoratorMetadata использует его для DI.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { HealthService } from './health.service.js';
+import { Public } from '../auth/public.decorator.js';
 
 /** Контроллер проверки готовности сервисов. */
 @Controller('health')
@@ -19,6 +20,7 @@ export class HealthController {
    * @returns ответ в едином формате `ApiResponse`.
    */
   @Get()
+  @Public()
   public async getHealthAsync(): Promise<ApiResponse<HealthReport>> {
     const report = await this.healthService.checkAsync();
     return {
