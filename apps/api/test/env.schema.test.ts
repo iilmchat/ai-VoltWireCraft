@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { validateEnv } from '../src/config/env.schema.js';
+import { normalizeOrigin, validateEnv } from '../src/config/env.schema.js';
 
 /** Секрет без подстрок из denylist заглушек. */
 const SECRET = ['A1b2C3d4', 'E5f6g7H8', 'i9J0k1L2', 'm3N4o5P6'].join('');
@@ -22,6 +22,7 @@ const prodEnv = {
   HITL_SIGNING_KEY: 'Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6',
   INTERNAL_SERVICE_TOKEN: 'L1k2J3h4G5f6D7s8A9p0O1i2U3y4T5r6',
   AUTH_ALLOWED_ORIGINS: 'https://app.example.com',
+  AUTH_RATE_LIMIT_ACCOUNT_KEY: 'K1l2M3n4O5p6Q7r8S9t0U1v2W3x4Y5z6',
 };
 
 describe('validateEnv — SEC-01', () => {
@@ -91,6 +92,33 @@ describe('validateEnv — SEC-01', () => {
     expect(() =>
       validateEnv({ ...prodEnv, AUTH_ALLOWED_ORIGINS: 'https://a.example.com,https://b.example.com' }),
     ).not.toThrow();
+  });
+
+  it('F-11: нормализация Origin — trailing slash, регистр, порты', () => {
+    expect(normalizeOrigin('https://Example.com/')).toBe('https://example.com');
+    expect(normalizeOrigin('https://example.com:443/')).toBe('https://example.com');
+    expect(normalizeOrigin('http://example.com:80')).toBe('http://example.com');
+    expect(normalizeOrigin('https://example.com:8443/')).toBe('https://example.com:8443');
+    for (const invalid of [
+      '*',
+      'null',
+      'https://user:pass@example.com',
+      'https://example.com/path',
+      'https://example.com/?q=1',
+      'https://example.com/#x',
+      'ftp://example.com',
+    ]) {
+      expect(normalizeOrigin(invalid)).toBeUndefined();
+    }
+  });
+
+  it('F-11: production принимает AUTH_ALLOWED_ORIGINS с trailing slash', () => {
+    expect(() =>
+      validateEnv({ ...prodEnv, AUTH_ALLOWED_ORIGINS: 'https://Example.com/' }),
+    ).not.toThrow();
+    expect(() => validateEnv({ ...prodEnv, AUTH_ALLOWED_ORIGINS: 'null' })).toThrow(
+      /AUTH_ALLOWED_ORIGINS/,
+    );
   });
 
   it('production требует ровно 15m/30d', () => {

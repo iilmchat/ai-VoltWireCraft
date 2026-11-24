@@ -34,6 +34,7 @@ class FakeRedis {
 function rateLimitService(redis: FakeRedis, max = 2): AuthRateLimitService {
   const config = {
     get: (key: string): unknown => {
+      if (key === 'JWT_SECRET') return 'account-key-for-tests-0123456789abcdef';
       if (key.endsWith('_MAX')) return max;
       if (key.endsWith('_WINDOW_SECONDS')) return 60;
       return undefined;
@@ -147,5 +148,73 @@ describe('F-03 — auth rate limiting', () => {
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(checkAsync).toHaveBeenCalledWith('refresh', '203.0.113.8');
     expect(checkAsync).toHaveBeenCalledWith('refresh', 'u-1');
+  });
+
+  it('F-10: per-account bucket ограничивает один аккаунт с разных IP', async () => {
+    const redis = new FakeRedis();
+    const service = rateLimitService(redis, 2);
+    await expect(service.checkAccountAsync('owner@example.com')).resolves.toBeUndefined();
+    await expect(service.checkAccountAsync('owner@example.com')).resolves.toBeUndefined();
+    await expect(service.checkAccountAsync('owner@example.com')).rejects.toBeInstanceOf(HttpException);
+    await expect(service.checkAccountAsync('other@example.com')).resolves.toBeUndefined();
+  });
+
+  it('F-10: account bucket восстанавливается после окна', async () => {
+    vi.useFakeTimers();
+    const service = rateLimitService(new FakeRedis(), 2);
+    await service.checkAccountAsync('owner@example.com');
+    await service.checkAccountAsync('owner@example.com');
+    await expect(service.checkAccountAsync('owner@example.com')).rejects.toBeInstanceOf(HttpException);
+    vi.setSystemTime(Date.now() + 901_000);
+    await expect(service.checkAccountAsync('owner@example.com')).resolves.toBeUndefined();
+  });
+
+  it('F-10: два инстанса делят account bucket через общий Redis', async () => {
+    const redis = new FakeRedis();
+    const first = rateLimitService(redis, 2);
+    const second = rateLimitService(redis, 2);
+    await first.checkAccountAsync('victim@example.com');
+    await second.checkAccountAsync('victim@example.com');
+    await expect(first.checkAccountAsync('victim@example.com')).rejects.toBeInstanceOf(HttpException);
+  });
+
+  it('F-10: SecurityGuard нормализует email до account bucket', async () => {
+    const checkAccountAsync = vi.fn(async (_email: string) => undefined);
+    const guard = new SecurityGuard(
+      { canActivate: async () => true } as unknown as JwtAuthGuard,
+      { canActivate: async () => true } as unknown as ProjectAccessGuard,
+      { canActivate: async () => true } as unknown as RefreshGuard,
+      new Reflector(),
+      {
+        checkAsync: vi.fn(async () => undefined),
+        checkAccountAsync,
+      } as unknown as AuthRateLimitService,
+    );
+    const context = contextFor({
+      url: '/auth/login',
+      method: 'POST',
+      ip: '203.0.113.9',
+      headers: {},
+      body: { email: 'Owner@Example.COM' },
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(checkAccountAsync).toHaveBeenCalledWith('owner@example.com');
+  });
+
+  it('F-10: Redis outage для account bucket остаётся fail-closed', async () => {
+    const broken = {
+      eval: async () => {
+        throw new Error('redis down');
+      },
+    } as unknown as Redis;
+    const service = new AuthRateLimitService(broken, {
+      get: (key: string): unknown => {
+        if (key === 'JWT_SECRET') return 'account-key-for-tests-0123456789abcdef';
+        if (key === 'AUTH_RATE_LIMIT_ACCOUNT_KEY') return undefined;
+        return key.endsWith('_MAX') ? 10 : 60;
+      },
+    } as never);
+    await expect(service.checkAccountAsync('owner@example.com')).rejects.toBeInstanceOf(HttpException);
   });
 });

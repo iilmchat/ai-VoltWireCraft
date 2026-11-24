@@ -208,6 +208,7 @@ jobs:
       JWT_REFRESH_HASH_PEPPER: ci-only-pepper-0123456789abcdefghijklmnop
       HITL_SIGNING_KEY: ci-only-hitl-0123456789abcdefghijklmnop
       INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
+      AUTH_RATE_LIMIT_ACCOUNT_KEY: ci-only-account-key-0123456789abcdefghijklmnop
       # Не секрет: только для валидации синтаксиса compose.
       AUTH_ALLOWED_ORIGINS: http://localhost:5173
     steps:

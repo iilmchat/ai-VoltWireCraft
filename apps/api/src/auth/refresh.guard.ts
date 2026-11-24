@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Env } from '../config/env.schema.js';
+import { normalizeOrigin, type Env } from '../config/env.schema.js';
 import { RefreshSessionService, type VerifiedRefresh } from './refresh-session.service.js';
 
 /** Имя HttpOnly-cookie с refresh-токеном. */
@@ -49,7 +49,8 @@ export class RefreshGuard implements CanActivate {
     let token: string;
     if (cookieToken !== undefined) {
       // TEC-02: cookie-транспорт защищён originates-проверкой (CSRF).
-      const origin = this.header(request.headers['origin']);
+      const rawOrigin = this.header(request.headers['origin']);
+      const origin = rawOrigin === undefined ? undefined : normalizeOrigin(rawOrigin);
       if (origin === undefined || !this.allowedOrigins().includes(origin)) {
         throw new UnauthorizedException('Недопустимый Origin для refresh cookie');
       }
@@ -89,14 +90,15 @@ export class RefreshGuard implements CanActivate {
     return Array.isArray(value) ? value[0] : value;
   }
 
-  /** Разрешённые origins из конфигурации; без дефолтов (fail-closed). */
+  /** Канонические разрешённые origins; без дефолтов (fail-closed). */
   private allowedOrigins(): readonly string[] {
     const raw = this.config.get('AUTH_ALLOWED_ORIGINS', { infer: true });
-    return raw === undefined
-      ? []
-      : raw
-          .split(',')
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0);
+    if (raw === undefined) {
+      return [];
+    }
+    return raw
+      .split(',')
+      .map((item) => normalizeOrigin(item))
+      .filter((item): item is string => item !== undefined);
   }
 }

@@ -85,6 +85,7 @@ function failingAfter(
   operation: 'insert' | 'update',
   nth: number,
   onInsertedRow?: (row: Record<string, unknown>) => void,
+  targetTable?: object,
 ): Database {
   return new Proxy(realDb, {
     get(target, property, receiver) {
@@ -99,7 +100,8 @@ function failingAfter(
                   return (...args: unknown[]): unknown => {
                     if (txProperty === 'insert') {
                       inserts += 1;
-                      if (operation === 'insert' && inserts === nth) {
+                      const matchesTable = targetTable === undefined || args[0] === targetTable;
+                      if (operation === 'insert' && inserts === nth && matchesTable) {
                         throw new Error('injected insert failure');
                       }
                     } else {
@@ -124,6 +126,10 @@ function failingAfter(
                           }
                           if (queryProperty === 'values') {
                             return (...chainArgs: unknown[]) => {
+                              const inserted = chainArgs[0];
+                              if (inserted !== null && typeof inserted === 'object') {
+                                onInsertedRow(inserted as Record<string, unknown>);
+                              }
                               const next = value.call(queryTarget, ...chainArgs);
                               return next !== null && typeof next === 'object'
                                 ? wrapBuilder(next)
@@ -581,8 +587,20 @@ describe('SEC-02 Stage 2 — refresh session lifecycle', () => {
       const sessionsBefore = await db.select().from(authSessions);
       const refreshBefore = await db.select().from(authRefreshTokens);
 
-      // При login первый INSERT — это auth_sessions; отказ оставляет user без сессии.
-      const failingDb = failingAfter(db, 'insert', 1);
+      // F-12: отказ точечно на INSERT auth_refresh_tokens — после успешного
+      // INSERT auth_sessions, но до завершения refresh-записи.
+      let createdSid: string | undefined;
+      const failingDb = failingAfter(
+        db,
+        'insert',
+        2,
+        (row) => {
+          if (createdSid === undefined && typeof row['id'] === 'string' && typeof row['userId'] === 'string') {
+            createdSid = row['id'];
+          }
+        },
+        authRefreshTokens,
+      );
       const failingSessions = new RefreshSessionService(failingDb, jwt, {
         get: (key: string) => (key === 'JWT_REFRESH_HASH_PEPPER' ? PEPPER : undefined),
       } as never);
@@ -592,7 +610,10 @@ describe('SEC-02 Stage 2 — refresh session lifecycle', () => {
         failingAuth.loginAsync({ email: 'login-fault@example.test', password: TEST_PASSWORD }),
       ).rejects.toThrow(/injected/);
 
+      // Доказательство достижения нужной границы: сессия была вставлена.
+      expect(createdSid).toMatch(/^[0-9a-f-]{36}$/);
       expect(await db.select().from(users).where(eq(users.id, userId))).toHaveLength(1);
+      expect(await db.select().from(authSessions).where(eq(authSessions.id, createdSid as string))).toHaveLength(0);
       expect((await db.select().from(authSessions)).filter((row) => row.userId === userId)).toHaveLength(
         sessionsBefore.filter((row) => row.userId === userId).length,
       );

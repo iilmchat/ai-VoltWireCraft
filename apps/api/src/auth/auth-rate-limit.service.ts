@@ -1,7 +1,7 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
 /** F-03: разделительный rate limiter для чувствительных auth-операций. */
 
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Redis } from 'ioredis';
@@ -29,6 +29,7 @@ export class AuthRateLimitService {
   /** Только для unit-тестов: в production используется общий Redis. */
   private readonly memory = new Map<string, { value: number; expiresAt: number }>();
   private readonly useMemory: boolean;
+  private readonly accountKey: string;
 
   public constructor(
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
@@ -36,6 +37,8 @@ export class AuthRateLimitService {
   ) {
     // Тестовый раннер не поднимает Redis; production-значение NODE_ENV не 'test'.
     this.useMemory = this.config.get('NODE_ENV', { infer: true }) === 'test';
+    const dedicated = this.config.get('AUTH_RATE_LIMIT_ACCOUNT_KEY', { infer: true });
+    this.accountKey = dedicated ?? this.config.get('JWT_SECRET', { infer: true });
   }
 
   /**
@@ -60,7 +63,26 @@ export class AuthRateLimitService {
     const max = this.config.get(keys[operation].max, { infer: true });
     const windowSeconds = this.config.get(keys[operation].window, { infer: true });
     const key = `vwc:auth:rate:${operation}:${createHash('sha256').update(identity).digest('hex')}`;
+    await this.consumeAsync(key, windowSeconds, max);
+  }
 
+  /**
+   * F-10: дополнительный bucket на аккаунт. Email не попадает в ключ —
+   * используется HMAC с устойчивым общим секретом. Бакет применяется и к
+   * несуществующим аккаунтам, чтобы ответ не раскрывал их наличие.
+   */
+  public async checkAccountAsync(normalizedLogin: string): Promise<void> {
+    const max = this.config.get('AUTH_RATE_LIMIT_ACCOUNT_MAX', { infer: true });
+    const windowSeconds = this.config.get('AUTH_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS', { infer: true });
+    const accountId = createHmac('sha256', this.accountKey)
+      .update(normalizedLogin)
+      .digest('hex');
+    const key = `vwc:auth:rate:login-account:${accountId}`;
+    await this.consumeAsync(key, windowSeconds, max);
+  }
+
+  /** Единственная точка потребления счётчика и fail-closed обработки. */
+  private async consumeAsync(key: string, windowSeconds: number, max: number): Promise<void> {
     try {
       const current = this.useMemory
         ? this.incrementMemory(key, windowSeconds)

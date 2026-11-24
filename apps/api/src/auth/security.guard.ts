@@ -31,6 +31,7 @@ interface RateLimitedRequest {
   readonly headers?: Record<string, string | string[] | undefined>;
   readonly auth?: { readonly sub?: string };
   readonly user?: { readonly id: string };
+  readonly body?: { readonly email?: unknown };
 }
 
 @Injectable()
@@ -53,6 +54,14 @@ export class SecurityGuard implements CanActivate {
     // F-03: пред-аутентификационный лимит по адресу соединения.
     if (operation !== undefined) {
       await this.rateLimit.checkAsync(operation, this.clientIdentity(request));
+    }
+    // F-10: дополнительный per-account лимит для login, независимо от IP и
+    // от существования учётной записи. Нормализация та же, что в AuthService.
+    if (operation === 'login') {
+      const email = request.body?.email;
+      if (typeof email === 'string' && email.length > 0) {
+        await this.rateLimit.checkAccountAsync(email.toLowerCase());
+      }
     }
 
     const isRefresh = this.reflector.getAllAndOverride<boolean>(REFRESH_AUTH_KEY, [

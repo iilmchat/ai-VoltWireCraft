@@ -33,6 +33,44 @@ export function parseDurationSeconds(value: string): number {
   return Number(match[1]) * multipliers[match[2]!]!;
 }
 
+/**
+ * F-11: канонический origin — scheme + hostname + нестандартный port.
+ * Trailing slash в конфигурации допустим; wildcard/null/credentials/path/query/fragment — нет.
+ */
+export function normalizeOrigin(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed === 'null' || trimmed.includes('*')) {
+    return undefined;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return undefined;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return undefined;
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    return undefined;
+  }
+  if (parsed.pathname !== '' && parsed.pathname !== '/') {
+    return undefined;
+  }
+  if (parsed.search !== '' || parsed.hash !== '') {
+    return undefined;
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (host.length === 0) {
+    return undefined;
+  }
+  const defaultPort =
+    (parsed.protocol === 'http:' && parsed.port === '80') ||
+    (parsed.protocol === 'https:' && parsed.port === '443');
+  const port = parsed.port !== '' && !defaultPort ? `:${parsed.port}` : '';
+  return `${parsed.protocol}//${host}${port}`;
+}
+
 /** Проверка, что значение не является известной заглушкой. */
 function isForbiddenSecret(value: string): boolean {
   const normalized = value.trim().toLowerCase();
@@ -89,6 +127,11 @@ export const EnvSchema = z.object({
   AUTH_RATE_LIMIT_REFRESH_WINDOW_SECONDS: z.coerce.number().int().positive().max(86_400).default(300),
   AUTH_RATE_LIMIT_LOGOUT_MAX: z.coerce.number().int().positive().max(100_000).default(10),
   AUTH_RATE_LIMIT_LOGOUT_WINDOW_SECONDS: z.coerce.number().int().positive().max(86_400).default(300),
+  /** F-10: per-account bucket для login; ключ — HMAC от нормализованного email. */
+  AUTH_RATE_LIMIT_ACCOUNT_MAX: z.coerce.number().int().positive().max(100_000).default(20),
+  AUTH_RATE_LIMIT_ACCOUNT_WINDOW_SECONDS: z.coerce.number().int().positive().max(86_400).default(900),
+  /** Устойчивый общий секрет для HMAC account-идентификатора (не email в открытом виде). */
+  AUTH_RATE_LIMIT_ACCOUNT_KEY: requiredSecret.optional(),
   /** TEC-05: ключ подписи HITL-токенов. */
   HITL_SIGNING_KEY: requiredSecret.optional(),
   /** TEC-06: токен для service-to-service вызовов. */
@@ -187,7 +230,12 @@ export const EnvSchema = z.object({
         message: 'В production Refresh TTL должен быть ровно 30 дней',
       });
     }
-    for (const name of ['JWT_REFRESH_HASH_PEPPER', 'HITL_SIGNING_KEY', 'INTERNAL_SERVICE_TOKEN'] as const) {
+    for (const name of [
+      'JWT_REFRESH_HASH_PEPPER',
+      'HITL_SIGNING_KEY',
+      'INTERNAL_SERVICE_TOKEN',
+      'AUTH_RATE_LIMIT_ACCOUNT_KEY',
+    ] as const) {
       if (env[name] === undefined) {
         context.addIssue({
           code: 'custom',
@@ -207,11 +255,11 @@ export const EnvSchema = z.object({
         path: ['AUTH_ALLOWED_ORIGINS'],
         message: 'AUTH_ALLOWED_ORIGINS обязателен в production',
       });
-    } else if (origins.some((origin) => origin.includes('*') || !/^https?:\/\//.test(origin))) {
+    } else if (origins.some((origin) => normalizeOrigin(origin) === undefined)) {
       context.addIssue({
         code: 'custom',
         path: ['AUTH_ALLOWED_ORIGINS'],
-        message: 'AUTH_ALLOWED_ORIGINS: wildcard и не-HTTP(S) Origin запрещены',
+        message: 'AUTH_ALLOWED_ORIGINS: недопустимый Origin (wildcard, null, credentials, path, query, fragment)',
       });
     }
   }

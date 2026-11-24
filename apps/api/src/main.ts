@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/all-exceptions.filter.js';
+import { RedisService } from './redis/redis.module.js';
 import type { Env } from './config/env.schema.js';
 
 /** Точка входа API. */
@@ -15,6 +16,10 @@ async function bootstrapAsync(): Promise<void> {
     set?: (name: string, value: unknown) => void;
   };
   httpInstance.set?.('trust proxy', false);
+
+  // F-09: readiness — общий Redis limiter должен быть готов до listener'а.
+  // При недоступности Redis процесс не начинает принимать защищённый трафик.
+  await app.get(RedisService).ensureReadyAsync();
 
   // Входные данные проверяются ZodValidationPipe на каждом маршруте (RULES § 1.12).
   app.useGlobalFilters(new AllExceptionsFilter());
