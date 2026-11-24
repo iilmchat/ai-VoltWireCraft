@@ -76,6 +76,52 @@ function validClaims(overrides: Partial<JwtPayload> = {}): JwtPayload {
   };
 }
 
+/**
+ * Тестовый DB-adapter: внутри реальной транзакции вызывает ошибку после
+ * указанного по счёту insert/update (fault injection mid-transaction).
+ */
+function failingAfter(realDb: Database, operation: 'insert' | 'update', nth: number): Database {
+  return new Proxy(realDb, {
+    get(target, property, receiver) {
+      if (property === 'transaction') {
+        return async (callback: (tx: Database) => Promise<unknown>): Promise<unknown> =>
+          target.transaction(async (tx) => {
+            let inserts = 0;
+            let updates = 0;
+            const proxy = new Proxy(tx, {
+              get(txTarget, txProperty, txReceiver) {
+                if (txProperty === 'insert' || txProperty === 'update') {
+                  return (...args: unknown[]): unknown => {
+                    if (txProperty === 'insert') {
+                      inserts += 1;
+                      if (operation === 'insert' && inserts === nth) {
+                        throw new Error('injected insert failure');
+                      }
+                    } else {
+                      updates += 1;
+                      if (operation === 'update' && updates === nth) {
+                        throw new Error('injected update failure');
+                      }
+                    }
+                    const method = Reflect.get(txTarget, txProperty, txReceiver) as (
+                      ...a: unknown[]
+                    ) => unknown;
+                    return method.call(txTarget, ...args);
+                  };
+                }
+                const value = Reflect.get(txTarget, txProperty, txReceiver);
+                return typeof value === 'function' ? value.bind(txTarget) : value;
+              },
+            });
+            return callback(proxy as Database);
+          });
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  }) as Database;
+}
+
 interface HttpResponse {
   readonly status: number;
   readonly body: Record<string, unknown>;
@@ -134,6 +180,10 @@ describe('SEC-02 Stage 2 — refresh session lifecycle', () => {
         '55555555-5555-4555-8555-555555555555',
         '66666666-6666-4666-8666-666666666666',
         '77777777-7777-4777-8777-777777777777',
+        '88888888-8888-4888-8888-888888888888',
+        '99999999-9999-4999-8999-999999999999',
+        'aaaa1111-1111-4111-8111-111111111111',
+        'bbbb1111-1111-4111-8111-111111111111',
       ].map((id) => ({
         id,
         email: `${id}@stage2.test`,
@@ -385,6 +435,85 @@ describe('SEC-02 Stage 2 — refresh session lifecycle', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe('S2-05 — контракт refresh для browser/Tauri', () => {
+    it('body-fallback возвращает AuthResponse вместе с user', async () => {
+      const issued = await sessions.issueAsync('88888888-8888-4888-8888-888888888888');
+      const response = await refreshViaBody(issued.refreshToken);
+      expect(response.status).toBe(200);
+      const data = response.body['data'];
+      AuthResponseSchema.parse(data);
+      const user = (data as { user: { id: string } }).user;
+      expect(user.id).toBe('88888888-8888-4888-8888-888888888888');
+    });
+
+    it('cookie-транспорт тоже возвращает AuthResponse вместе с user', async () => {
+      const issued = await sessions.issueAsync('99999999-9999-4999-8999-999999999999');
+      const response = await http('POST', '/auth/refresh', {
+        body: {},
+        cookie: `${REFRESH_COOKIE_NAME}=${issued.refreshToken}`,
+        origin: ALLOWED_ORIGIN,
+      });
+      expect(response.status).toBe(200);
+      AuthResponseSchema.parse(response.body['data']);
+    });
+  });
+
+  describe('S2-03 — отказ внутри транзакции ротации', () => {
+    it('сбой после consumed-at: старый токен активен, нового нет, сессия не отозвана', async () => {
+      const issued = await sessions.issueAsync('aaaa1111-1111-4111-8111-111111111111');
+      const payload = jwt.verify(issued.refreshToken, 'refresh');
+      const failingDb = failingAfter(db, 'insert', 1);
+      const failing = new RefreshSessionService(failingDb, jwt, {
+        get: (key: string) => (key === 'JWT_REFRESH_HASH_PEPPER' ? PEPPER : undefined),
+      } as never);
+
+      await expect(failing.rotateAsync(issued.refreshToken)).rejects.toThrow(/injected/);
+      const rows = await db.select().from(authRefreshTokens).where(eq(authRefreshTokens.sessionId, issued.sid));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.id).toBe(payload.jti);
+      expect(rows[0]?.consumedAt).toBeNull();
+      expect(rows[0]?.replacedByTokenId).toBeNull();
+      const [session] = await db.select().from(authSessions).where(eq(authSessions.id, issued.sid));
+      expect(session?.revokedAt).toBeNull();
+    });
+
+    it('сбой после вставки нового токена: replaced_by не записан, half-state отсутствует', async () => {
+      const issued = await sessions.issueAsync('bbbb1111-1111-4111-8111-111111111111');
+      const failingDb = failingAfter(db, 'update', 2);
+      const failing = new RefreshSessionService(failingDb, jwt, {
+        get: (key: string) => (key === 'JWT_REFRESH_HASH_PEPPER' ? PEPPER : undefined),
+      } as never);
+
+      await expect(failing.rotateAsync(issued.refreshToken)).rejects.toThrow(/injected/);
+      const rows = await db.select().from(authRefreshTokens).where(eq(authRefreshTokens.sessionId, issued.sid));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.consumedAt).toBeNull();
+      expect(rows[0]?.replacedByTokenId).toBeNull();
+      const [session] = await db.select().from(authSessions).where(eq(authSessions.id, issued.sid));
+      expect(session?.revokedAt).toBeNull();
+    });
+  });
+
+  describe('S2-04 — атомарная регистрация', () => {
+    it('сбой после вставки пользователя оставляет БД без пользователя и сессии', async () => {
+      const email = 'failed-registration@example.test';
+      const failingDb = failingAfter(db, 'insert', 2);
+      const failingSessions = new RefreshSessionService(failingDb, jwt, {
+        get: (key: string) => (key === 'JWT_REFRESH_HASH_PEPPER' ? PEPPER : undefined),
+      } as never);
+      const failingAuth = new AuthService(failingDb, failingSessions);
+
+      await expect(
+        failingAuth.registerAsync({ email, password: TEST_PASSWORD, displayName: 'Failed' }),
+      ).rejects.toThrow(/injected/);
+
+      const rows = await db.select().from(users).where(eq(users.email, email));
+      expect(rows).toHaveLength(0);
+      const sessionsRows = await db.select().from(authSessions);
+      expect(sessionsRows.some((row) => row.userId === 'failed-user')).toBe(false);
     });
   });
 
