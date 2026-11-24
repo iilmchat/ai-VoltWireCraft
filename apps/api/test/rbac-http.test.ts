@@ -72,9 +72,13 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
   let app: INestApplication;
   let url: string;
   let writeSpy: ReturnType<typeof vi.fn>;
+  let importSpy: ReturnType<typeof vi.fn>;
+  let assembleSpy: ReturnType<typeof vi.fn>;
 
   beforeAll(async () => {
     writeSpy = vi.fn(async () => ({ ...createEmptyProjectGraph('Project', PROJECT_ID), id: PROJECT_ID }));
+    importSpy = vi.fn(async () => ({ ...createEmptyProjectGraph('Project', PROJECT_ID), id: PROJECT_ID }));
+    assembleSpy = vi.fn(async () => ({ graph: createEmptyProjectGraph('Project', PROJECT_ID) }));
     const service = {
       getByIdAsync: vi.fn(async () => createEmptyProjectGraph('Project', PROJECT_ID)),
       updateGraphAsync: writeSpy,
@@ -82,7 +86,7 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
       uploadFloorPlanAsync: vi.fn(),
       calculateShortCircuitAsync: vi.fn(),
       checkSelectivityTccAsync: vi.fn(),
-      importCadAsync: vi.fn(),
+      importCadAsync: importSpy,
       createAsync: vi.fn(),
     };
 
@@ -93,7 +97,7 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
         { provide: ProjectsService, useValue: service },
         { provide: JwtAuthGuard, useClass: FakeAuthGuard },
         { provide: APP_GUARD, useClass: SecurityGuard },
-        { provide: PanelArchitectAgent, useValue: {} },
+        { provide: PanelArchitectAgent, useValue: { assembleAsync: assembleSpy } },
         { provide: PueAuditorAgent, useValue: {} },
         { provide: CopilotChatAgent, useValue: {} },
       ],
@@ -179,5 +183,61 @@ describe('HTTP guard chain: ProjectAccessGuard + @ProjectScoped', () => {
     });
     expect(response.status).toBe(200);
     expect(writeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('WRITE-PATH-2: import-cad без аутентификации → 401, сервис не вызван', async () => {
+    importSpy.mockClear();
+    const response = await fetch(`${url}/projects/${PROJECT_ID}/import-cad`, { method: 'POST' });
+    expect(response.status).toBe(401);
+    expect(importSpy).not.toHaveBeenCalled();
+  });
+
+  it('WRITE-PATH-2: import-cad клиентом → 403, сервис не вызван', async () => {
+    importSpy.mockClear();
+    const response = await fetch(`${url}/projects/${PROJECT_ID}/import-cad`, {
+      method: 'POST',
+      headers: { 'x-test-user': 'client' },
+    });
+    expect(response.status).toBe(403);
+    expect(importSpy).not.toHaveBeenCalled();
+  });
+
+  it('WRITE-PATH-2: import-cad аутсайдером → 404, сервис не вызван', async () => {
+    importSpy.mockClear();
+    const response = await fetch(`${url}/projects/${PROJECT_ID}/import-cad`, {
+      method: 'POST',
+      headers: { 'x-test-user': 'outsider' },
+    });
+    expect(response.status).toBe(404);
+    expect(importSpy).not.toHaveBeenCalled();
+  });
+
+  it('WRITE-PATH-3: ai/assemble-panel без аутентификации → 401, LLM не вызван', async () => {
+    assembleSpy.mockClear();
+    const response = await fetch(`${url}/projects/${PROJECT_ID}/ai/assemble-panel`, { method: 'POST' });
+    expect(response.status).toBe(401);
+    expect(assembleSpy).not.toHaveBeenCalled();
+  });
+
+  it('WRITE-PATH-3: ai/assemble-panel клиентом → 403, LLM не вызван', async () => {
+    assembleSpy.mockClear();
+    const response = await fetch(`${url}/projects/${PROJECT_ID}/ai/assemble-panel`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-test-user': 'client' },
+      body: JSON.stringify({}),
+    });
+    expect(response.status).toBe(403);
+    expect(assembleSpy).not.toHaveBeenCalled();
+  });
+
+  it('WRITE-PATH-3: ai/assemble-panel аутсайдером → 404, LLM не вызван', async () => {
+    assembleSpy.mockClear();
+    const response = await fetch(`${url}/projects/${PROJECT_ID}/ai/assemble-panel`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-test-user': 'outsider' },
+      body: JSON.stringify({}),
+    });
+    expect(response.status).toBe(404);
+    expect(assembleSpy).not.toHaveBeenCalled();
   });
 });

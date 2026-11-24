@@ -238,6 +238,10 @@ export class ProjectsController {
     @Body(new ZodValidationPipe(AssemblePanelRequestSchema)) dto: AssemblePanelRequest,
     @CurrentUser() user: AuthUser,
   ): Promise<ApiResponse<AssemblePanelResult>> {
+    // SEC-02: проверка write-доступа выполняется ДО любого side effect —
+    // LLM, calc-engine, хранилища и записи графа. Глобальный guard — не
+    // единственная защита: прямой вызов сервиса/контроллера тоже безопасен.
+    await this.service.requireWriteAccessAsync(id, user.id);
     const project = await this.service.getByIdAsync(id, user.id);
     const result = await this.panelArchitect.assembleAsync(project.graph, dto);
     await this.service.updateGraphAsync(id, result.graph, user.id);

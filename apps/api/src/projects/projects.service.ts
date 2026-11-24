@@ -107,6 +107,18 @@ export class ProjectsService {
   }
 
   /**
+   * Ранняя проверка права записи для операций с побочными эффектами
+   * (AI assembly): авторизация обязана завершиться ДО вызова LLM/calc-engine,
+   * обращения к хранилищу и записи в БД.
+   *
+   * @param id — идентификатор проекта.
+   * @param userId — идентификатор пользователя из аутентифицированного запроса.
+   */
+  public async requireWriteAccessAsync(id: string, userId: string): Promise<void> {
+    await this.policy.requireEditorAsync(id, userId);
+  }
+
+  /**
    * Сохраняет новый граф проекта.
    *
    * @param id — идентификатор проекта.

@@ -14,6 +14,7 @@ import {
 import { CatalogService } from '../src/agents/catalog.service.js';
 import { LlmClient } from '../src/agents/llm.client.js';
 import { NormativeService } from '../src/agents/normative.service.js';
+import type { CopilotChatAgent } from '../src/agents/copilot-chat.agent.js';
 import { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
 import { ToolRegistry } from '../src/agents/tools.js';
@@ -318,6 +319,7 @@ describe('Эндпоинты агентов', () => {
             panel: panelResponse,
         };
         const service = {
+            requireWriteAccessAsync: vi.fn(async () => undefined),
             getByIdAsync: vi.fn(async () => ({ id: PROJECT_ID, graph })),
             updateGraphAsync: vi.fn(async () => ({ id: PROJECT_ID, graph })),
         };
@@ -325,6 +327,7 @@ describe('Эндпоинты агентов', () => {
             service as unknown as ProjectsService,
             { assembleAsync: vi.fn(async () => result) } as unknown as PanelArchitectAgent,
             {} as PueAuditorAgent,
+            {} as CopilotChatAgent,
         );
 
         const response = await controller.assemblePanelAsync(PROJECT_ID, {}, USER);
