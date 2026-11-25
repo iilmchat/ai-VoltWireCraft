@@ -240,11 +240,12 @@ jobs:
         run: pnpm --filter @voltwirecraft/shared build
 
       - name: Verify mandatory CI services and isolated database
+        working-directory: apps/api
         run: |
           test -n "${VWC_PG17_URL:?VWC_PG17_URL is mandatory in CI}"
           test -n "${VWC_REDIS_URL:?VWC_REDIS_URL is mandatory in CI}"
           PGPASSWORD=vwc psql -h localhost -U vwc -d voltwirecraft -Atc "select version()" | grep -q "PostgreSQL 17"
-          redis-cli -u "$VWC_REDIS_URL" ping | grep -q PONG
+          node --input-type=module -e 'import { Redis } from "ioredis"; const r = new Redis(process.env.VWC_REDIS_URL, { maxRetriesPerRequest: 1, connectTimeout: 3000 }); try { if (await r.ping() !== "PONG") throw new Error("bad pong"); } catch { console.error("Redis is not ready"); process.exitCode = 1; } finally { r.disconnect(); }'
           PGPASSWORD=vwc psql -h localhost -U vwc -d voltwirecraft -Atc \
             "SELECT 1 FROM pg_database WHERE datname = 'vwc_pg17_test'" | grep -q 1 || \
             PGPASSWORD=vwc createdb -h localhost -U vwc vwc_pg17_test
@@ -269,6 +270,16 @@ jobs:
   smoke:
     name: E2E smoke (Bearer)
     runs-on: ubuntu-latest
+    env:
+      # Test-only dummy values required by docker-compose interpolation.
+      JWT_SECRET: ci-only-jwt-key-0123456789abcdefghijklmnopqr
+      JWT_REFRESH_HASH_PEPPER: ci-only-pepper-0123456789abcdefghijklmnop
+      HITL_SIGNING_KEY: ci-only-hitl-0123456789abcdefghijklmnop
+      INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
+      AUTH_ALLOWED_ORIGINS: http://localhost:5173
+      AUTH_RATE_LIMIT_ACCOUNT_KEY: ci-only-account-key-0123456789abcdefghijklmnop
+      SMOKE_EMAIL: smoke.${{ github.run_id }}@example.com
+      SMOKE_PASSWORD: SmokePass-2026
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -285,6 +296,15 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Start stack
         run: docker compose up -d --build
+
+      - name: Register smoke test account
+        run: |
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://localhost:3000/health > /dev/null; then break; fi
+            sleep 2
+          done
+          node --input-type=module -e 'const r = await fetch("http://localhost:3000/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: process.env.SMOKE_EMAIL, password: process.env.SMOKE_PASSWORD, displayName: "Smoke User" }) }); if (!r.ok) { console.error("register failed: " + r.status); process.exitCode = 1; }'
+
       - name: Run smoke with Bearer
         run: pnpm smoke:e2e
 
