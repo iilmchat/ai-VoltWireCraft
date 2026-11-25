@@ -1,48 +1,59 @@
 // © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
 /**
  * CI gate: интеграционные тесты с реальными PostgreSQL 17 и Redis обязательны.
- * Использует строгую валидацию XML и разбор дерева (fast-xml-parser), а не regex.
+ * Строгая валидация XML + разбор дерева (fast-xml-parser), без самодельного парсера.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
-/** Обязательные suite из полного JUnit propagation-прогона. */
-export const REQUIRED_SUITES = Object.freeze([
-  'test/agents.test.ts',
-  'test/app.bootstrap.test.ts',
-  'test/assemble-panel-authorization.test.ts',
-  'test/auth-rate-limit.test.ts',
-  'test/auth.test.ts',
-  'test/calc-engine.client.test.ts',
-  'test/catalog-and-calculation.test.ts',
-  'test/copilot-chat.test.ts',
-  'test/env.schema.test.ts',
-  'test/erp-hitl-integration.test.ts',
-  'test/golden-dataset.test.ts',
-  'test/health.controller.test.ts',
-  'test/integrations.test.ts',
-  'test/origin-normalization.test.ts',
-  'test/postgres17-refresh.test.ts',
-  'test/rbac-http.test.ts',
-  'test/rbac-project-access.test.ts',
-  'test/redis-readiness.test.ts',
-  'test/refresh-session.test.ts',
-  'test/security-architect/internal-hitl.test.ts',
-  'test/security-architect/sec01-guards.test.ts',
-  'test/security-guard-order.test.ts',
-  'test/seed-normatives.test.ts',
-  'test/v03-integration.test.ts',
-  'test/v09-integration.test.ts',
+/**
+ * Обязательные suite и минимальное число тестов.
+ * Источник: baseline JUnit artifact 15014845219, run 45597733577
+ * (commit 28b95144532cab1e75f054b78d332208e912556f), 25 suite / 215 testcase.
+ * Увеличение числа тестов разрешено; уменьшение требует обновления manifest.
+ */
+export const SUITE_MANIFEST = Object.freeze([
+  { suiteName: 'test/agents.test.ts', minTests: 7 },
+  { suiteName: 'test/app.bootstrap.test.ts', minTests: 3 },
+  { suiteName: 'test/assemble-panel-authorization.test.ts', minTests: 4 },
+  { suiteName: 'test/auth-rate-limit.test.ts', minTests: 11 },
+  { suiteName: 'test/auth.test.ts', minTests: 6 },
+  { suiteName: 'test/calc-engine.client.test.ts', minTests: 4 },
+  { suiteName: 'test/catalog-and-calculation.test.ts', minTests: 5 },
+  { suiteName: 'test/copilot-chat.test.ts', minTests: 5 },
+  { suiteName: 'test/env.schema.test.ts', minTests: 16 },
+  { suiteName: 'test/erp-hitl-integration.test.ts', minTests: 20 },
+  { suiteName: 'test/golden-dataset.test.ts', minTests: 15 },
+  { suiteName: 'test/health.controller.test.ts', minTests: 2 },
+  { suiteName: 'test/integrations.test.ts', minTests: 9 },
+  { suiteName: 'test/origin-normalization.test.ts', minTests: 10 },
+  { suiteName: 'test/postgres17-refresh.test.ts', minTests: 7 },
+  { suiteName: 'test/rbac-http.test.ts', minTests: 11 },
+  { suiteName: 'test/rbac-project-access.test.ts', minTests: 21 },
+  { suiteName: 'test/redis-readiness.test.ts', minTests: 2 },
+  { suiteName: 'test/refresh-session.test.ts', minTests: 21 },
+  { suiteName: 'test/security-architect/internal-hitl.test.ts', minTests: 6 },
+  { suiteName: 'test/security-architect/sec01-guards.test.ts', minTests: 8 },
+  { suiteName: 'test/security-guard-order.test.ts', minTests: 9 },
+  { suiteName: 'test/seed-normatives.test.ts', minTests: 5 },
+  { suiteName: 'test/v03-integration.test.ts', minTests: 6 },
+  { suiteName: 'test/v09-integration.test.ts', minTests: 2 },
 ]);
 
+/** Обратная совместимость: имена обязательных suite. */
+export const REQUIRED_SUITES = Object.freeze(SUITE_MANIFEST.map((entry) => entry.suiteName));
+
 const ATTR = '@_';
+const ALLOWED_ENTITIES = new Set(['amp', 'lt', 'gt', 'apos', 'quot']);
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: ATTR,
   parseAttributeValue: false,
   trimValues: true,
+  processEntities: false,
+  htmlEntities: false,
 });
 
 function integerAttribute(node, name, problems, label, required = false) {
@@ -61,28 +72,65 @@ function integerAttribute(node, name, problems, label, required = false) {
   return Number(text);
 }
 
-function countTag(node, tag) {
-  if (node === null || node === undefined || typeof node !== 'object') {
-    return 0;
-  }
-  if (Array.isArray(node)) {
-    return node.reduce((total, item) => total + countTag(item, tag), 0);
-  }
-  let count = Object.prototype.hasOwnProperty.call(node, tag) ? 1 : 0;
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith(ATTR)) {
-      continue;
-    }
-    count += countTag(value, tag);
-  }
-  return count;
-}
-
 function asArray(value) {
   if (value === undefined || value === null) {
     return [];
   }
   return Array.isArray(value) ? value : [value];
+}
+
+function directTagCount(node, tag) {
+  if (node === null || node === undefined || typeof node !== 'object') {
+    return 0;
+  }
+  const value = node[tag];
+  if (value === undefined) {
+    return 0;
+  }
+  return Array.isArray(value) ? value.length : 1;
+}
+
+function checkEntities(xml, problems) {
+  if (/<!DOCTYPE\b/i.test(xml)) {
+    problems.push('DOCTYPE/external entity запрещены');
+    return;
+  }
+  for (const match of xml.matchAll(/&([^;\s<]+);/g)) {
+    const token = match[1] ?? '';
+    const numeric = /^#[0-9]+$/.test(token) || /^#x[0-9a-f]+$/i.test(token);
+    if (!numeric && !ALLOWED_ENTITIES.has(token)) {
+      problems.push(`неопределённая XML entity: &${token};`);
+    }
+  }
+  // Одиночный '&' без ';' — тоже некорректная entity.
+  if (/&(?!#\d+;|#x[0-9a-f]+;|amp;|lt;|gt;|apos;|quot;)/i.test(xml)) {
+    problems.push('некорректная XML entity');
+  }
+}
+
+function testcaseResultTags(testcase, tag) {
+  return directTagCount(testcase, tag);
+}
+
+function testcaseSkippedFlag(testcase, label, problems) {
+  const raw = testcase?.[`${ATTR}skipped`];
+  const tags = testcaseResultTags(testcase, 'skipped');
+  if (raw === undefined) {
+    if (tags !== 0) {
+      problems.push(`${label}: <skipped/> без атрибута skipped`);
+    }
+    return 0;
+  }
+  const text = String(raw).trim();
+  if (text !== '0' && text !== '1') {
+    problems.push(`${label}: атрибут skipped должен быть 0 или 1`);
+    return 0;
+  }
+  const flag = Number(text);
+  if (flag !== tags) {
+    problems.push(`${label}: skipped="${flag}" не согласован с <skipped>=${tags}`);
+  }
+  return tags;
 }
 
 /**
@@ -101,17 +149,44 @@ export function verifyJUnit(file) {
     return { ok: false, problems: [`файл не найден: ${file}`], summary };
   }
 
-  const xml = readFileSync(file, 'utf8');
+  let xml;
+  let parsed;
+  try {
+    const stats = statSync(file);
+    if (!stats.isFile()) {
+      return { ok: false, problems: ['JUnit путь не является файлом'], summary };
+    }
+    xml = readFileSync(file, 'utf8');
+  } catch (error) {
+    return {
+      ok: false,
+      problems: [`ошибка чтения JUnit: ${error instanceof Error ? error.message : String(error)}`],
+      summary,
+    };
+  }
+
   if (xml.trim().length === 0) {
     return { ok: false, problems: ['JUnit-файл пуст'], summary };
   }
 
-  const validation = XMLValidator.validate(xml);
-  if (validation !== true) {
-    return { ok: false, problems: [`malformed XML: ${JSON.stringify(validation.err)}`], summary };
+  try {
+    const validation = XMLValidator.validate(xml);
+    if (validation !== true) {
+      return { ok: false, problems: [`malformed XML: ${JSON.stringify(validation.err)}`], summary };
+    }
+    checkEntities(xml, problems);
+    if (problems.length > 0) {
+      return { ok: false, problems, summary };
+    }
+    parsed = parser.parse(xml);
+  } catch (error) {
+    return {
+      ok: false,
+      problems: [`ошибка разбора XML: ${error instanceof Error ? error.message : String(error)}`],
+      summary,
+    };
   }
 
-  const parsed = parser.parse(xml);
   const root = parsed.testsuites;
   if (root === undefined || root === null || typeof root !== 'object' || Array.isArray(root)) {
     return { ok: false, problems: ['отсутствует корневой элемент <testsuites>'], summary };
@@ -135,7 +210,7 @@ export function verifyJUnit(file) {
   for (const suite of suites) {
     const name = String(suite?.[`${ATTR}name`] ?? '');
     if (name.length === 0) {
-      problems.push('|<testsuite> без атрибута name');
+      problems.push('<testsuite> без атрибута name');
       continue;
     }
     if (byName.has(name)) {
@@ -144,9 +219,9 @@ export function verifyJUnit(file) {
     byName.set(name, suite);
   }
 
-  for (const required of REQUIRED_SUITES) {
-    if (!byName.has(required)) {
-      problems.push(`отсутствует обязательный suite: ${required}`);
+  for (const entry of SUITE_MANIFEST) {
+    if (!byName.has(entry.suiteName)) {
+      problems.push(`отсутствует обязательный suite: ${entry.suiteName}`);
     }
   }
 
@@ -167,9 +242,20 @@ export function verifyJUnit(file) {
     const suiteSkipped = integerAttribute(suite, 'skipped', problems, name, false);
 
     const cases = asArray(suite.testcase);
-    const suiteSkippedTags = countTag(suite, 'skipped');
-    const suiteFailureTags = countTag(suite, 'failure');
-    const suiteErrorTags = countTag(suite, 'error');
+    let suiteFailureTags = 0;
+    let suiteErrorTags = 0;
+    let suiteSkippedTags = 0;
+
+    for (const [index, testcase] of cases.entries()) {
+      const label = `${name} testcase #${index + 1}`;
+      const caseName = String(testcase?.[`${ATTR}name`] ?? '');
+      if (caseName.trim().length === 0) {
+        problems.push(`${label}: пустое имя testcase`);
+      }
+      suiteFailureTags += testcaseResultTags(testcase, 'failure');
+      suiteErrorTags += testcaseResultTags(testcase, 'error');
+      suiteSkippedTags += testcaseSkippedFlag(testcase, label, problems);
+    }
 
     if (cases.length !== suiteTests) {
       problems.push(`${name}: testcase=${cases.length} != tests=${suiteTests}`);
@@ -182,6 +268,16 @@ export function verifyJUnit(file) {
     }
     if (suiteSkippedTags !== suiteSkipped) {
       problems.push(`${name}: <skipped>=${suiteSkippedTags} != skipped=${suiteSkipped}`);
+    }
+
+    const manifestEntry = SUITE_MANIFEST.find((entry) => entry.suiteName === name);
+    if (manifestEntry !== undefined) {
+      if (cases.length < manifestEntry.minTests) {
+        problems.push(`${name}: testcase=${cases.length} < minTests=${manifestEntry.minTests}`);
+      }
+      if (suiteTests < manifestEntry.minTests) {
+        problems.push(`${name}: tests=${suiteTests} < minTests=${manifestEntry.minTests}`);
+      }
     }
 
     sumTests += suiteTests;
@@ -222,23 +318,6 @@ export function verifyJUnit(file) {
   }
   if (totalSkippedTags !== 0) {
     problems.push(`skipped=${totalSkippedTags}`);
-  }
-
-  const pgSuite = byName.get('test/postgres17-refresh.test.ts');
-  const redisSuite = byName.get('test/redis-readiness.test.ts');
-  if (pgSuite !== undefined) {
-    const tests = integerAttribute(pgSuite, 'tests', problems, 'postgres17-refresh', true);
-    const skipped = integerAttribute(pgSuite, 'skipped', problems, 'postgres17-refresh', false);
-    if (tests < 7 || skipped !== 0 || countTag(pgSuite, 'skipped') !== 0) {
-      problems.push(`PostgreSQL 17 suite: tests=${tests}, skipped=${skipped}`);
-    }
-  }
-  if (redisSuite !== undefined) {
-    const tests = integerAttribute(redisSuite, 'tests', problems, 'redis-readiness', true);
-    const skipped = integerAttribute(redisSuite, 'skipped', problems, 'redis-readiness', false);
-    if (tests < 2 || skipped !== 0 || countTag(redisSuite, 'skipped') !== 0) {
-      problems.push(`Redis suite: tests=${tests}, skipped=${skipped}`);
-    }
   }
 
   return { ok: problems.length === 0, problems, summary };
