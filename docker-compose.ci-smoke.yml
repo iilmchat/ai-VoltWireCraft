@@ -1,0 +1,7 @@
+# CI-only Compose override for the E2E smoke job.
+# Default local/production `docker-compose.yml` remains untouched.
+services:
+  calc-engine:
+    build:
+      context: ./apps/calc-engine
+      dockerfile: Dockerfile.ci

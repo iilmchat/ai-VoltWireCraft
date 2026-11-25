@@ -1,0 +1,52 @@
+# CI-only Dockerfile for the E2E smoke job.
+# Production build path (apps/calc-engine/Dockerfile) is intentionally unchanged.
+# Same source, same LibreDWG checkout and the same configure options as production;
+# the only difference is the GNU plotutils build dependency required by
+# `configure --enable-release` (libplot / plot.h).
+FROM python:3.12-slim AS cad-tools
+
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential autoconf automake libtool texinfo perl git ca-certificates \
+        plotutils libplot-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 https://github.com/LibreDWG/libredwg.git /tmp/libredwg \
+    && cd /tmp/libredwg \
+    && ./autogen.sh \
+    && ./configure --disable-bindings --disable-docs --enable-release \
+    && make -j"$(nproc)" \
+    && make install \
+    && ldconfig \
+    && rm -rf /tmp/libredwg
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    CAD_MAX_FILE_SIZE_MB=50 \
+    CAD_PARSE_TIMEOUT_SEC=30 \
+    DWG_CONVERTER_TYPE=auto
+
+WORKDIR /app
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && addgroup --system vwc \
+    && adduser --system --ingroup vwc --no-create-home vwc
+
+# Same runtime artifacts as the production image: dwg2dxf, dxf2dwg and libredwg.
+# dwgplot/libplot-linked tools are not copied into the runtime image.
+COPY --from=cad-tools /usr/local/bin/dwg2dxf /usr/local/bin/dwg2dxf
+COPY --from=cad-tools /usr/local/bin/dxf2dwg /usr/local/bin/dxf2dwg
+COPY --from=cad-tools /usr/local/lib/libredwg.so* /usr/local/lib/
+RUN ldconfig
+
+COPY app ./app
+
+USER vwc
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -213,7 +213,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Start stack
-        run: docker compose up -d --build
+        run: docker compose -f docker-compose.yml -f docker-compose.ci-smoke.yml up -d --build
 
       - name: Register smoke test account
         run: |
