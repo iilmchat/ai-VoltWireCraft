@@ -1,9 +1,14 @@
 FROM python:3.12-slim AS cad-tools
 
 # LibreDWG отсутствует в стандартных репозиториях Debian — собираем dwg2dxf из исходников.
-RUN apt-get update \
+# `--enable-release` требует GNU plotutils (libplot + plot.h) для dwgplot в build stage.
+# Пакеты нужны только на этапе сборки: в runtime копируются лишь dwg2dxf/dxf2dwg/libredwg.
+# HTTPS-источники apt: зеркало по HTTP недоступно в CI/изолированных средах.
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null || true \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential autoconf automake libtool texinfo perl git ca-certificates \
+        plotutils libplot-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN git clone --depth 1 https://github.com/LibreDWG/libredwg.git /tmp/libredwg \
     && cd /tmp/libredwg \

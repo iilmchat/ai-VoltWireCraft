@@ -138,6 +138,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # G-14: base SHA из push/PR должен присутствовать в истории diffs.
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -159,8 +162,13 @@ jobs:
       - name: Build shared contracts
         run: pnpm --filter @voltwirecraft/shared build
 
+      # G-14: scanner сам выбирает base/head по GitHub event; при ненадёжном
+      # diff он сканирует всё дерево. Пустой список и ошибки — fail-closed.
       - name: Secret scanning (CI gate)
-        run: node scripts/check-secrets.mjs $(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || true)
+        run: node scripts/check-secrets.mjs
+
+      - name: Secret scan regression (G14-01…G14-08)
+        run: pnpm exec vitest run scripts/check-secrets.test.mjs
 
       - name: Dependency audit (CI gate)
         run: pnpm audit --audit-level=high
