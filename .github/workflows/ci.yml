@@ -1,8 +1,15 @@
 name: CI
 
 on:
-  # Ручной прогон для проверки integration-ветки без merge в main.
+  # E-1: ci.yml можно запустить вручную на ЛЮБОМ ref, включая feature branch.
+  # Пример: POST /repos/iilmchat/ai-VoltWireCraft/actions/workflows/ci.yml/dispatches
+  #         с телом {"ref":"wave1-d1-d4-g11ci"} (после отдельного разрешения PO на push).
   workflow_dispatch:
+    inputs:
+      run_reason:
+        description: 'PO reference / причина ручного прогона (только для журнала)'
+        required: false
+        type: string
   push:
     branches: [main]
   pull_request:
@@ -275,42 +282,75 @@ jobs:
       INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
       AUTH_RATE_LIMIT_ACCOUNT_KEY: ci-only-account-key-0123456789abcdefghijklmnop
       AUTH_ALLOWED_ORIGINS: http://localhost:5173
+      CALC_ENGINE_PORT: 8000
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # E-2: set -e вместе с pipefail гарантирует, что ошибка build завершит шаг.
       - name: Build production calc-engine image (clean, no CI override)
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           docker compose build --pull --no-cache calc-engine 2>&1 | tee "${RUNNER_TEMP}/prod-calc-build.log"
           docker inspect --format '{{.Id}}' voltwirecraft/calc-engine:0.1.0 | tee "${RUNNER_TEMP}/prod-calc-image-id.txt"
 
+      # E-3: каждый ldd проверяется на exit code, "not found" и запрещённые
+      # build-only зависимости. Список binaries взят из production Dockerfile
+      # и подтверждён содержимым образа: dwg2dxf, dxf2dwg, libredwg.so.0.
       - name: Verify runtime dependencies of production image
-        run: |
-          docker run --rm --entrypoint sh voltwirecraft/calc-engine:0.1.0 -c '
-            ldd /usr/local/bin/dwg2dxf
-            ldd /usr/local/bin/dxf2dwg
-            ldd /usr/local/lib/libredwg.so.0
-            if ldd /usr/local/bin/dwg2dxf | grep -q libplot; then
-              echo "libplot unexpectedly present in runtime" >&2
-              exit 1
-            fi
-          '
-
-      - name: Runtime health smoke on production image
         shell: bash
         run: |
-          docker run -d --name vwc-prod-calc -p 18000:8000 voltwirecraft/calc-engine:0.1.0
-          trap 'docker rm -f vwc-prod-calc >/dev/null 2>&1 || true' EXIT
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://localhost:18000/health; then
+          set -euo pipefail
+          docker run --rm --entrypoint sh voltwirecraft/calc-engine:0.1.0 -c '
+            set -eu
+            if [ -e /usr/local/bin/dwgplot ]; then
+              echo "build-only dwgplot unexpectedly present in runtime" >&2
+              exit 1
+            fi
+            for bin in /usr/local/bin/dwg2dxf /usr/local/bin/dxf2dwg /usr/local/lib/libredwg.so.0; do
+              if [ ! -f "$bin" ]; then
+                echo "missing runtime binary: $bin" >&2
+                exit 1
+              fi
+              out=$(ldd "$bin") || {
+                echo "ldd failed: $bin" >&2
+                exit 1
+              }
+              if printf "%s\n" "$out" | grep -qi "not found"; then
+                echo "unresolved dependency in $bin" >&2
+                exit 1
+              fi
+              if printf "%s\n" "$out" | grep -qiE "libplot|plot\.h"; then
+                echo "forbidden build-only dependency in $bin" >&2
+                exit 1
+              fi
+            done
+            echo "runtime dependency checks passed"
+          '
+
+      # E-4: smoke через обычный production Compose (env, ports, healthcheck).
+      - name: Runtime health smoke via production Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose up -d --no-build calc-engine
+          status=""
+          for attempt in $(seq 1 60); do
+            if docker inspect --format '{{.State.Health.Status}}' vwc-calc-engine >/dev/null 2>&1; then
+              status=$(docker inspect --format '{{.State.Health.Status}}' vwc-calc-engine)
+            fi
+            if [ "$status" = "healthy" ] && curl -fsS "http://localhost:${CALC_ENGINE_PORT}/health"; then
               exit 0
             fi
             sleep 2
           done
-          docker logs vwc-prod-calc
+          docker compose logs calc-engine
           exit 1
+
+      - name: Cleanup production Compose smoke
+        if: always()
+        run: docker compose down --remove-orphans
 
       - name: Upload production build log
         if: always()
