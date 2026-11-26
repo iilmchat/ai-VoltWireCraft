@@ -169,14 +169,14 @@ jobs:
         run: pnpm --filter api db:migrate
 
       - name: AppModule bootstrap gate
-        run: pnpm --filter api exec vitest run test/security/s2-bootstrap.test.ts --reporter=junit --outputFile=../../artifacts/junit-bootstrap.xml
+        run: pnpm --filter api exec vitest run test/app.bootstrap.test.ts --reporter=junit --outputFile=../../artifacts/junit-bootstrap.xml
 
       - name: Security test suite (JUnit + coverage)
         working-directory: apps/api
         run: >-
           pnpm exec vitest run test/security
           --reporter=junit --outputFile=../../artifacts/junit-security.xml
-          --coverage.enabled --coverage.reporter=json --coverage.reporter=text
+          --coverage.enabled --coverage.provider=v8 --coverage.reporter=json --coverage.reporter=text
 
       - name: Upload JUnit/coverage artifacts
         if: always()
