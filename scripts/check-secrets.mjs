@@ -1,15 +1,17 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 
 /**
  * Проверка файлов на признаки утечки секретов.
  * Используется lint-staged в pre-commit и как CI gate в security job.
  *
  * Fail-closed правила:
- * - пустой список файлов НЕ даёт успешный результат;
+ * - пустой/невалидный diff в CI НЕ даёт успешный результат без сканирования;
+ * - explicit-режим с одними исключёнными путями — валидный no-op pre-commit;
  * - при недоступном/неполном diff выполняется полное сканирование дерева;
- * - ошибка чтения файла завершает процесс с exit 1;
+ * - ошибка чтения существующего файла завершает процесс с exit 1;
+ * - бинарные файлы сканируются как latin1, а не пропускаются;
  * - в лог попадают только путь файла и имя правила, никогда содержимое секрета.
  */
 
@@ -35,7 +37,15 @@ const rules = [
   },
 ];
 
-const EXCLUDED_BASENAMES = new Set(['.env.example', 'check-secrets.mjs']);
+// Исключения привязаны к конкретным путям, а не к basename (D-4).
+const EXCLUDED_PATHS = new Set(['.env.example', 'scripts/check-secrets.mjs']);
+// Файлы больше лимита не сканируются молча — это было бы обходом gate.
+const MAX_SCAN_BYTES = 50 * 1024 * 1024;
+
+function isExcludedPath(file) {
+  const rel = relative(process.cwd(), resolve(file)).replace(/\\/g, '/');
+  return EXCLUDED_PATHS.has(rel);
+}
 
 function gitBytes(args) {
   return execFileSync('git', args, { encoding: 'buffer', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -59,6 +69,15 @@ function isUsableSha(value) {
 function commitExists(sha) {
   try {
     gitBytes(['cat-file', '-e', `${sha}^{commit}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function headHasPath(sha, path) {
+  try {
+    gitBytes(['cat-file', '-e', `${sha}:${path}`]);
     return true;
   } catch {
     return false;
@@ -113,11 +132,18 @@ function filesFromEvent() {
   }
 
   try {
-    const changed = splitNul(gitBytes(['diff', '--name-only', '-z', base, head]));
-    if (changed.length === 0) {
-      return { files: null, reason: `пустой diff для ${eventName}` };
+    // --no-renames превращает rename в delete+add: новый путь попадает в A,
+    // удалённый отбрасывается фильтром. D-1/D1-04.
+    const changed = splitNul(
+      gitBytes(['diff', '--name-only', '-z', '--no-renames', '--diff-filter=ACMRT', base, head]),
+    );
+    // Удалённые в head пути не читаем. Если путь есть в head, но отсутствует
+    // в рабочем дереве — оставляем его: это настоящая ошибка чтения (D1-03).
+    const present = changed.filter((path) => existsSync(path) || headHasPath(head, path));
+    if (present.length === 0) {
+      return { files: null, reason: `diff содержит только удалённые файлы для ${eventName}` };
     }
-    return { files: changed, reason: `${eventName} diff` };
+    return { files: present, reason: `${eventName} diff` };
   } catch (error) {
     return { files: null, reason: `git diff завершился ошибкой: ${error.message}` };
   }
@@ -138,7 +164,7 @@ function resolveFiles(argv) {
 
 function main() {
   const resolved = resolveFiles(process.argv.slice(2));
-  const eligible = resolved.files.filter((file) => !EXCLUDED_BASENAMES.has(basename(file)));
+  const eligible = resolved.files.filter((file) => !isExcludedPath(file));
 
   let files = eligible;
   let mode = resolved.mode;
@@ -146,33 +172,45 @@ function main() {
 
   if (files.length === 0) {
     if (mode === 'explicit') {
-      console.error('Secret scan: нет файлов для проверки (fail-closed)');
-      process.exit(1);
+      // D-2: lint-staged может передать только исключённые пути — это валидный no-op.
+      console.log('Secret scan: mode=explicit reason=нет подходящих файлов candidates=0 scanned=0 binary=0');
+      return;
     }
-    // event-diff дал только исключённые файлы — безопаснее просканировать всё дерево.
-    files = fullTreeFiles().filter((file) => !EXCLUDED_BASENAMES.has(basename(file)));
+    // event-diff дал только исключённые/удалённые файлы — сканируем всё дерево.
+    files = fullTreeFiles().filter((file) => !isExcludedPath(file));
     mode = 'full-tree';
     reason = `${reason}; после фильтрации список пуст`;
+    if (files.length === 0) {
+      console.error('Secret scan: дерево пусто — fail closed');
+      process.exit(1);
+    }
   }
 
   const findings = [];
   let scanned = 0;
-  let skippedBinary = 0;
+  let binaryScanned = 0;
 
   for (const file of files) {
-    let content;
+    let buffer;
     try {
-      content = readFileSync(file, 'utf8');
+      if (statSync(file).size > MAX_SCAN_BYTES) {
+        console.error(`Secret scan: файл слишком велик для сканирования: ${file}`);
+        process.exit(1);
+      }
+      buffer = readFileSync(file);
     } catch (error) {
-      // Ошибка чтения — не основание для успешного решения security gate.
+      // Ошибка чтения существующего файла — не основание для успешного решения.
       console.error(`Secret scan: не удалось прочитать ${file}: ${error.code ?? error.message}`);
       process.exit(1);
     }
-    if (content.includes('\u0000')) {
-      skippedBinary += 1;
-      continue;
-    }
+    // D-3: бинарные файлы больше не пропускаются. latin1 сохраняет байты 1:1,
+    // поэтому ASCII-шаблоны внутри бинарника всё равно обнаруживаются.
+    const isBinary = buffer.includes(0);
+    const content = isBinary ? buffer.toString('latin1') : buffer.toString('utf8');
     scanned += 1;
+    if (isBinary) {
+      binaryScanned += 1;
+    }
     for (const rule of rules) {
       if (rule.pattern.test(content)) {
         findings.push(`${file}: ${rule.name}`);
@@ -181,7 +219,7 @@ function main() {
   }
 
   console.log(
-    `Secret scan: mode=${mode} reason=${reason} candidates=${files.length} scanned=${scanned} skippedBinary=${skippedBinary}`,
+    `Secret scan: mode=${mode} reason=${reason} candidates=${files.length} scanned=${scanned} binary=${binaryScanned}`,
   );
 
   if (findings.length > 0) {

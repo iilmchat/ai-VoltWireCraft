@@ -261,3 +261,60 @@ jobs:
 
       - name: Validate compose file
         run: docker compose config --quiet
+
+  # G-11: отдельное доказательство реальной production-сборки.
+  # НЕ подключаем docker-compose.ci-smoke.yml и НЕ используем Dockerfile.ci.
+  prod-calc-build:
+    name: Production calc-engine build (no CI override)
+    runs-on: ubuntu-latest
+    env:
+      # Test-only dummy values для interpolate production compose; не реальные секреты.
+      JWT_SECRET: ci-only-jwt-key-0123456789abcdefghijklmnopqr
+      JWT_REFRESH_HASH_PEPPER: ci-only-pepper-0123456789abcdefghijklmnop
+      HITL_SIGNING_KEY: ci-only-hitl-0123456789abcdefghijklmnop
+      INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
+      AUTH_RATE_LIMIT_ACCOUNT_KEY: ci-only-account-key-0123456789abcdefghijklmnop
+      AUTH_ALLOWED_ORIGINS: http://localhost:5173
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build production calc-engine image (clean, no CI override)
+        shell: bash
+        run: |
+          set -o pipefail
+          docker compose build --pull --no-cache calc-engine 2>&1 | tee "${RUNNER_TEMP}/prod-calc-build.log"
+          docker inspect --format '{{.Id}}' voltwirecraft/calc-engine:0.1.0 | tee "${RUNNER_TEMP}/prod-calc-image-id.txt"
+
+      - name: Verify runtime dependencies of production image
+        run: |
+          docker run --rm --entrypoint sh voltwirecraft/calc-engine:0.1.0 -c '
+            ldd /usr/local/bin/dwg2dxf
+            ldd /usr/local/bin/dxf2dwg
+            ldd /usr/local/lib/libredwg.so.0
+            if ldd /usr/local/bin/dwg2dxf | grep -q libplot; then
+              echo "libplot unexpectedly present in runtime" >&2
+              exit 1
+            fi
+          '
+
+      - name: Runtime health smoke on production image
+        shell: bash
+        run: |
+          docker run -d --name vwc-prod-calc -p 18000:8000 voltwirecraft/calc-engine:0.1.0
+          trap 'docker rm -f vwc-prod-calc >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:18000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs vwc-prod-calc
+          exit 1
+
+      - name: Upload production build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-calc-build-log
+          path: ${{ runner.temp }}/prod-calc-build.log
