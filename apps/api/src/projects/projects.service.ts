@@ -29,6 +29,7 @@ import type { CalculationEdge, ProjectCalculationDto } from './calculation.js';
 import { buildSelectivityRequest } from './selectivity.js';
 import { detectCadFile, detectFloorPlanType } from './file-signature.js';
 import type { UploadedFloorPlanFile } from './file-signature.js';
+import { ProjectPolicyService } from '../policy/project-policy.service.js';
 import { FLOOR_PLAN_STORAGE } from './storage/floor-plan-storage.js';
 import type { FloorPlanStorage } from './storage/floor-plan-storage.js';
 
@@ -45,11 +46,13 @@ export class ProjectsService {
    * @param db — типизированный Drizzle-клиент.
    * @param storage — хранилище файлов подложек.
    * @param calcClient — клиент детерминированного расчётного ядра.
+   * @param policy — единая политика проектного доступа (SEC-02).
    */
   public constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
     @Inject(FLOOR_PLAN_STORAGE) private readonly storage: FloorPlanStorage,
     @Inject(CalcEngineClient) private readonly calcClient: CalcEngineClient,
+    @Inject(ProjectPolicyService) private readonly policy: ProjectPolicyService,
   ) {}
 
   /**
@@ -59,7 +62,7 @@ export class ProjectsService {
    * @returns созданный проект с графом.
    * @throws {Error} если вставка в БД завершилась неудачей.
    */
-  public async createAsync(dto: CreateProjectDto, ownerId?: string): Promise<ProjectDto> {
+  public async createAsync(dto: CreateProjectDto, ownerId: string): Promise<ProjectDto> {
     const id = randomUUID();
     const graph = createEmptyProjectGraph(dto.title, id);
     const [row] = await this.db
@@ -70,7 +73,7 @@ export class ProjectsService {
         objectType: dto.objectType,
         networkSystem: dto.networkSystem,
         graphJson: graph,
-        ...(ownerId !== undefined ? { ownerId } : {}),
+        ownerId,
       })
       .returning();
 
@@ -84,11 +87,13 @@ export class ProjectsService {
    * Возвращает проект; граф из БД проверяется `ProjectGraphSchema`.
    *
    * @param id — идентификатор проекта.
+   * @param userId — идентификатор пользователя (обязателен для SEC-02).
    * @returns проект с валидированным графом.
-   * @throws {NotFoundException} если проект не найден.
+   * @throws {NotFoundException} если проект не найден или пользователь не участник.
    * @throws {ZodError} если сохранённый граф не проходит валидацию.
    */
-  public async getByIdAsync(id: string): Promise<ProjectDto> {
+  public async getByIdAsync(id: string, userId: string): Promise<ProjectDto> {
+    await this.policy.requireReadAsync(id, userId);
     const [row] = await this.db
       .select()
       .from(projects)
@@ -102,15 +107,32 @@ export class ProjectsService {
   }
 
   /**
+   * Ранняя проверка права записи для операций с побочными эффектами
+   * (AI assembly): авторизация обязана завершиться ДО вызова LLM/calc-engine,
+   * обращения к хранилищу и записи в БД.
+   *
+   * @param id — идентификатор проекта.
+   * @param userId — идентификатор пользователя из аутентифицированного запроса.
+   */
+  public async requireWriteAccessAsync(id: string, userId: string): Promise<void> {
+    await this.policy.requireEditorAsync(id, userId);
+  }
+
+  /**
    * Сохраняет новый граф проекта.
    *
    * @param id — идентификатор проекта.
    * @param graph — граф, подлежащий валидации и записи в `graph_json`.
+   * @param userId — идентификатор пользователя (обязателен для SEC-02).
    * @returns обновлённый проект.
    * @throws {BadRequestException} если граф некорректен или его `id` не совпадает с проектом.
-   * @throws {NotFoundException} если проект не найден.
+   * @throws {NotFoundException} если проект не найден или пользователь не участник.
+   * @throws {ForbiddenException} если роль пользователя не разрешает запись графа.
    */
-  public async updateGraphAsync(id: string, graph: ProjectGraph): Promise<ProjectDto> {
+  public async updateGraphAsync(id: string, graph: ProjectGraph, userId: string): Promise<ProjectDto> {
+    // Защита записи графа живёт в сервисе: все альтернативные пути (CAD,
+    // AI assembly, прямой DI-вызов) получают ту же проверку, что и PUT /graph.
+    await this.policy.requireEditorAsync(id, userId);
     const parsed = ProjectGraphSchema.safeParse(graph);
     if (!parsed.success) {
       throw new BadRequestException({
@@ -146,8 +168,8 @@ export class ProjectsService {
    * @returns суммарная длина и статус каждой линии.
    * @throws {NotFoundException} если проект не найден.
    */
-  public async calculateAsync(id: string): Promise<ProjectCalculationDto> {
-    const project = await this.getByIdAsync(id);
+  public async calculateAsync(id: string, userId: string): Promise<ProjectCalculationDto> {
+    const project = await this.getByIdAsync(id, userId);
     const edges = project.graph.edges;
 
     const results = await Promise.allSettled(
@@ -188,8 +210,11 @@ export class ProjectsService {
   public async uploadFloorPlanAsync(
     id: string,
     file: UploadedFloorPlanFile | undefined,
+    userId: string,
   ): Promise<FloorPlanUploadDto> {
-    await this.getByIdAsync(id);
+    // Загрузка плана — write-операция (Owner/Engineer), проверка до записи файла.
+    await this.policy.requireEditorAsync(id, userId);
+    await this.getByIdAsync(id, userId);
 
     if (file === undefined) {
       throw new BadRequestException('Файл подложки не передан');
@@ -234,8 +259,8 @@ export class ProjectsService {
    * @returns результат расчёта однофазного КЗ.
    * @throws {BadRequestException} если в графе нет линии или автомата.
    */
-  public async calculateShortCircuitAsync(id: string): Promise<ShortCircuitResponse> {
-    const project = await this.getByIdAsync(id);
+  public async calculateShortCircuitAsync(id: string, userId: string): Promise<ShortCircuitResponse> {
+    const project = await this.getByIdAsync(id, userId);
     const edge = project.graph.edges[0];
     const breaker = project.graph.nodes.find(
       (node) => ['circuit_breaker', 'rcbo', 'panel'].includes(node.kind) && node.specs.ratedCurrent > 0,
@@ -263,8 +288,8 @@ export class ProjectsService {
    * @returns протокол ВТХ с пределами селективности и каскадной потерей напряжения.
    * @throws {NotFoundException} если проект не найден.
    */
-  public async checkSelectivityTccAsync(id: string): Promise<SelectivityTccResponse> {
-    const project = await this.getByIdAsync(id);
+  public async checkSelectivityTccAsync(id: string, userId: string): Promise<SelectivityTccResponse> {
+    const project = await this.getByIdAsync(id, userId);
     const request = SelectivityTccRequestSchema.parse(buildSelectivityRequest(project.graph));
     return this.calcClient.checkSelectivityTccAsync(request);
   }
@@ -279,8 +304,10 @@ export class ProjectsService {
    * @throws {BadRequestException} если формат не поддержан или файл слишком велик.
    * @throws {NotFoundException} если проект не найден.
    */
-  public async importCadAsync(id: string, file: UploadedFloorPlanFile): Promise<ProjectDto> {
-    const project = await this.getByIdAsync(id);
+  public async importCadAsync(id: string, file: UploadedFloorPlanFile, userId: string): Promise<ProjectDto> {
+    // CAD меняет граф — та же write-политика, что и у PUT /graph.
+    await this.policy.requireEditorAsync(id, userId);
+    const project = await this.getByIdAsync(id, userId);
     // DXF и DWG принимаются: конвертацию DWG → DXF выполняет calc-engine (KI-005).
     detectCadFile(file);
 
@@ -295,10 +322,14 @@ export class ProjectsService {
       thickness: wall.thickness,
     }));
 
-    return this.updateGraphAsync(id, {
-      ...project.graph,
-      walls: [...project.graph.walls, ...walls],
-    });
+    return this.updateGraphAsync(
+      id,
+      {
+        ...project.graph,
+        walls: [...project.graph.walls, ...walls],
+      },
+      userId,
+    );
   }
 
   /**

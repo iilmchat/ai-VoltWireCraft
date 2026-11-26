@@ -7,6 +7,7 @@ import { validateEnv } from './config/env.schema.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
+import { PolicyModule } from './policy/policy.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { RedisModule } from './redis/redis.module.js';
 
@@ -20,6 +21,7 @@ import { RedisModule } from './redis/redis.module.js';
       validate: validateEnv,
     }),
     DatabaseModule,
+    PolicyModule,
     AuthModule,
     CalcEngineModule,
     CatalogModule,

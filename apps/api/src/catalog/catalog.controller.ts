@@ -9,6 +9,7 @@ import type { CatalogListDto, CatalogQuery } from './catalog.dto.js';
 // Импорт нужен как значение: emitDecoratorMetadata использует его для DI.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CatalogService } from './catalog.service.js';
+import { Public } from '../auth/public.decorator.js';
 
 /** Маршруты каталога модульного оборудования. */
 @Controller('catalog')
@@ -25,6 +26,7 @@ export class CatalogController {
    * @returns список в единой обёртке `ApiResponse`.
    */
   @Get('devices')
+  @Public()
   public async listAsync(
     @Query(new ZodValidationPipe(CatalogQuerySchema)) query: CatalogQuery,
   ): Promise<ApiResponse<CatalogListDto>> {

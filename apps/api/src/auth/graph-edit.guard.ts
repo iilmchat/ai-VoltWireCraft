@@ -1,28 +1,47 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.0
-/** Guard, запрещающий роли `client` перезаписывать граф проекта. */
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
+/**
+ * Legacy-guard этапа 0. Сейчас НЕ регистрируется как APP_GUARD:
+ * защита записи графа выполняется ProjectAccessGuard через
+ * `@ProjectScoped({ param: 'id', role: 'write' })` (PR #2).
+ * Класс оставлен провайдером для совместимости, но в цепочке не участвует.
+ */
 
-import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
+import {
+  type CanActivate,
+  type ExecutionContext,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+// Импорт нужен как значение: emitDecoratorMetadata использует его для DI.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { Reflector } from '@nestjs/core';
 import type { AuthenticatedRequest } from './auth.guard.js';
+import { GRAPH_WRITE_KEY } from './graph-write.decorator.js';
 import { ProjectAccessService } from './project-access.service.js';
 
-/** Проверяет право редактирования графа (RULES § 5.2, RBAC v0.9). */
+/** Проверяет право редактирования графа (owner/engineer). */
 @Injectable()
 export class GraphEditGuard implements CanActivate {
-  /**
-   * @param access — сервис прав доступа.
-   */
-  public constructor(@Inject(ProjectAccessService) private readonly access: ProjectAccessService) {}
+  public constructor(
+    @Inject(ProjectAccessService) private readonly access: ProjectAccessService,
+    private readonly reflector: Reflector,
+  ) {}
 
-  /**
-   * Разрешает редактирование ролям `owner` и `engineer`.
-   *
-   * @param context — контекст выполнения.
-   * @returns true если редактирование разрешено.
-   */
   public async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest & { params: { id: string } }>();
+    const required = this.reflector.getAllAndOverride<boolean>(GRAPH_WRITE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (required !== true) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest<
+      AuthenticatedRequest & { params: { id: string } }
+    >();
     if (request.user === undefined) {
-      throw new Error('GraphEditGuard требует JwtAuthGuard');
+      throw new UnauthorizedException('GraphEditGuard требует JwtAuthGuard');
     }
     await this.access.requireEditorAsync(request.params.id, request.user.id);
     return true;

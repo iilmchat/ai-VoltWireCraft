@@ -7,8 +7,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import { CalcProxyController } from '../src/projects/calc-proxy.controller.js';
 import { ProjectsService } from '../src/projects/projects.service.js';
+import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const USER: AuthUser = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  email: 'owner@example.test',
+  displayName: 'Owner',
+  role: 'user',
+};
 
 const threePhaseResponse = {
     shortCircuitCurrentA: 2065,
@@ -66,9 +73,9 @@ describe('CalcProxyController', () => {
             resistanceOhm: 0.05,
             reactanceOhm: 0.1,
             breakingCapacityKa: 4.5,
-        });
+        }, USER);
 
-        expect(projects.getByIdAsync).toHaveBeenCalledWith(PROJECT_ID);
+        expect(projects.getByIdAsync).toHaveBeenCalledWith(PROJECT_ID, USER.id);
         expect(calc.checkThreePhaseShortCircuitAsync).toHaveBeenCalledTimes(1);
         expect(response.data.shortCircuitCurrentA).toBe(2065);
     });
@@ -83,7 +90,7 @@ describe('CalcProxyController', () => {
             buildingHeightM: 10,
             lightningRodHeightM: 5,
             protectionHeightM: 0,
-        });
+        }, USER);
 
         expect(calc.calculateGroundingAsync).toHaveBeenCalledTimes(1);
         expect(response.data.groundingCompliant).toBe(false);

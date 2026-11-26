@@ -13,11 +13,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createEmptyProjectGraph } from '@voltwirecraft/shared/graph.schema.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { JwtService } from '../src/auth/jwt.service.js';
+import { RefreshSessionService } from '../src/auth/refresh-session.service.js';
 import { ProjectAccessService } from '../src/auth/project-access.service.js';
 import type { Env } from '../src/config/env.schema.js';
 import { DRIZZLE_DB } from '../src/database/drizzle.provider.js';
 import type { Database } from '../src/database/drizzle.provider.js';
 import { projects, schema } from '../src/database/schema.js';
+import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
 import { drizzle } from 'drizzle-orm/pglite';
 
 /** Журнал Drizzle. */
@@ -60,7 +62,10 @@ describe('Auth и RBAC (PGlite)', () => {
   const config = {
     get: (key: string): unknown => {
       if (key === 'JWT_SECRET') return 'a'.repeat(40);
-      if (key === 'JWT_EXPIRES_IN') return '7d';
+      if (key === 'JWT_KID') return 'test-kid';
+      if (key === 'JWT_EXPIRES_IN') return '15m';
+      if (key === 'JWT_REFRESH_EXPIRES_IN') return '30d';
+      if (key === 'JWT_REFRESH_HASH_PEPPER') return 'p'.repeat(40);
       return undefined;
     },
   } as unknown as ConfigService<Env, true>;
@@ -74,7 +79,9 @@ describe('Auth и RBAC (PGlite)', () => {
         { provide: DRIZZLE_DB, useValue: db as unknown as Database },
         { provide: ConfigService, useValue: config },
         JwtService,
+        RefreshSessionService,
         AuthService,
+        ProjectPolicyService,
         ProjectAccessService,
       ],
     }).compile();
@@ -128,9 +135,14 @@ describe('Auth и RBAC (PGlite)', () => {
 
   it('выдаёт и проверяет JWT', async () => {
     const tokens = await auth.loginAsync({ email: 'owner@example.test', password: testPassword });
-    const payload = jwt.verify(tokens.accessToken);
+    const payload = jwt.verify(tokens.accessToken, 'access');
 
-    expect(payload.email).toBe('owner@example.test');
+    expect(payload.sub).toMatch(/^[0-9a-f-]{36}$/);
+    expect(payload.typ).toBe('access');
+    expect(payload).not.toHaveProperty('email');
+    expect(payload).not.toHaveProperty('role');
+    expect(() => jwt.verify(tokens.refreshToken, 'access')).toThrow(UnauthorizedException);
+    expect(jwt.verify(tokens.refreshToken, 'refresh').typ).toBe('refresh');
     expect(tokens.refreshToken).not.toBe(tokens.accessToken);
   });
 
@@ -138,7 +150,7 @@ describe('Auth и RBAC (PGlite)', () => {
     await expect(
       auth.loginAsync({ email: 'owner@example.test', password: 'wrong' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(() => jwt.verify('a.b.c')).toThrow(UnauthorizedException);
+    expect(() => jwt.verify('a.b.c', 'access')).toThrow(UnauthorizedException);
   });
 
   it('различает роли owner/engineer/client', async () => {

@@ -258,30 +258,39 @@ export class ToolRegistry {
       inputSchema: CheckBomStockInputSchema,
       invokeAsync: (input) => this.integrations.checkStockAsync(input.items),
     };
+    // PO-D05/PO-D14a: роли ERP/CRM и полномочия HITL не утверждены.
+    // Вызов без контекста аутентифицированного пользователя отклоняется
+    // IntegrationService (fail-closed).
     this.moyskladCreateOrderTool = {
       name: 'moysklad_create_order_tool',
       description: 'Создаёт заказ в МойСклад; требуется HITL-подтверждение пользователя.',
       inputSchema: CreateOrderInputSchema,
       invokeAsync: (input) =>
-        this.integrations.createOrderAsync({
-          projectId: input.projectId,
-          target: 'moysklad',
-          items: input.items,
-          confirmationToken: input.confirmationToken,
-        }),
+        this.integrations.createOrderAsync(
+          {
+            projectId: input.projectId,
+            target: 'moysklad',
+            items: input.items,
+            confirmationToken: input.confirmationToken,
+          },
+          '',
+        ),
     };
     this.bitrix24SendEstimateTool = {
       name: 'bitrix24_send_estimate_tool',
       description: 'Отправляет смету в сделку Битрикс24; требуется HITL-подтверждение.',
       inputSchema: SendEstimateInputSchema,
       invokeAsync: (input) =>
-        this.integrations.sendEstimateAsync({
-          projectId: input.projectId,
-          target: 'bitrix24',
-          items: input.items,
-          dealId: input.dealId,
-          confirmationToken: input.confirmationToken,
-        }),
+        this.integrations.sendEstimateAsync(
+          {
+            projectId: input.projectId,
+            target: 'bitrix24',
+            items: input.items,
+            dealId: input.dealId,
+            confirmationToken: input.confirmationToken,
+          },
+          '',
+        ),
     };
     this.checkThreePhaseScTool = {
       name: 'check_three_phase_sc_tool',

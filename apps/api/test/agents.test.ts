@@ -14,6 +14,7 @@ import {
 import { CatalogService } from '../src/agents/catalog.service.js';
 import { LlmClient } from '../src/agents/llm.client.js';
 import { NormativeService } from '../src/agents/normative.service.js';
+import type { CopilotChatAgent } from '../src/agents/copilot-chat.agent.js';
 import { PanelArchitectAgent } from '../src/agents/panel-architect.agent.js';
 import { PueAuditorAgent } from '../src/agents/pue-auditor.agent.js';
 import { ToolRegistry } from '../src/agents/tools.js';
@@ -21,8 +22,15 @@ import { IntegrationService } from '../src/integrations/integration.service.js';
 import { CalcEngineClient } from '../src/calc-engine/calc-engine.client.js';
 import { ProjectsController } from '../src/projects/projects.controller.js';
 import type { ProjectsService } from '../src/projects/projects.service.js';
+import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const USER: AuthUser = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  email: 'owner@example.test',
+  displayName: 'Owner',
+  role: 'user',
+};
 const WET_ROOM = '11111111-1111-4111-8111-111111111111';
 const BREAKER = '22222222-2222-4222-8222-222222222222';
 const SOCKET = '33333333-3333-4333-8333-333333333333';
@@ -311,6 +319,7 @@ describe('Эндпоинты агентов', () => {
             panel: panelResponse,
         };
         const service = {
+            requireWriteAccessAsync: vi.fn(async () => undefined),
             getByIdAsync: vi.fn(async () => ({ id: PROJECT_ID, graph })),
             updateGraphAsync: vi.fn(async () => ({ id: PROJECT_ID, graph })),
         };
@@ -318,12 +327,13 @@ describe('Эндпоинты агентов', () => {
             service as unknown as ProjectsService,
             { assembleAsync: vi.fn(async () => result) } as unknown as PanelArchitectAgent,
             {} as PueAuditorAgent,
+            {} as CopilotChatAgent,
         );
 
-        const response = await controller.assemblePanelAsync(PROJECT_ID, {});
+        const response = await controller.assemblePanelAsync(PROJECT_ID, {}, USER);
 
         expect(response.success).toBe(true);
-        expect(service.updateGraphAsync).toHaveBeenCalledWith(PROJECT_ID, graph);
+        expect(service.updateGraphAsync).toHaveBeenCalledWith(PROJECT_ID, graph, USER.id);
     });
 
     it('audit-pue возвращает отчёт, не изменяя граф', async () => {
@@ -342,7 +352,7 @@ describe('Эндпоинты агентов', () => {
             { auditAsync: vi.fn(async () => report) } as unknown as PueAuditorAgent,
         );
 
-        const response = await controller.auditPueAsync(PROJECT_ID);
+        const response = await controller.auditPueAsync(PROJECT_ID, USER);
 
         expect(response.data).toEqual(report);
         expect(response.success).toBe(true);

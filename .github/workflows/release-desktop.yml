@@ -62,6 +62,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Verify vendored SheetJS tarball checksum
+        run: node scripts/verify-vendored-xlsx.mjs
+
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 

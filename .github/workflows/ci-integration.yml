@@ -1,0 +1,117 @@
+name: CI — Integration (PostgreSQL 17 + Redis)
+
+on:
+  # Прямой автоматический прогон integration-ветки.
+  push:
+    branches: [integration/v091-verification]
+  # Вызов из основного ci.yml без дублирования логики job.
+  workflow_call:
+
+# Digest проверен локально: PostgreSQL 17.12 + pgvector extension создаётся.
+# Читаемая версия: pgvector/pgvector:pg17 (floating tag НЕ используется).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: ci-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Integration (PostgreSQL 17 + Redis, no skips)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
+        env:
+          POSTGRES_USER: vwc
+          POSTGRES_PASSWORD: vwc
+          POSTGRES_DB: voltwirecraft
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vwc -d voltwirecraft"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://vwc:vwc@localhost:5432/voltwirecraft
+      VWC_PG17_URL: postgresql://vwc:vwc@localhost:5432/vwc_pg17_test
+      VWC_REDIS_URL: redis://localhost:6379/0
+      REDIS_URL: redis://localhost:6379/0
+      CALC_ENGINE_URL: http://localhost:8000
+      JWT_SECRET: ci-only-jwt-key-0123456789abcdefghijklmnopqr
+      JWT_REFRESH_HASH_PEPPER: ci-only-pepper-0123456789abcdefghijklmnop
+      HITL_SIGNING_KEY: ci-only-hitl-0123456789abcdefghijklmnop
+      INTERNAL_SERVICE_TOKEN: ci-only-service-0123456789abcdefghijklmnop
+      AUTH_ALLOWED_ORIGINS: http://localhost:5173
+      AUTH_RATE_LIMIT_ACCOUNT_KEY: ci-only-account-key-0123456789abcdefghijklmnop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify vendored SheetJS tarball checksum
+        run: node scripts/verify-vendored-xlsx.mjs
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared contracts
+        run: pnpm --filter @voltwirecraft/shared build
+
+      - name: Verify mandatory CI services and isolated database
+        working-directory: apps/api
+        run: |
+          test -n "${VWC_PG17_URL:?VWC_PG17_URL is mandatory in CI}"
+          test -n "${VWC_REDIS_URL:?VWC_REDIS_URL is mandatory in CI}"
+          PGPASSWORD=vwc psql -h localhost -U vwc -d voltwirecraft -Atc "select version()" | grep -q "PostgreSQL 17.12"
+          node --input-type=module -e 'import { Redis } from "ioredis"; const r = new Redis(process.env.VWC_REDIS_URL, { maxRetriesPerRequest: 1, connectTimeout: 3000 }); try { if (await r.ping() !== "PONG") throw new Error("bad pong"); } catch { console.error("Redis is not ready"); process.exitCode = 1; } finally { r.disconnect(); }'
+          PGPASSWORD=vwc psql -h localhost -U vwc -d voltwirecraft -Atc \
+            "SELECT 1 FROM pg_database WHERE datname = 'vwc_pg17_test'" | grep -q 1 || \
+            PGPASSWORD=vwc createdb -h localhost -U vwc vwc_pg17_test
+
+      - name: JUnit gate regression tests
+        run: pnpm exec vitest run scripts/assert-ci-junit.test.mjs
+
+      - name: Apply migrations on main test database
+        run: pnpm --filter api db:migrate
+
+      - name: Verify pgvector extension
+        run: |
+          PGPASSWORD=vwc psql -h localhost -U vwc -d voltwirecraft -Atc \
+            "SELECT extname FROM pg_extension WHERE extname = 'vector'" | grep -q vector
+
+      - name: Full API suite on real PostgreSQL 17 and Redis
+        working-directory: apps/api
+        run: pnpm exec vitest run --reporter=junit --outputFile=../../artifacts/junit-integration.xml
+
+      - name: Enforce mandatory integration tests (no skips)
+        run: node scripts/assert-ci-junit.mjs artifacts/junit-integration.xml
+
+      - name: Upload integration JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-reports
+          path: artifacts/junit-integration.xml

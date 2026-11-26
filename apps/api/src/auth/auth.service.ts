@@ -13,7 +13,7 @@ import {
 import { DRIZZLE_DB } from '../database/drizzle.provider.js';
 import type { Database } from '../database/drizzle.provider.js';
 import { users } from '../database/schema.js';
-import { JwtService } from './jwt.service.js';
+import { RefreshSessionService } from './refresh-session.service.js';
 
 /** Данные пользователя, необходимые остальным сервисам. */
 export interface AuthUser {
@@ -34,11 +34,11 @@ export interface AuthUser {
 export class AuthService {
   /**
    * @param db — типизированный Drizzle-клиент.
-   * @param jwt — сервис подписи JWT.
+   * @param sessions — сервис refresh-сессий (SEC-02 Stage 2).
    */
   public constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
-    @Inject(JwtService) private readonly jwt: JwtService,
+    @Inject(RefreshSessionService) private readonly sessions: RefreshSessionService,
   ) {}
 
   /**
@@ -55,22 +55,36 @@ export class AuthService {
       throw new ConflictException('Пользователь с таким email уже существует');
     }
 
-    const [row] = await this.db
-      .insert(users)
-      .values({
-        email,
-        passwordHash: this.hashPassword(dto.password),
-        fullName: dto.displayName,
-      })
-      .returning();
-    if (row === undefined) {
-      throw new Error('Не удалось создать пользователя');
-    }
-    return this.issueAsync({
-      id: row.id,
-      email: row.email,
-      displayName: row.fullName,
-      role: row.globalRole,
+    // S2-04: user + session + первая refresh-запись создаются в одной
+    // транзакции. Отказ на любом шаге оставляет БД без частичных записей.
+    const { row, tokens } = await this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(users)
+        .values({
+          email,
+          passwordHash: this.hashPassword(dto.password),
+          fullName: dto.displayName,
+        })
+        .returning();
+      if (created === undefined) {
+        throw new Error('Не удалось создать пользователя');
+      }
+      const issued = await this.sessions.issueAsync(
+        created.id,
+        tx as unknown as Pick<Database, 'insert'>,
+      );
+      return { row: created, tokens: issued };
+    });
+
+    return AuthResponseSchema.parse({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: row.id,
+        email: row.email,
+        displayName: row.fullName,
+        role: row.globalRole,
+      },
     });
   }
 
@@ -142,10 +156,15 @@ export class AuthService {
    * @returns провалидированный ответ.
    */
   private async issueAsync(user: AuthUser): Promise<AuthResponse> {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // SEC-02-A: разные типы и audience; email/role не попадают в JWT (D-05).
+    // F-02: при login сессия и первая refresh-запись создаются в одной
+    // транзакции — отказ второго INSERT не оставляет orphan-сессию.
+    const tokens = await this.db.transaction((tx) =>
+      this.sessions.issueAsync(user.id, tx as unknown as Pick<Database, 'insert'>),
+    );
     return AuthResponseSchema.parse({
-      accessToken: this.jwt.sign(payload),
-      refreshToken: this.jwt.sign(payload, '30d'),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         email: user.email,

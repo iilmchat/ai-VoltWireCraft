@@ -3,6 +3,7 @@
 
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
+import { UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -15,9 +16,18 @@ import { ErpMcpService } from '../src/integrations/erp-mcp.service.js';
 import { IntegrationService } from '../src/integrations/integration.service.js';
 import { IntegrationsController } from '../src/integrations/integrations.controller.js';
 import { ProjectsService } from '../src/projects/projects.service.js';
+import { ProjectPolicyService } from '../src/policy/project-policy.service.js';
+import { HitlService } from '../src/security/hitl.service.js';
+import type { AuthUser } from '../src/auth/auth.service.js';
 
 const PROJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const ROOM_ID = '11111111-1111-4111-8111-111111111111';
+const USER: AuthUser = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  email: 'owner@example.test',
+  displayName: 'Owner',
+  role: 'user',
+};
 
 /** Граф с комнатой для расчёта освещённости. */
 function makeGraph(): ProjectGraph {
@@ -84,7 +94,21 @@ describe('IntegrationService', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
         const module = await Test.createTestingModule({
-            providers: [IntegrationService, { provide: ErpMcpService, useValue: mcp }],
+            providers: [
+            IntegrationService,
+            { provide: ErpMcpService, useValue: mcp },
+            {
+              provide: ProjectPolicyService,
+              useValue: {
+                requireReadAsync: vi.fn(async () => 'owner'),
+                requireEditorAsync: vi.fn(async () => 'owner'),
+              },
+            },
+            {
+              provide: HitlService,
+              useValue: { verifyAsync: vi.fn(async () => { throw new UnauthorizedException('HITL'); }) },
+            },
+          ],
         }).compile();
         service = module.get(IntegrationService);
     });
@@ -96,13 +120,13 @@ describe('IntegrationService', () => {
         expect(statuses.some((item) => item.server === 'moysklad' && item.available)).toBe(true);
     });
 
-    it('проверяет остатки через MCP get_stock', async () => {
+    it('проверяет остатки через MCP moysklad_check_stock', async () => {
         const result = await service.checkStockAsync([{ sku: 'IEK-VA47-29-C16', quantity: 1 }]);
 
         expect(mcp.callToolAsync).toHaveBeenCalledWith(
             'moysklad',
-            'get_stock',
-            expect.objectContaining({ items: expect.any(Array) }),
+            'moysklad_check_stock',
+            expect.objectContaining({ skus: expect.any(Array) }),
             expect.anything(),
         );
         expect(result.allAvailable).toBe(true);
@@ -114,23 +138,17 @@ describe('IntegrationService', () => {
         expect(items.some((item) => item.sku === 'IEK-VA47-29-C16')).toBe(true);
     });
 
-    it('передаёт HITL-токен при создании заказа', async () => {
-        mcp.callToolAsync.mockResolvedValueOnce({ data: exportResponse, operationId: 'op-order-1' });
+    it('произвольный HITL-токен не достигает MCP при создании заказа', async () => {
+        mcp.callToolAsync.mockClear();
 
-        await service.createOrderAsync({
+        await expect(service.createOrderAsync({
             projectId: PROJECT_ID,
             target: 'moysklad',
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             confirmationToken: 'confirm-123',
-        });
+        }, USER.id)).rejects.toBeInstanceOf(UnauthorizedException);
 
-        expect(mcp.callToolAsync).toHaveBeenCalledWith(
-            'moysklad',
-            'create_order',
-            expect.anything(),
-            expect.anything(),
-            'confirm-123',
-        );
+        expect(mcp.callToolAsync).not.toHaveBeenCalled();
     });
 });
 
@@ -168,7 +186,7 @@ describe('IntegrationsController', () => {
             roomId: ROOM_ID,
             luminaireFluxLm: 1200,
             luminairePowerW: 14,
-        });
+        }, USER);
 
         expect(lighting.calculateLightingAsync).toHaveBeenCalledWith(
             expect.objectContaining({ zoneType: 'living', polygonM: expect.any(Array) }),
@@ -177,7 +195,7 @@ describe('IntegrationsController', () => {
     });
 
     it('проверяет остатки, собирая позиции из графа', async () => {
-        const response = await controller.checkStockAsync(PROJECT_ID, {});
+        const response = await controller.checkStockAsync(PROJECT_ID, {}, USER);
 
         expect(integrations.buildBomFromGraph).toHaveBeenCalled();
         expect(response.data.allAvailable).toBe(true);
@@ -187,7 +205,7 @@ describe('IntegrationsController', () => {
         const response = await controller.createOrderAsync(PROJECT_ID, {
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             confirmationToken: 'confirm-123',
-        });
+        }, USER);
 
         expect(integrations.createOrderAsync).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -195,6 +213,7 @@ describe('IntegrationsController', () => {
                 target: 'moysklad',
                 confirmationToken: 'confirm-123',
             }),
+            USER.id,
         );
         expect(response.data.externalId).toBe('order-42');
     });
@@ -204,10 +223,11 @@ describe('IntegrationsController', () => {
             items: [{ sku: 'IEK-VA47-29-C16', quantity: 1 }],
             dealId: 'deal-7',
             confirmationToken: 'confirm-456',
-        });
+        }, USER);
 
         expect(integrations.sendEstimateAsync).toHaveBeenCalledWith(
             expect.objectContaining({ target: 'bitrix24', dealId: 'deal-7', confirmationToken: 'confirm-456' }),
+            USER.id,
         );
         expect(response.data.externalId).toBe('deal-7');
     });

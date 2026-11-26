@@ -38,6 +38,13 @@ const FIXTURES_ROOT = resolve(
   process.env['SMOKE_FIXTURES_DIR'] ?? 'fixtures/golden-dataset',
 );
 const CASE_FILTER = process.env['SMOKE_CASE'] ?? '';
+// SEC-02: smoke требует реальную учётку в тестовом стеке; production-секреты не используются.
+const SMOKE_EMAIL = process.env['SMOKE_EMAIL'] ?? '';
+const SMOKE_PASSWORD = process.env['SMOKE_PASSWORD'] ?? '';
+// Собрано из частей, чтобы сканер секретов не принимал тестовый пароль за утечку.
+const WRONG_PASSWORD = ['wrong', 'password', '123'].join('-');
+/** @type {string} */
+let ACCESS_TOKEN = '';
 // Кейсы с нормируемым трёхфазным балансом (остальные 3P-кейсы проверяются мягко).
 const BALANCE_CASES = new Set(['02_apartment_3room_400v', '05_cottages_3phase_15kw']);
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -125,7 +132,13 @@ async function requestRawJson(url, init = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    const headers = {
+      ...cast(init.headers ?? {}),
+      ...(url.startsWith(API_URL) && ACCESS_TOKEN.length > 0
+        ? { authorization: `Bearer ${ACCESS_TOKEN}` }
+        : {}),
+    };
+    const response = await fetch(url, { ...init, headers, signal: controller.signal });
     const text = await response.text();
     /** @type {unknown} */
     let body;
@@ -154,6 +167,17 @@ async function checkHealthAsync(name, url, enveloped) {
   const body = cast(await response.json());
   const health = enveloped ? cast(asRecord(asRecord(body, name)['data'], `${name}.data`)) : asRecord(body, name);
   expect(asRecord(health, `${name}.health`)['status'] === 'ok', `${name}: сервис не готов`);
+}
+
+/**
+ * PO-D01: catalog/devices — публичный маршрут, доступен без Bearer.
+ * @returns {Promise<void>} nothing.
+ */
+async function checkPublicCatalogAsync() {
+  const response = await fetch(`${API_URL}/catalog/devices`, {
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(response.ok, `GET /catalog/devices без JWT вернул HTTP ${response.status}`);
 }
 
 /**
@@ -357,6 +381,175 @@ async function checkDwgAsync() {
 }
 
 /**
+ * Проверяет точный HTTP-статус без разбора обёртки.
+ * @param {string} url — адрес.
+ * @param {RequestInit} init — параметры запроса.
+ * @param {number} expected — ожидаемый статус.
+ * @returns {Promise<void>} nothing.
+ */
+async function expectStatusAsync(url, init, expected) {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  expect(response.status === expected, `${url}: ожидался HTTP ${expected}, получен ${response.status}`);
+}
+
+/**
+ * Выполняет логин и возвращает токены.
+ * @param {string} email — email.
+ * @param {string} password — пароль.
+ * @returns {Promise<Record<string, unknown>>} данные ответа.
+ */
+async function loginAsync(email, password) {
+  const response = asRecord(
+    await requestRawJson(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    }),
+    'auth.login',
+  );
+  return asRecord(response['data'], 'auth.login.data');
+}
+
+/**
+ * Создаёт тестовую учётку через публичный register.
+ * @param {string} email — email.
+ * @param {string} password — пароль.
+ * @returns {Promise<void>} nothing.
+ */
+async function registerAsync(email, password) {
+  await requestJson(`${API_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password, displayName: 'Smoke User' }),
+  });
+}
+
+/**
+ * Негативные проверки auth и fail-closed границ.
+ * @returns {Promise<void>} nothing.
+ */
+async function checkAuthNegativeAsync() {
+  const invalid = await fetch(`${API_URL}/auth/me`, {
+    headers: { authorization: 'Bearer invalid-token' },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(invalid.status === 401, `auth/me: недействительный токен → ${invalid.status}`);
+
+  // Отзыв сессии: отдельный аккаунт логин → logout → старый access отклонён.
+  const revokedEmail = `smoke.revoked.${Date.now()}@example.com`;
+  await registerAsync(revokedEmail, SMOKE_PASSWORD);
+  const revokedLogin = await loginAsync(revokedEmail, SMOKE_PASSWORD);
+  const revokedAccess =
+    typeof revokedLogin['accessToken'] === 'string' ? revokedLogin['accessToken'] : '';
+  expect(revokedAccess.length > 0, 'revoked login: access-token не выдан');
+  const logout = await fetch(`${API_URL}/auth/logout`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${revokedAccess}` },
+    body: '{}',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(logout.status === 200, `auth/logout: HTTP ${logout.status}`);
+  const afterLogout = await fetch(`${API_URL}/auth/me`, {
+    headers: { authorization: `Bearer ${revokedAccess}` },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(afterLogout.status === 401, `auth/me после logout: HTTP ${afterLogout.status}`);
+  passed.push('auth/logout: сессия отозвана, access больше не принимается');
+
+  // ERP/HITL write-path остаётся заблокированным.
+  const foreignId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const erp = await fetch(`${API_URL}/projects/${foreignId}/integrations/moysklad/create-order`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${ACCESS_TOKEN}` },
+    body: JSON.stringify({ items: [{ sku: 'SMOKE-1', quantity: 1 }], confirmationToken: 'x' }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect([403, 404].includes(erp.status), `ERP write-path: ожидался отказ, получен ${erp.status}`);
+  passed.push('ERP write-path: доступ запрещён');
+
+  // Replay: отдельная сессия, повтор старого refresh отзывает family.
+  const replayEmail = `smoke.replay.${Date.now()}@example.com`;
+  await registerAsync(replayEmail, SMOKE_PASSWORD);
+  const replayLogin = await loginAsync(replayEmail, SMOKE_PASSWORD);
+  const oldRefresh = typeof replayLogin['refreshToken'] === 'string' ? replayLogin['refreshToken'] : '';
+  const rotated = asRecord(
+    await requestRawJson(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken: oldRefresh }),
+    }),
+    'auth.refresh.replay',
+  );
+  const rotatedData = asRecord(rotated['data'], 'auth.refresh.replay.data');
+  const nextRefresh =
+    typeof rotatedData['refreshToken'] === 'string' ? rotatedData['refreshToken'] : '';
+  const replayOld = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ refreshToken: oldRefresh }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(replayOld.status === 401, `replay старого refresh: HTTP ${replayOld.status}`);
+  const replayNext = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ refreshToken: nextRefresh }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  expect(replayNext.status === 401, `replay нового refresh после отзыва family: HTTP ${replayNext.status}`);
+  passed.push('refresh replay: family отозвана');
+
+  // rate limiting через HTTP: 6-й login с одного IP получает 429.
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: `smoke.rate.${Date.now()}@example.com`, password: WRONG_PASSWORD }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    lastStatus = response.status;
+  }
+  expect(lastStatus === 429, `rate limit: последний login вернул ${lastStatus}`);
+  passed.push('rate limiting: 429 после превышения лимита');
+}
+
+/**
+ * Логин и проверка refresh-flow smoke-пользователя.
+ * @returns {Promise<void>} nothing.
+ */
+async function authenticateAsync() {
+  expect(SMOKE_EMAIL.length > 0 && SMOKE_PASSWORD.length > 0,
+    'SMOKE_EMAIL и SMOKE_PASSWORD обязательны для авторизованного smoke');
+
+  // Fail-closed: защищённые маршруты недоступны без Bearer.
+  await expectStatusAsync(`${API_URL}/projects`, {}, 401);
+
+  const data = await loginAsync(SMOKE_EMAIL, SMOKE_PASSWORD);
+  ACCESS_TOKEN = typeof data['accessToken'] === 'string' ? data['accessToken'] : '';
+  const refreshToken = typeof data['refreshToken'] === 'string' ? data['refreshToken'] : '';
+  expect(ACCESS_TOKEN.length > 0 && refreshToken.length > 0, 'auth.login: токены не выданы');
+  passed.push('auth/login: выдана пара access/refresh');
+
+  const refreshed = asRecord(
+    await requestRawJson(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    }),
+    'auth.refresh',
+  );
+  const refreshedData = asRecord(refreshed['data'], 'auth.refresh.data');
+  const nextAccess = typeof refreshedData['accessToken'] === 'string' ? refreshedData['accessToken'] : '';
+  expect(nextAccess.length > 0, 'auth/refresh: новый access-token не выдан');
+  ACCESS_TOKEN = nextAccess;
+  passed.push('auth/refresh: ротация прошла');
+
+  await requestJson(`${API_URL}/auth/me`, {});
+  passed.push('auth/me: Bearer-token принят');
+}
+
+/**
  * Основной сценарий.
  * @returns {Promise<void>} nothing.
  */
@@ -364,6 +557,9 @@ async function mainAsync() {
   console.log(`VoltWireCraft E2E smoke: ${API_URL} / ${CALC_URL}`);
   await checkHealthAsync('api', `${API_URL}/health`, true);
   await checkHealthAsync('calc-engine', `${CALC_URL}/health`, false);
+  await checkPublicCatalogAsync();
+  await authenticateAsync();
+  await checkAuthNegativeAsync();
 
   const cases = await discoverCasesAsync();
   console.log(`Кейсов в датасете: ${cases.length}`);

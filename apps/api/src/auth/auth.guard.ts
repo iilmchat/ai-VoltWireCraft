@@ -1,47 +1,74 @@
-// © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.0
-/** JWT-guard и декоратор текущего пользователя. */
+// © 2026 RuChating (iilmchat) · VoltWireCraft v0.9.1
+/** Глобальный JWT-guard и декоратор текущего пользователя. */
 
-import { createParamDecorator, type CanActivate, type ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  createParamDecorator,
+  type CanActivate,
+  type ExecutionContext,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+// Импорт нужен как значение: emitDecoratorMetadata использует его для DI.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { Reflector } from '@nestjs/core';
+import { IS_PUBLIC_KEY } from './public.decorator.js';
 import type { AuthUser } from './auth.service.js';
+import { AuthService } from './auth.service.js';
 import { JwtService } from './jwt.service.js';
+import { RefreshSessionService } from './refresh-session.service.js';
 
-/** HTTP-запрос с авторизованным пользователем. */
+/** Данные авторизованного запроса. */
 export interface AuthenticatedRequest {
-  /** Заголовки запроса. */
   readonly headers: Record<string, string | string[] | undefined>;
-  /** Авторизованный пользователь. */
   user?: AuthUser;
+  auth?: { readonly sub: string; readonly jti: string; readonly sid: string };
 }
 
-/** Guard проверки Bearer-токена. */
+/**
+ * Аутентификация по access-токену.
+ *
+ * Вызывается первым внутри единого `SecurityGuard` (APP_GUARD в AuthModule).
+ * Поддерживает `@Public()` через `Reflector`; на уровне приложения fail-closed:
+ * при отсутствии метаданных токен.required.
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  /**
-   * @param jwt — сервис проверки JWT.
-   */
-  public constructor(@Inject(JwtService) private readonly jwt: JwtService) {}
+  public constructor(
+    @Inject(JwtService) private readonly jwt: JwtService,
+    @Inject(AuthService) private readonly auth: AuthService,
+    private readonly reflector: Reflector,
+    @Inject(RefreshSessionService) private readonly sessions: RefreshSessionService,
+  ) {}
 
-  /**
-   * Проверяет токен и добавляет пользователя в запрос.
-   *
-   * @param context — контекст выполнения.
-   * @returns true при успешной проверке.
-   * @throws {UnauthorizedException} если токен отсутствует или недействителен.
-   */
-  public canActivate(context: ExecutionContext): boolean {
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic === true) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const header = request.headers['authorization'];
-    const token = Array.isArray(header) ? header[0] : header;
-    if (token === undefined || !token.startsWith('Bearer ')) {
+    const raw = Array.isArray(header) ? header[0] : header;
+    if (raw === undefined || !raw.startsWith('Bearer ')) {
       throw new UnauthorizedException('Требуется Bearer-токен');
     }
-    const payload = this.jwt.verify(token.slice('Bearer '.length));
-    request.user = {
-      id: payload.sub,
-      email: payload.email,
-      displayName: payload.email,
-      role: payload.role,
-    };
+
+    const payload = this.jwt.verify(raw.slice('Bearer '.length), 'access');
+    // SEC-02 Stage 2: access-токен обязан ссылаться на активную сессию.
+    // Ошибка БД не должна разрешать доступ — guard fail-closed.
+    try {
+      await this.sessions.assertSessionActiveAsync(payload.sid);
+    } catch {
+      throw new UnauthorizedException('Сессия неактивна или недоступна');
+    }
+    // SEC-02: роль и отображаемое имя берутся из БД, а не из payload.
+    const user = await this.auth.meAsync(payload.sub);
+    request.user = user;
+    request.auth = { sub: payload.sub, jti: payload.jti, sid: payload.sid };
     return true;
   }
 }
