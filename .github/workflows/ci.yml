@@ -3,7 +3,7 @@ name: CI
 on:
   # E-1: ci.yml можно запустить вручную на ЛЮБОМ ref, включая feature branch.
   # Пример: POST /repos/iilmchat/ai-VoltWireCraft/actions/workflows/ci.yml/dispatches
-  #         с телом {"ref":"wave1-d1-d4-g11ci"} (после отдельного разрешения PO на push).
+  #         с телом {"ref":"wave1-g11-ci-e1-e4"} (после отдельного разрешения PO на push).
   workflow_dispatch:
     inputs:
       run_reason:
@@ -317,6 +317,15 @@ jobs:
                 echo "ldd failed: $bin" >&2
                 exit 1
               }
+              # F-1: пустой или непохожий на вывод ldd результат не доказательство.
+              if [ -z "$out" ]; then
+                echo "empty ldd output for $bin" >&2
+                exit 1
+              fi
+              if ! printf "%s\n" "$out" | grep -q "=>"; then
+                echo "invalid ldd output for $bin" >&2
+                exit 1
+              fi
               if printf "%s\n" "$out" | grep -qi "not found"; then
                 echo "unresolved dependency in $bin" >&2
                 exit 1

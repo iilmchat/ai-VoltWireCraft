@@ -56,6 +56,8 @@ function bash(script, env = {}) {
 const LDD_STUB = `ldd() {
   case "$FAKE_LDD_MODE" in
     fail) return 1 ;;
+    empty) return 0 ;;
+    invalid) printf '%s\\n' 'unexpected-output-without-mapping'; return 0 ;;
     libplot) printf '%s\\n' 'libplot.so.2 => /usr/lib/libplot.so.2'; return 0 ;;
     unresolved) printf '%s\\n' 'libredwg.so.0 => not found'; return 0 ;;
     *) printf '%s\\n' 'libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6'; return 0 ;;
@@ -94,6 +96,8 @@ describe('prod-calc-build CI logic (E-1…E-4)', () => {
     expect(workflow).toMatch(/branches: \[main\]/);
     expect(workflow).not.toMatch(/branches: \[wave1-/);
     expect(workflow).toContain('prod-calc-build:');
+    expect(workflow).toContain('{"ref":"wave1-g11-ci-e1-e4"}');
+    expect(workflow).not.toContain('{"ref":"wave1-d1-d4-g11ci"}');
   });
 
   it('E2-01 build step fails on non-zero build command', () => {
@@ -145,6 +149,18 @@ describe('prod-calc-build CI logic (E-1…E-4)', () => {
     const result = bash(runtimeScript(filledPrefix()), { FAKE_LDD_MODE: 'clean' });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('runtime dependency checks passed');
+  });
+
+  it('F1-01 ldd exit 0 with empty stdout fails', () => {
+    const result = bash(runtimeScript(filledPrefix()), { FAKE_LDD_MODE: 'empty' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('empty ldd output');
+  });
+
+  it('F1-02 ldd exit 0 with invalid output fails', () => {
+    const result = bash(runtimeScript(filledPrefix()), { FAKE_LDD_MODE: 'invalid' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('invalid ldd output');
   });
 
   it('E4-01 health smoke uses production Compose and has always() cleanup', () => {
